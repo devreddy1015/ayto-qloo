@@ -1,7 +1,8 @@
 // Stages that talk to Qloo: Think, Architect, Design, Entrepreneur.
-import { brandLift, cultureFashionGap, heatPoints, liftPoints, momentum, styleTags } from "../analysis.js";
+import { brandLift, cultureFashionGap, heatPoints, liftPoints, momentum, snapCellsToPlaces, styleTags, tagPoints } from "../analysis.js";
+import { CANDIDATE_CITIES, pickLocality, subLocalities, toPlace } from "../cities.js";
 import { chatJson, llmAvailable } from "../llm.js";
-import { memo } from "../qloo.js";
+import { memo, qlooSearch } from "../qloo.js";
 import { evidenceFor, registerEntity, registerName } from "./evidence.js";
 import { ARCHITECT, DESIGN, ENTREPRENEUR } from "./prompts.js";
 import { emitEvent } from "./store.js";
@@ -62,8 +63,10 @@ export async function think(run) {
   if (!waves.length) throw new Error("Qloo couldn't find any of those. Try the exact title or artist name.");
   const ids = waves.map((w) => w.id);
 
+  // Tags of the waves' own kind only: without the parent filter Qloo leads with place tags (hotel stars, card types).
+  const parentTypes = [...new Set(waves.map((w) => `urn:entity:${w.type}`))];
   const [tagEnv, demoEnv, ...trendEnvs] = await Promise.all([
-    q.tryTool("Decode the aesthetic: tags these fans share", "qloo_entity_tags", { entities: ids, limit: 20 }),
+    q.tryInsights("Decode the aesthetic: tags these fans share", { "filter.type": "urn:tag", "signal.interests.entities": ids, "filter.parents.types": parentTypes, take: 20 }),
     q.tryTool("Who the audience is (aggregate skew only)", "qloo_audience_demographics", { entity: ids[0], limit: 10 }),
     ...[...new Set(waves.map((w) => w.type).filter((t) => INSIGHTS_TYPES.has(t)))].map((type) =>
       q.tryTool("Momentum snapshot (hackathon trend data may be frozen)", "qloo_trends", {
@@ -76,7 +79,7 @@ export async function think(run) {
     ),
   ]);
 
-  const tags = styleTags(tagEnv?.results ?? []);
+  const tags = styleTags(tagPoints(tagEnv));
   for (const t of tags) registerName(run, t.name, "tag", { id: t.id });
   const momentumById = {};
   for (const env of trendEnvs.filter(Boolean)) for (const s of env.series ?? []) momentumById[s.entity?.entityId] = momentum(s.points);
@@ -111,15 +114,50 @@ function fashionTags(q) {
   return fashionTagsPromise;
 }
 
-async function heat(q, title, ids, market) {
+/**
+ * The market's cities as Qloo knows them. Each candidate name is looked up with
+ * a locality search; only the ones Qloo returns, with Qloo's id, spelling and
+ * coordinates, go on. Recorded as one receipt listing every search.
+ */
+async function marketPlaces(q, run, market) {
+  const home = run.input.city && market === run.input.homeMarket ? [run.input.city.split(",")[0].trim()] : [];
+  const names = [...new Set([...home, ...(CANDIDATE_CITIES[market] ?? [])])];
+  if (!names.length) return [];
+  const env = await q.tryStep(`Find ${market}'s cities in Qloo (${names.length} locality searches)`, "qloo api search", { type: "locality", take: 6, queries: names.length }, async () => {
+    const hits = await Promise.all(
+      names.map((name) =>
+        qlooSearch({ query: name, type: "locality", take: 6 })
+          .then((r) => pickLocality(r?.results, { query: name, market }))
+          .catch(() => undefined),
+      ),
+    );
+    const seen = new Set();
+    const results = hits.filter((h) => h && !seen.has(h.entity_id) && seen.add(h.entity_id)).map((h) => toPlace(h, market));
+    return {
+      results,
+      provenance: { source: "Qloo API", endpoint: "/search", requests: names.map((name) => ({ method: "GET", path: "/search", query: { query: name, types: "urn:entity:locality", take: 6 } })) },
+    };
+  });
+  const places = env?.results ?? [];
+  for (const p of places) registerName(run, p.name, "city", { id: p.id, market });
+  return places;
+}
+
+/**
+ * A heatmap as named points. Qloo returns geohash cells (its locality form
+ * returns every polygon in the country, over 100 MB), so the cells are snapped
+ * to the market's Qloo localities. Sample mode already names its cells.
+ */
+async function heat(q, title, ids, market, places, { radiusKm = 30 } = {}) {
   const raw = await q.tryInsights(title, {
     "filter.type": "urn:heatmap",
     "signal.interests.entities": ids,
     "filter.location.query": market,
-    "output.heatmap.boundary": "urn:entity:locality",
-    take: 50,
+    "output.heatmap.boundary": "urn:geohash",
   });
-  return heatPoints(raw ?? {});
+  const cells = heatPoints(raw ?? {});
+  const points = cells.some((c) => c.name) ? cells : snapCellsToPlaces(cells, places, { radiusKm });
+  return { cells: cells.length, points };
 }
 
 async function marketBrands(q, run, market, waveIds, tagIds) {
@@ -148,17 +186,17 @@ export async function architect(run) {
 
   const markets = await Promise.all(
     run.input.markets.map(async (market) => {
-      const { lift, localised } = await marketBrands(q, run, market, waveIds, tagIds);
+      const [{ lift, localised }, places] = await Promise.all([marketBrands(q, run, market, waveIds, tagIds), marketPlaces(q, run, market)]);
       const riding = lift.filter((b) => b.waveSpecific).slice(0, 5);
       const fashionIds = (riding.length ? riding : lift.slice(0, 5)).map((b) => b.id).filter(Boolean);
       const [culture, fashionHeat] = await Promise.all([
-        heat(q, `Where the wave is hot in ${market} (city level)`, waveIds, market),
-        fashionIds.length ? heat(q, `Where its fashion has landed in ${market}`, fashionIds, market) : Promise.resolve([]),
+        heat(q, `Where the wave is hot in ${market} (city level)`, waveIds, market, places),
+        fashionIds.length ? heat(q, `Where its fashion has landed in ${market}`, fashionIds, market, places) : Promise.resolve({ cells: 0, points: [] }),
       ]);
-      const gap = cultureFashionGap(culture, fashionHeat).slice(0, 30);
+      const gap = cultureFashionGap(culture.points, fashionHeat.points).slice(0, 30);
       const named = gap.filter((g) => g.name);
       for (const g of named) registerName(run, g.name, "city", { market });
-      const cultureLift = liftPoints(culture);
+      const cultureLift = liftPoints(culture.points);
       const home = run.input.city && market === run.input.homeMarket ? findPlace(cultureLift, run.input.city) : undefined;
       return {
         market,
@@ -167,8 +205,9 @@ export async function architect(run) {
         gap,
         opportunityCities: named.filter((g) => g.signal === "opportunity").slice(0, 6).map((g) => g.name),
         inStepCities: named.filter((g) => g.signal === "in-step").slice(0, 4).map((g) => g.name),
-        cells: culture.length,
-        coverage: culture.length === 0 ? "none" : culture.length < 8 ? "thin" : "ok",
+        cells: culture.cells,
+        places: places.length,
+        coverage: culture.points.length === 0 ? "none" : culture.points.length < 8 ? "thin" : "ok",
         home,
       };
     }),
@@ -222,9 +261,9 @@ export async function design(run) {
   const a = run.stages.architect.output;
   const topBrands = [...new Map(a.markets.flatMap((m) => m.brands.filter((b) => b.waveSpecific)).map((b) => [b.id, b])).values()].slice(0, 5);
   const brandTagEnv = topBrands.length
-    ? await q.tryTool("Style tags of the brands these fans favour", "qloo_entity_tags", { entities: topBrands.map((b) => b.id), limit: 20 })
+    ? await q.tryInsights("Style tags of the brands these fans favour", { "filter.type": "urn:tag", "signal.interests.entities": topBrands.map((b) => b.id), "filter.parents.types": ["urn:entity:brand"], take: 20 })
     : undefined;
-  const brandTags = styleTags(brandTagEnv?.results ?? []);
+  const brandTags = styleTags(tagPoints(brandTagEnv));
   for (const x of brandTags) registerName(run, x.name, "tag", { id: x.id });
 
   const evidence = {
@@ -338,23 +377,24 @@ export async function entrepreneur(run) {
 /** City Passport: the neighbourhoods and venues inside one city where the wave's fans are. */
 async function cityPassport(q, run, waveIds, { city, market }) {
   const where = `${city}, ${market}`;
-  const [venueEnv, heatRaw] = await Promise.all([
+  const [venueEnv, heatRaw, subEnv] = await Promise.all([
     q.tryTool(`Venues the fans visit in ${city}`, "qloo_recommend", { target_type: "place", signals: waveIds, filter_location: where, limit: 8 }),
-    q.tryInsights(`Neighbourhoods inside ${city} where the wave is hottest`, {
+    q.tryInsights(`Where inside ${city} the wave is hottest`, {
       "filter.type": "urn:heatmap",
       "signal.interests.entities": waveIds,
       "filter.location.query": where,
-      "output.heatmap.boundary": "urn:entity:locality",
-      take: 50,
+      "output.heatmap.boundary": "urn:geohash",
     }),
+    q.trySearch(`Neighbourhoods of ${city} that Qloo knows`, { query: city, type: "locality", take: 20 }),
   ]);
   const venues = (venueEnv?.results ?? [])
     .filter((r) => r.name)
     .slice(0, 6)
     .map((r) => ({ id: r.entity_id, name: r.name, address: r.properties?.address, type: r.subtype ?? r.type }));
   for (const v of venues) registerName(run, v.name, "place", { city });
-  const cells = liftPoints(heatPoints(heatRaw ?? {}));
-  const ranked = cells.filter((p) => p.name && p.name.toLowerCase() !== city.toLowerCase()).sort((x, y) => y.lift - x.lift);
+  const cells = heatPoints(heatRaw ?? {});
+  const named = cells.some((c) => c.name) ? cells : snapCellsToPlaces(cells, subLocalities(subEnv?.results, { city, market }), { radiusKm: 4 });
+  const ranked = liftPoints(named).filter((p) => p.name && p.name.toLowerCase() !== city.toLowerCase()).sort((x, y) => y.lift - x.lift);
   const positive = ranked.filter((p) => p.lift > 0);
   const neighbourhoods = (positive.length ? positive : ranked).slice(0, 4).map((p) => ({ name: p.name, lift: p.lift, lat: p.lat, lon: p.lon }));
   for (const n of neighbourhoods) registerName(run, n.name, "neighbourhood", { city });

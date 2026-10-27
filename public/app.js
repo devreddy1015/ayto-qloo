@@ -517,7 +517,8 @@ function drawMap(key, box, gap) {
   if (!window.L || !box.isConnected) return;
   const dark = matchMedia("(prefers-color-scheme: dark)").matches;
   const map = L.map(box, { scrollWheelZoom: false });
-  L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`, { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>', maxZoom: 10 }).addTo(map);
+  // OpenStreetMap's own tiles (CARTO's free basemap now wants an API key); the dark theme inverts them in CSS.
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 10, className: dark ? "tiles-dark" : "" }).addTo(map);
   const pts = gap.filter((g) => g.lat !== undefined);
   const color = (g) => (g.signal === "opportunity" ? "#e4505e" : g.signal === "fashion-ahead" ? "#3b4a8c" : "#8a93b5");
   for (const g of pts) {

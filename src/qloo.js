@@ -3,8 +3,10 @@
 // Every live call goes through Qloo's official harness (@qloo/qloo-harness):
 //   - workflow tools (qloo_recommend, qloo_trends, ...) through `qloo mcp`,
 //     one long-lived stdio MCP server per backend process;
-//   - the few raw Insights requests the workflows don't cover (city-level
-//     heatmaps) through `qloo api insights`.
+//   - locality search through `qloo api search`;
+//   - the two raw Insights requests the workflows don't cover, straight to
+//     the API with the same key: heatmaps (the CLI prints an empty list for
+//     them) and tag reads filtered by parent type (the tools take no filter).
 // The API key stays in this process's environment and is never logged.
 //
 // Responses are cached privately on the server (allowed by the hackathon
@@ -136,7 +138,7 @@ function safeParse(text) {
   }
 }
 
-// ---------- raw `qloo api insights` ----------
+// ---------- raw requests ----------
 
 function runQlooApi(args) {
   return new Promise((resolve, reject) => {
@@ -157,13 +159,35 @@ function runQlooApi(args) {
   });
 }
 
-async function rawInsights(params) {
-  const { ["filter.type"]: type, ...rest } = params;
-  const stringified = Object.fromEntries(
-    Object.entries(rest).map(([k, v]) => [k, Array.isArray(v) ? v.join(",") : String(v)]),
-  );
-  return runQlooApi(["insights", "-t", type, "--params", JSON.stringify(stringified)]);
+const redact = (text) => String(text).replace(/[A-Za-z0-9_-]{32,}/g, "[redacted]");
+
+/** One authenticated GET against the Qloo API. Lists become comma-separated values. */
+async function rawGet(path, params) {
+  const url = new URL(path, process.env.QLOO_BASE_URL);
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null) continue;
+    url.searchParams.set(k, Array.isArray(v) ? v.join(",") : String(v));
+  }
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: { "X-Api-Key": process.env.QLOO_API_KEY ?? "", accept: "application/json" },
+      signal: AbortSignal.timeout(config.qloo.timeoutMs),
+    });
+  } catch (error) {
+    const why = error?.name === "TimeoutError" ? `timed out after ${config.qloo.timeoutMs} ms` : redact(error?.message ?? error);
+    throw new QlooError(`Qloo request failed: ${why}`, { code: "QLOO_NETWORK", retryable: true });
+  }
+  if (res.status === 401 || res.status === 403) throw new QlooError("Qloo rejected the API key.", { code: "QLOO_AUTH" });
+  if (res.status === 429 || res.status >= 500) throw new QlooError(`Qloo returned ${res.status}.`, { code: "QLOO_HTTP", retryable: true });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new QlooError(`Qloo returned ${res.status}: ${redact(body).slice(0, 200)}`, { code: "QLOO_HTTP" });
+  }
+  return res.json();
 }
+
+const rawInsights = (params) => rawGet("/v2/insights", params);
 
 // ---------- public, cached entry points ----------
 
@@ -222,7 +246,16 @@ export async function qlooTool(name, args) {
   return cached("mcp", name, args, () => callMcpTool(name, args));
 }
 
-/** Raw Insights request through `qloo api insights`. Returns the raw API response. */
+/** Entity search through `qloo api search`. Returns { results: [...] } of raw Qloo entities. */
+export async function qlooSearch(args) {
+  if (config.mode === "fake") return (await import("./fake-qloo.js")).fakeSearch(args);
+  return cached("api", "search", args, async () => {
+    const out = await runQlooApi(["search", "-q", args.query, ...(args.type ? ["-t", args.type] : []), "-n", String(args.take ?? 10)]);
+    return { results: Array.isArray(out) ? out : (out?.results ?? []) };
+  });
+}
+
+/** Raw Insights request (heatmaps, typed tag reads). Returns the raw API response. */
 export async function qlooInsights(params) {
   if (config.mode === "fake") return (await import("./fake-qloo.js")).fakeInsights(params);
   return cached("api", "insights", params, () => rawInsights(params));

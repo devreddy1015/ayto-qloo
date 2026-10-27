@@ -1,6 +1,6 @@
 // Evidence layer: every Qloo request a stage makes goes through here, so it is
 // recorded in the run's ledger (the "receipts") and streamed to the browser.
-import { qlooInsights, qlooTool } from "../qloo.js";
+import { qlooInsights, qlooSearch, qlooTool } from "../qloo.js";
 import { emitEvent } from "./store.js";
 
 export function evidenceFor(run, stageId) {
@@ -16,7 +16,7 @@ export function evidenceFor(run, stageId) {
       Object.assign(entry, {
         status: "done",
         ms: Date.now() - started,
-        count: value?.result_count ?? value?.results?.length ?? value?.results?.heatmap?.length ?? value?.results?.entities?.length,
+        count: value?.result_count ?? value?.results?.length ?? value?.results?.heatmap?.length ?? value?.results?.tags?.length ?? value?.results?.entities?.length,
         provenance: value?.provenance ?? { source: "Qloo API", endpoint: "/v2/insights", requests: [{ method: "GET", path: "/v2/insights", query: args }] },
         envelopeStatus: value?.status,
       });
@@ -34,6 +34,9 @@ export function evidenceFor(run, stageId) {
     /** Run and swallow: returns undefined on failure, after recording it. */
     tryTool: (title, name, args) => record(title, name, args, () => qlooTool(name, args)).catch(() => undefined),
     tryInsights: (title, params) => record(title, "qloo api insights", params, () => qlooInsights(params)).catch(() => undefined),
+    trySearch: (title, args) => record(title, "qloo api search", args, () => qlooSearch(args)).catch(() => undefined),
+    /** A step made of several Qloo requests, recorded as one receipt; fn returns { results, provenance }. */
+    tryStep: (title, tool, args, fn) => record(title, tool, args, fn).catch(() => undefined),
   };
 }
 

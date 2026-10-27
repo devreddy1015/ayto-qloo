@@ -1559,3 +1559,6 @@ textarea#text-input:focus {
 .passport ul {
   font-size: var(--step--1);
 }
+
+/* Dark basemap from OpenStreetMap's light tiles. */
+.tiles-dark{filter:invert(1) hue-rotate(180deg) brightness(.75) contrast(.9) saturate(.6)}

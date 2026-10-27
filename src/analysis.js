@@ -85,6 +85,47 @@ export function heatPoints(raw) {
   return list.map(heatPoint).filter((p) => p.key !== undefined && p.affinity !== undefined);
 }
 
+/**
+ * Give geohash cells names by snapping them to Qloo localities.
+ *
+ * Qloo's heatmap is a grid of unnamed cells. For each named place (a locality
+ * Qloo returned, with its own coordinates) take the cells within radiusKm and
+ * read the place as the strongest of them, affinity and popularity alike, so a
+ * city is read from the cells around it rather than one lucky grid square.
+ * Places with no cell nearby are dropped: no data, no claim. The result has the
+ * heatPoint shape, keyed by the locality id, so both heatmaps of a market match
+ * by key in cultureFashionGap.
+ */
+export function snapCellsToPlaces(cells = [], places = [], { radiusKm = 30 } = {}) {
+  const grid = cells.filter((c) => c.lat !== undefined && c.lon !== undefined);
+  return places
+    .map((place) => {
+      if (place?.lat === undefined || place?.lon === undefined) return undefined;
+      const near = grid.filter((c) => haversineKm(c, place) <= radiusKm);
+      if (!near.length) return undefined;
+      const max = (field) => near.reduce((m, c) => (c[field] !== undefined && (m === undefined || c[field] > m) ? c[field] : m), undefined);
+      return {
+        key: place.id ?? place.name,
+        name: place.name,
+        lat: place.lat,
+        lon: place.lon,
+        affinity: max("affinity"),
+        affinityRank: max("affinityRank"),
+        popularity: max("popularity"),
+        cells: near.length,
+      };
+    })
+    .filter((p) => p && p.affinity !== undefined);
+}
+
+/** Normalise a raw tag Insights response into { id, name, type, affinity, popularity }. */
+export function tagPoints(raw) {
+  const list = raw?.results?.tags ?? (Array.isArray(raw?.results) ? raw.results : []);
+  return list
+    .filter((t) => t?.name)
+    .map((t) => ({ id: t.tag_id ?? t.id, name: t.name, type: t.subtype ?? t.type, affinity: num(t.query?.affinity) ?? num(t.affinity), popularity: num(t.popularity) }));
+}
+
 const haversineKm = (a, b) => {
   const R = 6371;
   const rad = (d) => (d * Math.PI) / 180;
@@ -212,7 +253,9 @@ export function brandLift(waveBrands = [], baselineBrands = []) {
 /** Pick the tags most worth turning into design cues: drop pure media-format tags. */
 export function styleTags(tags = []) {
   const skip = /^(tv|television|movie|film|series|show|streaming|drama series)$/i;
+  const seen = new Set();
   return tags
     .filter((t) => t?.name && !skip.test(t.name))
+    .filter((t) => !seen.has(t.name.toLowerCase()) && seen.add(t.name.toLowerCase()))
     .map((t) => ({ id: t.id, name: t.name, type: t.type, affinity: num(t.affinity), popularity: num(t.popularity) }));
 }

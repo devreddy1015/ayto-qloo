@@ -102,8 +102,35 @@ export async function fakeTool(name, args) {
   }
 }
 
+/** Synthetic locality search: the sample cities, with the market as their parent. */
+export async function fakeSearch({ query, take = 10 }) {
+  await new Promise((r) => setTimeout(r, 120));
+  const needle = String(query).toLowerCase().split(",")[0].trim();
+  const results = Object.entries(CITIES).flatMap(([market, list]) =>
+    list
+      .filter(([name]) => name.toLowerCase().includes(needle))
+      .map(([name, lat, lon]) => ({
+        name,
+        entity_id: idFor(`locality:${name}`),
+        types: ["urn:entity:locality"],
+        popularity: 0.9,
+        disambiguation: `${name}, ${market}`,
+        location: { lat, lon },
+        properties: { admin_level: 8, ancestors: [{ admin_level: 2, name: market }] },
+      })),
+  );
+  return { results: results.slice(0, take) };
+}
+
 export async function fakeInsights(params) {
   await new Promise((r) => setTimeout(r, 200));
+  if (params["filter.type"] === "urn:tag") {
+    const seed = JSON.stringify([params["signal.interests.entities"], params["filter.parents.types"]]);
+    const tags = TAGS.filter((_, i) => rnd(seed, i) > 0.3)
+      .slice(0, params.take ?? 10)
+      .map((t, i) => ({ tag_id: `urn:tag:keyword:qloo:${t.replace(/\s+/g, "_")}`, name: t, subtype: "urn:tag:keyword:qloo", popularity: 0.5, query: { affinity: 0.5 + rnd(seed, i + 50) / 2 } }));
+    return { results: { tags } };
+  }
   if (params["filter.type"] !== "urn:heatmap") return { results: { entities: [] } };
   const market = params["filter.location.query"];
   const seed = JSON.stringify([params["signal.interests.entities"], market]);

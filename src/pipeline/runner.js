@@ -1,6 +1,7 @@
 // The pipeline runner: a plain state machine over 11 stages. Each stage reads
 // the outputs before it, adds its own, and the run is saved after every stage.
 // Editing a stage marks everything after it stale and reruns from there.
+import { config } from "../config.js";
 import { chatJson, llmAvailable } from "../llm.js";
 import { emitEvent, newId, saveRun } from "./store.js";
 import { architect, design, entrepreneur, think } from "./stages-evidence.js";
@@ -68,7 +69,7 @@ export async function createRun(input, meta = {}) {
     id: newId("r"),
     version: 1,
     createdAt: new Date().toISOString(),
-    mode: meta.mode ?? "live",
+    mode: meta.mode ?? config.mode,
     input,
     stages: Object.fromEntries(STAGES.map((s) => [s.id, { status: "pending" }])),
     ledger: [],
