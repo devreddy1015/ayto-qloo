@@ -1,0 +1,68 @@
+// Example scans shown on the home page. Every example is checked against live
+// Qloo data before shipping (see scripts/record-samples.mjs).
+export const EXAMPLES = [
+  {
+    id: "kpop-demon-hunters",
+    label: "KPop Demon Hunters",
+    blurb: "An animated K-pop film turned into a global fandom. Does the fashion follow outside Korea?",
+    waves: [{ name: "KPop Demon Hunters", type: "movie" }],
+    markets: ["India", "United States", "Brazil"],
+    persona: "maker",
+    angle: "teen and kidswear",
+  },
+  {
+    id: "devil-wears-prada-2",
+    label: "The Devil Wears Prada 2",
+    blurb: "A fashion film sequel. Which cities are primed for a polished office-wear revival?",
+    waves: [{ name: "The Devil Wears Prada 2", type: "movie" }],
+    markets: ["United States", "United Kingdom", "India"],
+    persona: "boutique",
+    angle: "officewear",
+  },
+  {
+    id: "bad-bunny",
+    label: "Bad Bunny",
+    blurb: "One artist, three markets. Where is his streetwear crowd ahead, and where is it still coming?",
+    waves: [{ name: "Bad Bunny", type: "artist" }],
+    markets: ["United States", "Mexico", "Spain"],
+    persona: "brand",
+    angle: "streetwear drop",
+  },
+  {
+    id: "diljit",
+    label: "Diljit Dosanjh",
+    blurb: "Punjabi pop gone global. Which diaspora cities are ready for the look?",
+    waves: [{ name: "Diljit Dosanjh", type: "artist" }],
+    markets: ["India", "Canada", "United Kingdom"],
+    persona: "maker",
+    angle: "menswear",
+  },
+  {
+    id: "wednesday",
+    label: "Wednesday",
+    blurb: "Gothic, school-uniform energy from a streaming hit. Who should make it, and for where?",
+    waves: [{ name: "Wednesday", type: "tv_show" }],
+    markets: ["United States", "India", "Mexico"],
+    persona: "designer",
+    angle: "dark academia",
+  },
+];
+
+export const MARKETS = [
+  "India",
+  "United States",
+  "United Kingdom",
+  "Canada",
+  "Brazil",
+  "Mexico",
+  "Spain",
+  "France",
+  "Germany",
+  "Japan",
+  "South Korea",
+  "Indonesia",
+  "Philippines",
+  "Nigeria",
+  "United Arab Emirates",
+  "Australia",
+];

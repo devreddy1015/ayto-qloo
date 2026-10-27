@@ -1,0 +1,11 @@
+# secrets: never commit
+.env
+.env.*
+!.env.example
+node_modules/
+.cache/
+*.log
+.DS_Store
+# Qloo response data must not be published (hackathon API terms)
+samples/qloo/
+probe-out/

@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Culture Gap</title>
+    <meta
+      name="description"
+      content="Fashion follows culture. Culture Gap reads what's moving in each country with Qloo's taste graph and shows makers where the fashion hasn't arrived yet."
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='1' y='9' width='30' height='14' rx='3' fill='%23F2BE22'/%3E%3Cpath d='M6 9v6M11 9v4M16 9v6M21 9v4M26 9v6' stroke='%2319234D' stroke-width='2'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site">
+      <a class="wordmark" href="/" aria-label="Culture Gap home">
+        <svg class="wordmark-tape" viewBox="0 0 40 20" aria-hidden="true">
+          <rect x="1" y="3" width="38" height="14" rx="3" />
+          <path d="M6 3v6M11 3v4M16 3v6M21 3v4M26 3v6M31 3v4M36 3v6" />
+        </svg>
+        <span>Culture Gap</span>
+      </a>
+      <nav>
+        <a href="#how">How it works</a>
+        <a href="https://github.com/" id="repo-link" target="_blank" rel="noopener">Source</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <h1 id="hero-title">Fashion follows culture. See where it hasn't arrived yet.</h1>
+        <p class="lede">
+          Name a show, an artist or a film that's blowing up. Culture Gap reads it through Qloo's taste graph, country by
+          country, and tells makers, boutiques and small brands what to make and where to sell it first.
+        </p>
+        <div class="hero-tape" aria-hidden="true">
+          <div class="tape">
+            <div class="tape-ticks"></div>
+            <div class="tape-gap"></div>
+            <span class="tape-dot culture"></span>
+            <span class="tape-dot fashion"></span>
+          </div>
+          <div class="tape-legend">
+            <span><i class="key culture"></i>Culture lands</span>
+            <span><i class="key gap"></i>The gap: your window</span>
+            <span><i class="key fashion"></i>Fashion catches up</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="composer" aria-label="Start a scan">
+        <form id="scan-form" autocomplete="off">
+          <label class="field field-wave">
+            <span class="field-label">What's blowing up?</span>
+            <input
+              id="wave-input"
+              name="wave"
+              type="text"
+              maxlength="300"
+              required
+              placeholder="A show, artist or film, or ask: “I make kurtas in Jaipur, what's next from K-dramas?”"
+            />
+          </label>
+
+          <fieldset class="field field-markets">
+            <legend class="field-label">Where do you sell? <span class="hint">Up to 3 countries</span></legend>
+            <div id="market-chips" class="chips" role="group"></div>
+          </fieldset>
+
+          <div class="row">
+            <label class="field field-persona">
+              <span class="field-label">You are</span>
+              <select id="persona" name="persona">
+                <option value="maker">A garment maker</option>
+                <option value="boutique">A boutique</option>
+                <option value="brand" selected>A small fashion brand</option>
+                <option value="designer">An independent designer</option>
+              </select>
+            </label>
+            <label class="field field-angle">
+              <span class="field-label">Making or stocking <span class="hint">Optional</span></span>
+              <input id="angle" name="angle" type="text" maxlength="80" placeholder="e.g. winter jackets, kidswear" />
+            </label>
+            <button id="scan-button" class="primary" type="submit">Run the scan</button>
+          </div>
+        </form>
+
+        <div class="examples">
+          <span class="examples-label">Or try a wave</span>
+          <div id="example-list" class="example-list"></div>
+        </div>
+        <p id="mode-note" class="mode-note" hidden></p>
+      </section>
+
+      <section id="results" class="results" hidden aria-live="polite">
+        <div class="results-main">
+          <div id="error-box" class="error-box" hidden role="alert"></div>
+
+          <section id="waves" class="block waves" hidden>
+            <h2>The wave</h2>
+            <div id="wave-cards" class="wave-cards"></div>
+          </section>
+
+          <section id="aesthetic" class="block" hidden>
+            <h2>What its fans share</h2>
+            <p class="block-note">Qloo taste tags that characterise the people into this wave. The raw material for design.</p>
+            <div id="tag-swatches" class="swatches"></div>
+          </section>
+
+          <section id="brief" class="block brief" hidden>
+            <h2>The brief</h2>
+            <div id="brief-body"></div>
+          </section>
+
+          <section id="markets" class="block" hidden>
+            <h2>Market by market</h2>
+            <div id="market-tabs" class="tabs" role="tablist"></div>
+            <div id="market-panels"></div>
+          </section>
+
+          <section id="ask" class="block ask" hidden>
+            <h2>Ask the analyst</h2>
+            <p class="block-note">The agent picks the Qloo lookups it needs, runs them, and answers with what it found.</p>
+            <form id="ask-form" class="ask-form" autocomplete="off">
+              <input id="ask-input" type="text" maxlength="400" placeholder="e.g. Which of these brands is rising fastest?" required />
+              <button class="primary" type="submit">Ask</button>
+            </form>
+            <div id="ask-suggestions" class="ask-suggestions"></div>
+            <div id="ask-thread" class="ask-thread"></div>
+          </section>
+        </div>
+
+        <aside class="trace" aria-label="What the agent did">
+          <div class="trace-head">
+            <h2>What the agent did</h2>
+            <span id="trace-status" class="trace-status"></span>
+          </div>
+          <p class="block-note">Every Qloo request behind this report. Open one to see the exact query.</p>
+          <ol id="trace-list" class="trace-list"></ol>
+        </aside>
+      </section>
+
+      <section id="how" class="how" aria-labelledby="how-title">
+        <h2 id="how-title">How it works</h2>
+        <div class="how-grid">
+          <div>
+            <h3>It reads the culture</h3>
+            <p>
+              The agent finds your wave in Qloo, checks whether its popularity is rising or cooling over the last six months,
+              and pulls the taste tags its fans share.
+            </p>
+          </div>
+          <div>
+            <h3>It follows the fans to fashion</h3>
+            <p>
+              In each country, it asks Qloo which fashion brands this wave's fans over-index on, then compares that with the
+              country's usual favourites. Brands that only show up with the wave are the ones riding it.
+            </p>
+          </div>
+          <div>
+            <h3>It measures the gap</h3>
+            <p>
+              City by city, it compares how hot the wave is with how hot those brands are. Where the culture has landed and the
+              fashion hasn't, there's room for a maker to get there first.
+            </p>
+          </div>
+        </div>
+        <p class="fine">
+          Qloo describes aggregate taste and momentum across large groups of people. It doesn't know about any individual, and
+          it isn't sales data. Treat every result as an early signal to test, not a forecast. Culture Gap never sends personal
+          data to Qloo.
+        </p>
+      </section>
+    </main>
+
+    <footer class="site-foot">
+      <p>Built for the Qloo Agentic Hackathon with Qloo's taste graph. Not affiliated with or endorsed by Qloo.</p>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
