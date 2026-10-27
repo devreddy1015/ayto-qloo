@@ -87,7 +87,8 @@ export async function fakeTool(name, args) {
       const seed = JSON.stringify([args.target_type, args.signals ?? "none", args.signal_location ?? "", args.filter_location ?? ""]);
       if (args.target_type === "brand") {
         const list = BRANDS.map((b, i) => ({ b, r: rnd(seed, i) })).sort((x, y) => y.r - x.r).slice(0, args.limit ?? 10);
-        return envelope("recommend", list.map(({ b, r }) => ({ entity_id: idFor(b), name: b, type: "urn:entity:brand", popularity: 0.5 + r / 2, affinity: r })));
+        // Popularity is seeded apart from affinity so the lift (affinity vs popularity) shows a mix of riders and giants.
+        return envelope("recommend", list.map(({ b, r }, i) => ({ entity_id: idFor(b), name: b, type: "urn:entity:brand", popularity: 0.4 + rnd(seed + 7, i) * 0.6, affinity: r })));
       }
       if (args.target_type === "artist") return envelope("recommend", ["Sample Artist One", "Sample Artist Two", "Sample Artist Three"].map((n, i) => ({ entity_id: idFor(n), name: n, type: "urn:entity:artist", popularity: 0.4 + i * 0.1 })));
       if (args.target_type === "place") return envelope("recommend", ["Sample Café", "Sample Record Store", "Sample Rooftop"].map((n) => ({ entity_id: idFor(n), name: n, type: "urn:entity:place", properties: { address: "Sample address" } })));

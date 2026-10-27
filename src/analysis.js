@@ -225,29 +225,70 @@ const round = (v) => (v === undefined ? undefined : Math.round(v * 100) / 100);
 // ---------- brands ----------
 
 /**
- * Brands that over-index with the wave's fans in a market, relative to that
- * market's baseline. lift > 0 means the wave pulls the brand up.
+ * Brands that over-index with the wave's fans, read inside one Qloo response.
+ *
+ * Qloo's brand affinity tracks global popularity closely (Nike, Puma and Rolex
+ * come back for almost any signal), so the raw ranking mostly lists giants. As
+ * with the heatmaps, lift is the affinity percentile minus the popularity
+ * percentile within the same response: positive means these fans favour the
+ * brand more than its size predicts (it rides the wave), negative means it is
+ * big everywhere, near zero means in step. A baseline from a separate request
+ * does not work: Qloo's location-only and tag-only brand lists live in another
+ * part of the graph (designer labels) and share no names with the wave list.
+ *
+ * `pulledBy` names the wave entity that contributes most to a brand when the
+ * response carries Qloo's explainability. Sorted by lift, Qloo's rank kept.
  */
-export function brandLift(waveBrands = [], baselineBrands = []) {
-  const baseRank = new Map(baselineBrands.map((b, i) => [b.entity_id ?? b.name, i]));
-  const n = Math.max(baselineBrands.length, 1);
-  return waveBrands.map((b, i) => {
-    const id = b.entity_id ?? b.name;
-    const inBaseline = baseRank.has(id);
-    const baseIndex = inBaseline ? baseRank.get(id) : n + 5;
-    return {
-      id,
-      name: b.name,
-      affinity: num(b.affinity),
-      popularity: num(b.popularity),
-      rank: i + 1,
-      baselineRank: inBaseline ? baseIndex + 1 : undefined,
-      lift: round((baseIndex - i) / (n + 5)),
-      waveSpecific: !inBaseline,
-      image: b.properties?.image?.url ?? b.properties?.image,
-      tags: b.tags,
-    };
-  });
+export function brandLift(waveBrands = [], { waves = [], threshold = 0.15 } = {}) {
+  const keyed = waveBrands.map((b, i) => ({ key: b.entity_id ?? b.name, b, i }));
+  const aff = percentiles(keyed.map((x) => ({ key: x.key, affinity: num(x.b.affinity) ?? -x.i })), "affinity");
+  const withPop = keyed.filter((x) => num(x.b.popularity) !== undefined);
+  const pop = withPop.length >= 3 ? percentiles(withPop.map((x) => ({ key: x.key, popularity: num(x.b.popularity) })), "popularity") : undefined;
+  const waveName = new Map(waves.map((w) => [w.id, w.name]));
+  return keyed
+    .map(({ key, b, i }) => {
+      const affinityPct = aff.get(key);
+      const popularityPct = pop?.get(key);
+      const lift = popularityPct === undefined ? 0 : affinityPct - popularityPct;
+      const signal = lift >= threshold ? "rides" : lift <= -threshold ? "giant" : "in-step";
+      const scores = b.explainability?.["signal.interests.entities"];
+      let pulledBy;
+      if (Array.isArray(scores) && scores.length) {
+        const top = scores.reduce((best, s) => ((num(s.score) ?? 0) > (num(best.score) ?? 0) ? s : best));
+        const total = scores.reduce((sum, s) => sum + (num(s.score) ?? 0), 0);
+        pulledBy = { id: top.entity_id, name: waveName.get(top.entity_id) ?? top.entity_id, share: total ? round(num(top.score) / total) : undefined };
+      }
+      return {
+        id: key,
+        name: b.name,
+        affinity: num(b.affinity),
+        popularity: num(b.popularity),
+        rank: i + 1,
+        affinityPct: round(affinityPct),
+        popularityPct: round(popularityPct),
+        lift: round(lift),
+        signal,
+        waveSpecific: signal === "rides",
+        baseline: popularityPct === undefined ? "none" : "popularity",
+        pulledBy,
+        image: b.properties?.image?.url ?? b.properties?.image,
+        tags: b.tags,
+      };
+    })
+    .sort((a, b) => b.lift - a.lift || a.rank - b.rank);
+}
+
+/**
+ * How much the location changed the brand list: the same request with and
+ * without `signal_location`. On the first live runs 14 of 15 brands were
+ * identical, so "localised" needs at least a fifth of the list to change.
+ */
+export function brandLocalisation(withLocation = [], withoutLocation = []) {
+  const local = new Set(withLocation.map((b) => b.entity_id ?? b.name));
+  const total = local.size;
+  if (!total || !withoutLocation.length) return { total, shared: undefined, localised: undefined };
+  const shared = withoutLocation.filter((b) => local.has(b.entity_id ?? b.name)).length;
+  return { total, shared, localised: shared / total < 0.8 };
 }
 
 /** Pick the tags most worth turning into design cues: drop pure media-format tags. */

@@ -1,5 +1,5 @@
 // Stages that talk to Qloo: Think, Architect, Design, Entrepreneur.
-import { brandLift, cultureFashionGap, heatPoints, liftPoints, momentum, snapCellsToPlaces, styleTags, tagPoints } from "../analysis.js";
+import { brandLift, brandLocalisation, cultureFashionGap, heatPoints, liftPoints, momentum, snapCellsToPlaces, styleTags, tagPoints } from "../analysis.js";
 import { CANDIDATE_CITIES, pickLocality, subLocalities, toPlace } from "../cities.js";
 import { chatJson, llmAvailable } from "../llm.js";
 import { memo, qlooSearch } from "../qloo.js";
@@ -160,21 +160,26 @@ async function heat(q, title, ids, market, places, { radiusKm = 30 } = {}) {
   return { cells: cells.length, points };
 }
 
-async function marketBrands(q, run, market, waveIds, tagIds) {
+/**
+ * The fashion brands the wave's fans favour in a market, with lift read inside
+ * that one response (see brandLift). The same request without the location is
+ * kept as a receipt for how little Qloo localises brands. A separate "what the
+ * market favours overall" baseline was dropped: with the fashion filter Qloo
+ * answers that with designer labels that share no names with the wave list.
+ */
+async function marketBrands(q, run, market, waves, tagIds) {
+  const waveIds = waves.map((w) => w.id);
   const base = { target_type: "brand", limit: 15, ...(tagIds.length ? { include_tags: tagIds } : {}) };
-  const [wave, baseline, global] = await Promise.all([
+  const [wave, global] = await Promise.all([
     q.tryTool(`Fashion brands this wave's fans favour in ${market}`, "qloo_recommend", { ...base, signals: waveIds, signal_location: market }),
-    q.tryTool(`Baseline: fashion brands ${market} favours overall`, "qloo_recommend", { ...base, limit: 20, explain: false, signal_location: market }),
     q.tryTool("Same brands with no location (does Qloo localise this?)", "qloo_recommend", { ...base, signals: waveIds, explain: false }),
   ]);
-  const lift = brandLift(wave?.results ?? [], baseline?.results ?? []);
+  const lift = brandLift(wave?.results ?? [], { waves });
   for (const b of lift) {
     registerEntity(run, { id: b.id, name: b.name, type: "brand", source: "recommend" });
     registerName(run, b.name, "brand", { id: b.id, market });
   }
-  const globalIds = (global?.results ?? []).map((b) => b.entity_id).join();
-  const localIds = (wave?.results ?? []).map((b) => b.entity_id).join();
-  return { lift, localised: Boolean(globalIds && localIds) && globalIds !== localIds };
+  return { lift, localisation: brandLocalisation(wave?.results ?? [], global?.results ?? []) };
 }
 
 export async function architect(run) {
@@ -186,7 +191,7 @@ export async function architect(run) {
 
   const markets = await Promise.all(
     run.input.markets.map(async (market) => {
-      const [{ lift, localised }, places] = await Promise.all([marketBrands(q, run, market, waveIds, tagIds), marketPlaces(q, run, market)]);
+      const [{ lift, localisation }, places] = await Promise.all([marketBrands(q, run, market, t.waves, tagIds), marketPlaces(q, run, market)]);
       const riding = lift.filter((b) => b.waveSpecific).slice(0, 5);
       const fashionIds = (riding.length ? riding : lift.slice(0, 5)).map((b) => b.id).filter(Boolean);
       const [culture, fashionHeat] = await Promise.all([
@@ -201,7 +206,8 @@ export async function architect(run) {
       return {
         market,
         brands: lift.slice(0, 12),
-        brandsLocalised: localised,
+        brandsLocalised: localisation.localised,
+        localisation,
         gap,
         opportunityCities: named.filter((g) => g.signal === "opportunity").slice(0, 6).map((g) => g.name),
         inStepCities: named.filter((g) => g.signal === "in-step").slice(0, 4).map((g) => g.name),
@@ -221,8 +227,9 @@ export async function architect(run) {
     tags: t.tags.slice(0, 15).map((x) => x.name),
     markets: markets.map((m) => ({
       market: m.market,
-      brands_riding_the_wave: m.brands.filter((b) => b.waveSpecific).slice(0, 6).map((b) => b.name),
-      brands_strong_overall: m.brands.filter((b) => !b.waveSpecific).slice(0, 4).map((b) => b.name),
+      brands_riding_the_wave: m.brands.filter((b) => b.signal === "rides").slice(0, 6).map((b) => (b.pulledBy?.name ? `${b.name} (pulled by ${b.pulledBy.name})` : b.name)),
+      brands_in_step: m.brands.filter((b) => b.signal === "in-step").slice(0, 4).map((b) => b.name),
+      brands_popular_regardless: m.brands.filter((b) => b.signal === "giant").slice(0, 4).map((b) => b.name),
       opportunity_cities: m.opportunityCities,
       in_step_cities: m.inStepCities,
       coverage: m.coverage,
