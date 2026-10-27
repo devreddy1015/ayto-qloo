@@ -67,7 +67,7 @@ export function heatPoint(point) {
   const q = point?.query ?? point;
   const lat = num(loc.latitude) ?? num(loc.lat) ?? num(point?.latitude);
   const lon = num(loc.longitude) ?? num(loc.lon) ?? num(loc.lng) ?? num(point?.longitude);
-  const name = loc.name ?? loc.city ?? loc.locality ?? point?.name ?? undefined;
+  const name = loc.name ?? loc.city ?? loc.locality ?? point?.name ?? point?.entity?.name ?? point?.properties?.name ?? undefined;
   const key = loc.geohash ?? loc.id ?? name ?? (lat !== undefined ? `${lat.toFixed(2)},${lon.toFixed(2)}` : undefined);
   return {
     key,
@@ -94,9 +94,9 @@ const haversineKm = (a, b) => {
   return 2 * R * Math.asin(Math.sqrt(h));
 };
 
-/** Percentile rank (0..1) of each point's affinity within its own heatmap. */
-function percentiles(points) {
-  const sorted = [...points].sort((a, b) => a.affinity - b.affinity);
+/** Percentile rank (0..1) of each point's `field` within its own heatmap. */
+function percentiles(points, field = "affinity") {
+  const sorted = [...points].sort((a, b) => a[field] - b[field]);
   const n = sorted.length;
   const map = new Map();
   sorted.forEach((p, i) => map.set(p.key, n === 1 ? 1 : i / (n - 1)));
@@ -104,12 +104,35 @@ function percentiles(points) {
 }
 
 /**
+ * Lift of a heatmap against its own popularity baseline.
+ *
+ * Qloo's heatmap affinity tracks raw popularity closely (where people live),
+ * so a raw affinity ranking mostly lists big cities. Lift is the affinity
+ * percentile minus the popularity percentile within the same response:
+ * positive means this place cares about the signal more than its size predicts.
+ * When popularity is missing, lift falls back to the affinity percentile.
+ */
+export function liftPoints(points) {
+  const withPop = points.filter((p) => p.popularity !== undefined);
+  const aff = percentiles(points, "affinity");
+  const pop = withPop.length >= 3 ? percentiles(withPop, "popularity") : undefined;
+  return points.map((p) => ({
+    ...p,
+    affinityPct: round(aff.get(p.key)),
+    popularityPct: pop ? round(pop.get(p.key)) : undefined,
+    lift: round(pop && pop.has(p.key) ? aff.get(p.key) - pop.get(p.key) : aff.get(p.key) - 0.5),
+    baseline: pop && pop.has(p.key) ? "popularity" : "none",
+  }));
+}
+
+/**
  * Culture–Fashion Gap for places inside one market.
  *
  * culture: heatmap points for the cultural wave.
  * fashion: heatmap points for the fashion brands that wave's fans favour.
- * Both are query-relative Qloo affinities, so we compare percentile ranks, not
- * raw values. gap = culture percentile − fashion percentile:
+ * Each side is first turned into lift (affinity vs the place's own popularity,
+ * see liftPoints), so big cities don't win by size alone. Then
+ *   gap = cultureLift − fashionLift
  *   high gap  → the culture is already there, the fashion hasn't followed (opportunity)
  *   near zero → both arrived together
  *   negative  → the fashion is ahead of the culture
@@ -117,40 +140,43 @@ function percentiles(points) {
  */
 export function cultureFashionGap(culture, fashion, { matchKm = 35 } = {}) {
   if (!culture.length) return [];
-  const cPct = percentiles(culture);
-  const fPct = percentiles(fashion);
-  const fashionByKey = new Map(fashion.map((p) => [p.key, p]));
+  const c = liftPoints(culture);
+  const f = liftPoints(fashion);
+  const fashionByKey = new Map(f.map((p) => [p.key, p]));
 
-  return culture
-    .map((c) => {
-      let f = fashionByKey.get(c.key);
-      if (!f && c.lat !== undefined && fashion.length) {
+  return c
+    .map((cp) => {
+      let fp = fashionByKey.get(cp.key);
+      if (!fp && cp.lat !== undefined && f.length) {
         let best;
-        for (const candidate of fashion) {
+        for (const candidate of f) {
           if (candidate.lat === undefined) continue;
-          const d = haversineKm(c, candidate);
+          const d = haversineKm(cp, candidate);
           if (d <= matchKm && (!best || d < best.d)) best = { d, p: candidate };
         }
-        f = best?.p;
+        fp = best?.p;
       }
-      const culturePct = cPct.get(c.key);
-      // A place missing from the fashion heatmap entirely is treated as "fashion not there yet".
-      const fashionPct = f ? fPct.get(f.key) : 0;
-      const gap = culturePct - fashionPct;
+      const cultureLift = cp.lift;
+      // A place missing from the fashion heatmap entirely: fashion hasn't registered there.
+      const fashionLift = fp ? fp.lift : -0.5;
+      const gap = cultureLift - fashionLift;
       return {
-        key: c.key,
-        name: c.name ?? f?.name,
-        lat: c.lat,
-        lon: c.lon,
-        culture: round(culturePct),
-        fashion: round(fashionPct),
+        key: cp.key,
+        name: cp.name ?? fp?.name,
+        lat: cp.lat,
+        lon: cp.lon,
+        culture: round(cp.affinityPct),
+        fashion: round(fp?.affinityPct ?? 0),
+        cultureLift: round(cultureLift),
+        fashionLift: round(fashionLift),
         gap: round(gap),
-        cultureAffinity: c.affinity,
-        fashionAffinity: f?.affinity,
-        signal: gap >= 0.35 ? "opportunity" : gap <= -0.35 ? "fashion-ahead" : "in-step",
+        baseline: cp.baseline,
+        cultureAffinity: cp.affinity,
+        fashionAffinity: fp?.affinity,
+        signal: gap >= 0.25 && cultureLift > 0 ? "opportunity" : gap <= -0.25 ? "fashion-ahead" : "in-step",
       };
     })
-    .sort((a, b) => b.gap - a.gap || b.culture - a.culture);
+    .sort((a, b) => b.gap - a.gap || b.cultureLift - a.cultureLift);
 }
 
 const round = (v) => (v === undefined ? undefined : Math.round(v * 100) / 100);

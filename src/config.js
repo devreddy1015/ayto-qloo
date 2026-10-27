@@ -46,6 +46,6 @@ export const config = {
   cacheDir: process.env.CACHE_DIR || join(ROOT, ".cache"),
   samplesDir: join(ROOT, "samples"),
   // Abuse and quota protection for the public demo.
-  scansPerIpPerHour: int("SCANS_PER_IP_PER_HOUR", 12),
-  maxConcurrentScans: int("MAX_CONCURRENT_SCANS", 3),
+  scansPerIpPerHour: int("SCANS_PER_IP_PER_HOUR", 6),
+  maxRunsPerDay: int("MAX_RUNS_PER_DAY", 150),
 };

@@ -211,18 +211,25 @@ async function withRetry(fn, attempts = 3) {
   throw lastError;
 }
 
+/** Cache any other expensive, deterministic-enough step (the written brief) the same way. */
+export function memo(kind, name, args, fn) {
+  return cached(kind, name, args, fn);
+}
+
 /** Run one Qloo workflow tool (qloo_recommend, qloo_trends, ...). Returns the envelope. */
-export function qlooTool(name, args) {
+export async function qlooTool(name, args) {
+  if (config.mode === "fake") return (await import("./fake-qloo.js")).fakeTool(name, args);
   return cached("mcp", name, args, () => callMcpTool(name, args));
 }
 
 /** Raw Insights request through `qloo api insights`. Returns the raw API response. */
-export function qlooInsights(params) {
+export async function qlooInsights(params) {
+  if (config.mode === "fake") return (await import("./fake-qloo.js")).fakeInsights(params);
   return cached("api", "insights", params, () => rawInsights(params));
 }
 
 export async function qlooStatus() {
-  if (config.mode === "samples") return { mode: "samples", ready: true };
+  if (config.mode === "samples" || config.mode === "fake") return { mode: config.mode, ready: true };
   try {
     const client = await mcpClient();
     const cap = await client.callTool({ name: "qloo_capabilities", arguments: {} });

@@ -7,7 +7,7 @@
 // traceable to the Qloo request that produced it.
 import { brandLift, cultureFashionGap, heatPoints, momentum, styleTags } from "./analysis.js";
 import { chatJson, llmAvailable } from "./llm.js";
-import { qlooInsights, qlooTool } from "./qloo.js";
+import { memo, qlooInsights, qlooTool } from "./qloo.js";
 
 export const ENTITY_TYPES = ["artist", "tv_show", "movie", "person", "brand", "videogame", "podcast", "book"];
 export const PERSONAS = {
@@ -337,7 +337,10 @@ export async function runScan(input, emit) {
   if (llmAvailable()) {
     emit({ type: "thought", text: "Turning the evidence into a brief…" });
     try {
-      const raw = await chatJson({ system: BRIEF_SYSTEM, user: JSON.stringify(evidence), temperature: 0.4, maxTokens: 1800 });
+      // Same evidence, same brief: cached so repeat visits don't spend model quota.
+      const raw = await memo("llm", "brief-v1", evidence, () =>
+        chatJson({ system: BRIEF_SYSTEM, user: JSON.stringify(evidence), temperature: 0.4, maxTokens: 1800 }),
+      );
       brief = groundBrief(raw, evidence);
     } catch (error) {
       emit({ type: "thought", text: `The language model failed (${error.message}); showing the raw signals.` });
