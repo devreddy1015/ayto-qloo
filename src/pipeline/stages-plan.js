@@ -135,9 +135,11 @@ const NAME_FIELDS = [
   ["design", "plan.styles[].from_tags[]", "tag"],
   ["design", "plan.palette[].from_tags[]", "tag"],
   ["entrepreneur", "plan.pricing.anchor_brands[]", "brand"],
-  ["entrepreneur", "plan.collabs[].partner", "artist"],
-  ["launch", "plan.first_cities[].city", "city"],
+  ["entrepreneur", "plan.collabs[]", "artist"],
   ["launch", "plan.first_cities[]", "city"],
+  ["launch", "plan.first_cities[].start_in[]", "neighbourhood"],
+  ["launch", "plan.first_cities[].seed_at[]", "place"],
+  ["launch", "plan.soundtrack[]", "artist"],
 ];
 
 function walk(obj, path, visit) {
@@ -155,6 +157,11 @@ function walk(obj, path, visit) {
 }
 
 export async function test(run) {
+  return checkEvidence(run);
+}
+
+/** Check every named claim in the kit against the Qloo evidence; prune what fails. */
+export function checkEvidence(run) {
   const checked = [];
   let grounded = 0;
   let removed = 0;
@@ -162,7 +169,7 @@ export async function test(run) {
     const output = run.stages[stageId]?.output;
     if (!output) continue;
     walk(output, path, (item, replace) => {
-      const name = typeof item === "string" ? item : item?.city ?? item?.partner;
+      const name = typeof item === "string" ? item : item?.city ?? item?.partner ?? item?.artist;
       if (!name) return;
       const ok = isKnownName(run, name);
       checked.push({ stage: stageId, kind, name, ok });
@@ -184,6 +191,7 @@ export async function test(run) {
     grounded,
     removed,
     score,
+    stages: [...new Set(checked.map((c) => c.stage))],
     items: checked.filter((c) => !c.ok).slice(0, 30),
     summary: `${grounded} of ${checked.length} named claims trace to Qloo. ${removed} removed.`,
   };
@@ -292,19 +300,24 @@ export async function launch(run) {
     markets: a.markets.map((m) => ({ market: m.market, opportunity_cities: m.opportunityCities, in_step_cities: m.inStepCities })),
     home: run.input.city,
     channels: (e.plan.channels ?? []).map((c) => c.channel),
-    collabs: e.collabs.map((c) => c.name),
-    popup_venues: e.places.map((p) => p.name),
+    city_passports: (e.passport ?? []).map((p) => ({ city: p.city, neighbourhoods: p.neighbourhoods.map((n) => n.name), venues: p.venues.map((v) => v.name) })),
+    soundtrack: (e.soundtrack ?? []).map((s) => ({ artist: s.name, shared_tags: s.sharedTags })),
     audience_skew: t.demographics?.slice(0, 4),
   };
   const plan = (await llmJson(run, "launch", LAUNCH, evidence, { thought: "Writing the 30-day plan…" })) ?? fallbackLaunch(evidence);
-  return { plan, summary: `${plan.first_cities?.length ?? 0} first cities, ${plan.weeks?.length ?? 0} weeks.` };
+  // Only Qloo-returned artists may appear in the soundtrack, whatever the model wrote.
+  const allowed = new Set(evidence.soundtrack.map((s) => s.artist.toLowerCase()));
+  plan.soundtrack = (plan.soundtrack ?? []).filter((s) => s?.artist && allowed.has(String(s.artist).toLowerCase())).slice(0, 4);
+  return { plan, summary: `${plan.first_cities?.length ?? 0} first cities, ${plan.soundtrack.length} soundtrack artists, ${plan.weeks?.length ?? 0} weeks.` };
 }
 
 function fallbackLaunch(ev) {
-  const cities = ev.markets.flatMap((m) => m.opportunity_cities).slice(0, 3);
+  const byCity = new Map(ev.city_passports.map((p) => [p.city, p]));
+  const cities = [...new Set([...ev.city_passports.map((p) => p.city), ...ev.markets.flatMap((m) => m.opportunity_cities)])].slice(0, 3);
   return {
     drop_name: "Drop 01",
-    first_cities: cities.map((c) => ({ city: c, why: "Highest culture-minus-fashion gap." })),
+    first_cities: cities.map((c) => ({ city: c, why: "Highest culture-minus-fashion gap.", start_in: byCity.get(c)?.neighbourhoods.slice(0, 2) ?? [], seed_at: byCity.get(c)?.venues.slice(0, 2) ?? [] })),
+    soundtrack: ev.soundtrack.slice(0, 3).map((s, i) => ({ artist: s.artist, use: ["reel audio", "launch night", "playlist"][i], why: s.shared_tags?.length ? `Fans share: ${s.shared_tags.slice(0, 3).join(", ")}` : "Same fans, smaller audience." })),
     weeks: [1, 2, 3, 4].map((w) => ({ week: w, focus: ["Tease", "Pre-orders", "Drop", "Restock & learn"][w - 1], actions: [] })),
     creator_brief: { who: "", hook: "", deliverables: [] },
     content_ideas: [],
@@ -316,12 +329,14 @@ function fallbackLaunch(ev) {
 // ---------- 11. Deploy ----------
 
 export async function deploy(run) {
+  // Final evidence pass over the stages that ran after Test.
+  const finalCheck = checkEvidence(run);
   const b = run.stages.brand.output;
   const l = run.stages.launch.output.plan;
   const d = run.stages.design.output.plan;
   const be = run.stages.backend.output;
   const base = (b.names?.[0]?.name ?? "drop").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 32) || "drop";
-  const slug = `${base}-${run.id.slice(2, 7).toLowerCase()}`;
+  const slug = `${base}-${run.id.replace(/[^a-z0-9]/gi, "").slice(-5).toLowerCase()}`;
   run.publish = {
     slug,
     url: `/d/${slug}`,
@@ -335,10 +350,12 @@ export async function deploy(run) {
       styles: (d.styles ?? []).map((s) => ({ ...s, mrp: be.economics.mrp })),
       dropName: l.drop_name ?? "Drop 01",
       firstCities: (l.first_cities ?? []).map((c) => c.city ?? c),
+      findUs: (l.first_cities ?? []).flatMap((c) => (c.start_in ?? []).slice(0, 2).map((n) => `${n}, ${c.city}`)).slice(0, 5),
+      soundtrack: (l.soundtrack ?? []).map((s) => s.artist).slice(0, 3),
       waves: run.stages.think.output.waves.map((w) => w.name),
       tags: run.stages.think.output.tags.slice(0, 8).map((t) => t.name),
       ledgerCount: run.ledger?.length ?? 0,
     },
   };
-  return { slug, url: run.publish.url, summary: `Live at ${run.publish.url}` };
+  return { slug, url: run.publish.url, finalCheck, summary: `Live at ${run.publish.url}. Final check: ${finalCheck.grounded} of ${finalCheck.checked} claims grounded.` };
 }

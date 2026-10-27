@@ -387,7 +387,12 @@ const RENDER = {
       h3("Channels"),
       list((p.channels ?? []).map((c) => el("span", {}, el("strong", { text: c.channel }), c.first ? el("span", { class: "badge", text: "first" }) : null, ` ${c.why ?? ""}`))),
       el("div", { class: "two-col" }, el("div", {}, h3("Pricing"), el("p", { text: p.pricing?.note ?? "" }), p.pricing?.anchor_brands?.length ? chipRow(p.pricing.anchor_brands) : null), el("div", {}, h3("Collab ideas"), list((p.collabs ?? []).map((c) => el("span", {}, el("strong", { text: c.partner }), ` ${c.idea ?? ""} ${c.why ?? ""}`))))),
-      o.places?.length ? el("div", {}, h3("Pop-up venues the fans already visit"), chipRow(o.places.map((x) => x.name))) : null,
+      o.passport?.length ? h3("City passports: where the fans are") : null,
+      o.passport?.length ? note("Inside each first city: the neighbourhoods where the wave runs hotter than their size predicts, and venues its fans visit.") : null,
+      o.passport?.length ? el("div", { class: "passports" }, o.passport.map((c) => passportCard(c))) : null,
+      o.soundtrack?.length ? h3("Campaign soundtrack candidates") : null,
+      o.soundtrack?.length ? note(`Artists whose fans overlap with the wave, below the superstar tier. Shared taste: ${o.soundtrack[0].sharedTags?.join(", ") || "n/a"}.`) : null,
+      o.soundtrack?.length ? el("div", { class: "tags-row" }, o.soundtrack.map((s) => el("div", { class: `hangtag ${s.role !== "playlist" ? "wave-specific" : ""}` }, el("strong", { text: s.name }), el("span", { text: `${s.role}${s.popularity !== undefined ? ` · popularity ${Math.round(s.popularity * 100)}` : ""}` })))) : null,
       el("div", { class: "two-col" }, el("div", {}, h3("Risks"), list(p.risks)), el("div", {}, h3("Next 90 days"), list(p.next_90_days))),
     ];
   },
@@ -405,7 +410,9 @@ const RENDER = {
     return [
       p.drop_name ? el("p", { class: "lead", text: p.drop_name }) : null,
       h3("First cities"),
-      list((p.first_cities ?? []).map((c) => el("span", {}, el("strong", { text: c.city ?? c }), ` ${c.why ?? ""}`))),
+      el("div", { class: "weeks" }, (p.first_cities ?? []).map((c) => el("div", { class: "week" }, el("strong", { text: c.city ?? c }), el("p", { class: "block-note", text: c.why ?? "" }), c.start_in?.length ? el("p", { class: "block-note" }, el("strong", { text: "Start in: " }), c.start_in.join(", ")) : null, c.seed_at?.length ? el("p", { class: "block-note" }, el("strong", { text: "Seed at: " }), c.seed_at.join(", ")) : null))),
+      p.soundtrack?.length ? h3("Campaign soundtrack") : null,
+      p.soundtrack?.length ? list(p.soundtrack.map((s) => el("span", {}, el("strong", { text: s.artist }), el("span", { class: "badge", text: s.use ?? "" }), ` ${s.why ?? ""}`))) : null,
       h3("The 30 days"),
       el("div", { class: "weeks" }, (p.weeks ?? []).map((w) => el("div", { class: "week" }, el("strong", { text: `Week ${w.week}: ${w.focus ?? ""}` }), list(w.actions)))),
       p.creator_brief ? el("div", {}, h3("Creator brief"), el("p", { text: `${p.creator_brief.who ?? ""} ${p.creator_brief.hook ?? ""}` }), list(p.creator_brief.deliverables)) : null,
@@ -416,7 +423,8 @@ const RENDER = {
     return [
       el("p", { class: "lead", text: "Your drop page is live." }),
       el("p", {}, el("a", { class: "primary-link", href: o.url, target: "_blank", rel: "noopener", text: `Open ${location.origin}${o.url}` })),
-      note("A public page built from this run: brand, story, palette, pieces, prices and first cities. Share it, or edit a stage above and it updates on rerun."),
+      note("A public page built from this run: brand, story, palette, pieces, prices, first cities, neighbourhoods and soundtrack. Share it, or edit a stage above and it updates on rerun."),
+      o.finalCheck ? el("div", { class: "tiles" }, tile("Final check", `${o.finalCheck.score}%`, `${o.finalCheck.grounded} of ${o.finalCheck.checked} claims across ${o.finalCheck.stages?.length ?? 0} stages trace to Qloo`), tile("Removed", String(o.finalCheck.removed), "invented names deleted")) : null,
     ];
   },
 };
@@ -492,6 +500,18 @@ function gapList(rows) {
   );
 }
 const approxPlace = (g) => (g.lat !== undefined ? `${g.lat.toFixed(1)}, ${g.lon.toFixed(1)}` : g.key);
+
+function passportCard(c) {
+  return el(
+    "div",
+    { class: "passport" },
+    el("strong", { class: "passport-city", text: c.city }),
+    el("span", { class: "block-note", text: c.market }),
+    c.coverage === "none" ? el("p", { class: "notes", text: "No neighbourhood or venue data here; use the regional signal." }) : null,
+    c.neighbourhoods?.length ? el("div", {}, el("span", { class: "passport-label", text: "Start in" }), list(c.neighbourhoods.map((n) => `${n.name} (lift ${n.lift > 0 ? "+" : ""}${n.lift})`))) : null,
+    c.venues?.length ? el("div", {}, el("span", { class: "passport-label", text: "Seed at" }), list(c.venues.map((v) => v.name))) : null,
+  );
+}
 
 function drawMap(key, box, gap) {
   if (!window.L || !box.isConnected) return;

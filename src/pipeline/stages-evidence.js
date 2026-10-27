@@ -268,34 +268,47 @@ export async function entrepreneur(run) {
   const a = run.stages.architect.output;
   const b = run.stages.backend.output;
   const waveIds = t.waves.map((w) => w.id);
-  const topCity = a.markets.flatMap((m) => m.opportunityCities.map((c) => ({ c, m: m.market })))[0];
+  // The first cities: top gap cities per market, home city first when it has data.
+  const cities = [];
+  for (const m of a.markets) {
+    const home = m.home?.name && m.market === run.input.homeMarket ? [m.home.name] : [];
+    for (const c of [...home, ...m.opportunityCities]) if (!cities.some((x) => x.city === c)) cities.push({ city: c, market: m.market });
+  }
+  const firstCities = cities.slice(0, 3);
 
-  const [collabEnv, placeEnv] = await Promise.all([
-    q.tryTool("Smaller artists the same fans love (collab candidates)", "qloo_recommend", {
+  const [collabEnv, ...passportEnvs] = await Promise.all([
+    q.tryTool("Rising artists the same fans love (soundtrack and collab candidates)", "qloo_recommend", {
       target_type: "artist",
       signals: waveIds,
-      limit: 10,
+      limit: 12,
     }),
-    topCity
-      ? q.tryTool(`Pop-up venues fans would visit in ${topCity.c}`, "qloo_recommend", {
-          target_type: "place",
-          signals: waveIds,
-          filter_location: `${topCity.c}, ${topCity.m}`,
-          limit: 8,
-        })
-      : Promise.resolve(undefined),
+    ...firstCities.map((c) => cityPassport(q, run, waveIds, c)),
   ]);
-  const collabs = (collabEnv?.results ?? [])
+
+  // ---- Campaign soundtrack: rising artists, with the tags their fans share with the wave ----
+  const artists = (collabEnv?.results ?? [])
     .filter((r) => r.name && !t.waves.some((w) => w.id === r.entity_id))
     .filter((r) => (r.popularity ?? 0) < 0.9)
     .slice(0, 6)
-    .map((r) => ({ id: r.entity_id, name: r.name, popularity: r.popularity }));
-  for (const c of collabs) {
+    .map((r) => ({ id: r.entity_id, name: r.name, popularity: r.popularity, image: r.properties?.image?.url ?? r.properties?.image }));
+  for (const c of artists) {
     registerEntity(run, { id: c.id, name: c.name, type: "artist", source: "recommend" });
     registerName(run, c.name, "artist", { id: c.id });
   }
-  const places = (placeEnv?.results ?? []).slice(0, 6).map((r) => ({ id: r.entity_id, name: r.name, address: r.properties?.address }));
-  for (const p of places) registerName(run, p.name, "place");
+  const compareEnv = artists.length
+    ? await q.tryTool("What the wave's fans and these artists' fans share", "qloo_compare_audiences", {
+        group_a: waveIds,
+        group_b: artists.slice(0, 3).map((x) => x.id),
+        limit: 12,
+      })
+    : undefined;
+  const sharedTags = sharedTagNames(compareEnv);
+  for (const s of sharedTags) registerName(run, s, "tag");
+  const soundtrack = artists.map((x, i) => ({ ...x, role: i === 0 ? "feature" : i < 3 ? "collab" : "playlist", sharedTags: sharedTags.slice(0, 5) }));
+  const collabs = artists.slice(0, 4);
+
+  const passport = passportEnvs.filter(Boolean);
+  const places = passport.flatMap((p) => p.venues).slice(0, 6);
 
   const evidence = {
     maker: run.input.maker,
@@ -312,7 +325,52 @@ export async function entrepreneur(run) {
     price_tier: a.plan.price_tier?.tier,
   };
   const plan = (await llmJson(run, "entrepreneur", ENTREPRENEUR, evidence, { thought: "Working out channels, pricing and partners…" })) ?? fallbackEntrepreneur(evidence);
-  return { collabs, places, plan, summary: `${collabs.length} collab candidates, ${places.length} pop-up venues.` };
+  return {
+    collabs,
+    places,
+    soundtrack,
+    passport,
+    plan,
+    summary: `${passport.length} city passports, ${soundtrack.length} soundtrack artists, ${collabs.length} collab candidates.`,
+  };
+}
+
+/** City Passport: the neighbourhoods and venues inside one city where the wave's fans are. */
+async function cityPassport(q, run, waveIds, { city, market }) {
+  const where = `${city}, ${market}`;
+  const [venueEnv, heatRaw] = await Promise.all([
+    q.tryTool(`Venues the fans visit in ${city}`, "qloo_recommend", { target_type: "place", signals: waveIds, filter_location: where, limit: 8 }),
+    q.tryInsights(`Neighbourhoods inside ${city} where the wave is hottest`, {
+      "filter.type": "urn:heatmap",
+      "signal.interests.entities": waveIds,
+      "filter.location.query": where,
+      "output.heatmap.boundary": "urn:entity:locality",
+      take: 50,
+    }),
+  ]);
+  const venues = (venueEnv?.results ?? [])
+    .filter((r) => r.name)
+    .slice(0, 6)
+    .map((r) => ({ id: r.entity_id, name: r.name, address: r.properties?.address, type: r.subtype ?? r.type }));
+  for (const v of venues) registerName(run, v.name, "place", { city });
+  const cells = liftPoints(heatPoints(heatRaw ?? {}));
+  const ranked = cells.filter((p) => p.name && p.name.toLowerCase() !== city.toLowerCase()).sort((x, y) => y.lift - x.lift);
+  const positive = ranked.filter((p) => p.lift > 0);
+  const neighbourhoods = (positive.length ? positive : ranked).slice(0, 4).map((p) => ({ name: p.name, lift: p.lift, lat: p.lat, lon: p.lon }));
+  for (const n of neighbourhoods) registerName(run, n.name, "neighbourhood", { city });
+  return {
+    city,
+    market,
+    venues,
+    neighbourhoods,
+    coverage: !venues.length && !neighbourhoods.length ? "none" : venues.length + neighbourhoods.length < 4 ? "thin" : "ok",
+  };
+}
+
+function sharedTagNames(env) {
+  const r = env?.results;
+  const list = Array.isArray(r?.tags) ? r.tags : Array.isArray(r) ? r : [];
+  return list.map((t) => t?.name ?? t?.tag?.name).filter(Boolean).slice(0, 10);
 }
 
 function fallbackEntrepreneur(ev) {

@@ -1519,3 +1519,43 @@ textarea#text-input:focus {
     grid-template-columns: 6rem minmax(0, 1fr) 3rem;
   }
 }
+
+/* ---------- city passports ---------- */
+.passports {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+.passport {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.9rem;
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  position: relative;
+  overflow: hidden;
+}
+.passport::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: repeating-linear-gradient(90deg, var(--tape) 0 10px, var(--ink) 10px 11px);
+}
+.passport-city {
+  font-size: var(--step-1);
+  font-variation-settings: var(--wide);
+  margin-top: 0.3rem;
+}
+.passport-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.passport ul {
+  font-size: var(--step--1);
+}

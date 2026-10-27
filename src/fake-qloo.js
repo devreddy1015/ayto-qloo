@@ -93,6 +93,8 @@ export async function fakeTool(name, args) {
       if (args.target_type === "place") return envelope("recommend", ["Sample Café", "Sample Record Store", "Sample Rooftop"].map((n) => ({ entity_id: idFor(n), name: n, type: "urn:entity:place", properties: { address: "Sample address" } })));
       return envelope("recommend", []);
     }
+    case "qloo_compare_audiences":
+      return envelope("compare_audiences", { tags: TAGS.slice(0, 6).map((t) => ({ name: t, id: `urn:tag:keyword:qloo:${t.replace(/\s+/g, "_")}` })), a: [], b: [] });
     case "qloo_where_popular":
       return envelope("where_popular", []);
     default:
@@ -105,7 +107,11 @@ export async function fakeInsights(params) {
   if (params["filter.type"] !== "urn:heatmap") return { results: { entities: [] } };
   const market = params["filter.location.query"];
   const seed = JSON.stringify([params["signal.interests.entities"], market]);
-  const cities = CITIES[market] ?? CITIES.India;
+  // A "City, Country" query returns synthetic neighbourhoods around that city.
+  const cityMatch = Object.values(CITIES).flat().find(([name]) => market.toLowerCase().startsWith(name.toLowerCase()));
+  const cities = market.includes(",") && cityMatch
+    ? ["Old Town", "Station Road", "Market Square", "University Area", "Riverside", "New Colony"].map((n, i) => [`${n}`, cityMatch[1] + (i - 2) * 0.03, cityMatch[2] + (i % 3) * 0.03])
+    : (CITIES[market] ?? CITIES.India);
   return {
     results: {
       heatmap: cities.map(([name, lat, lon], i) => ({

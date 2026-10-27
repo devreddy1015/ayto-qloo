@@ -53,6 +53,8 @@ ${palette.length ? `<div class="pal">${palette.map((c) => `<span style="backgrou
     .join("")}</div>
 <h2>Landing first in</h2>
 <div class="cities">${(p.firstCities ?? []).map((c) => `<span>${esc(c)}</span>`).join("")}</div>
+${p.findUs?.length ? `<h2>Find us around</h2><div class="cities">${p.findUs.map((c) => `<span>${esc(c)}</span>`).join("")}</div>` : ""}
+${p.soundtrack?.length ? `<h2>On the speakers</h2><div class="cities">${p.soundtrack.map((c) => `<span>${esc(c)}</span>`).join("")}</div>` : ""}
 <span class="cta">Pre-order on WhatsApp</span>
 <p class="fine">Made with Culture Gap for fans of ${esc((p.waves ?? []).join(" and "))}. Taste signals from Qloo (${esc(p.ledgerCount)} requests): ${esc((p.tags ?? []).join(", "))}. Affinity describes aggregate taste, not sales. Prices are the maker's own. The pre-order button is a placeholder until the maker connects a number.</p>
 </main></body></html>`;

@@ -52,14 +52,16 @@ Return JSON:
  "taglines":[{"market":"from evidence","line":""}]}
 Give exactly 3 names.`;
 
-export const LAUNCH = `You write a 30-day launch plan for a small fashion drop, using the gap cities and audience evidence.
+export const LAUNCH = `You write a 30-day launch plan for a small fashion drop, using the gap cities, city passports (neighbourhoods and venues where the fans are) and the campaign soundtrack (artists whose fans overlap with the wave).
 ${RULES}
 Return JSON:
-{"drop_name":"","first_cities":[{"city":"from evidence","why":""}],
+{"drop_name":"","first_cities":[{"city":"from evidence","why":"","start_in":["neighbourhoods from that city's passport"],"seed_at":["venues from that city's passport"]}],
+ "soundtrack":[{"artist":"from evidence","use":"reel audio|launch night|playlist|collab","why":"cite shared tags"}],
  "weeks":[{"week":1,"focus":"","actions":["3-4 actions"]}],
  "creator_brief":{"who":"describe the kind of micro-creator (no real names unless in evidence)","hook":"","deliverables":[""]},
  "content_ideas":["3-5 ideas tied to the culture"],
- "success_signals":["3 things to measure in week 1-4"]}`;
+ "success_signals":["3 things to measure in week 1-4"]}
+Only use neighbourhoods and venues listed under that city. If a city's passport is empty, leave start_in and seed_at empty.`;
 
 export const WITHOUT_QLOO = `You are a helpful assistant. A first-time founder describes what they want to make. Give your best plan with no external data.
 Return JSON:
