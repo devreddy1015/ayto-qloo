@@ -31,6 +31,9 @@ const FORMAT_CHIPS = [
   ["film", "Short film"],
   ["fashion", "Fashion drop"],
 ];
+/** [id, label] for every format the server offers; the three above only when presets failed to load. */
+const formats = () => (state.presets.formats?.length ? state.presets.formats.map((f) => [f.id, f.label ?? f.id]) : FORMAT_CHIPS);
+const formatLabel = (id) => formats().find(([k]) => k === id)?.[1] ?? id;
 const SESSION_KEY = "ayto.llm";
 
 const state = {
@@ -43,6 +46,8 @@ const state = {
   maps: new Map(),
   live: false, // true while the attached run is still working
   mosaicRun: null, // the run whose images the background shows
+  viewer: null, // the 3D garment viewer on the fashion write card, one per run view
+  garmentPick: null, // { index, colourway } the user chose on it, kept across re-renders of the card
 };
 
 // ---------- the infinite canvas behind everything ----------
@@ -287,7 +292,7 @@ async function init() {
   const presets = state.presets;
   loadMosaic();
 
-  $("#format-chips").replaceChildren(...FORMAT_CHIPS.map(([id, label]) => el("button", { type: "button", class: "chip", "aria-pressed": "false", "data-format": id, text: label, onclick: () => setFormat(state.format === id ? "" : id) })));
+  $("#format-chips").replaceChildren(...formats().map(([id, label]) => el("button", { type: "button", class: "chip", "aria-pressed": "false", "data-format": id, text: label, onclick: () => setFormat(state.format === id ? "" : id) })));
 
   $("#showcase-list").replaceChildren(...(presets.showcases ?? []).map((s) => el("button", { type: "button", class: "example", title: s.text, text: s.label, onclick: () => startShowcase(s) })));
 
@@ -465,7 +470,7 @@ function renderConfirm(found) {
   const input = found.input ?? {};
   const cities = found.cities ?? [];
   const citySelect = el("select", { id: "confirm-city", "aria-label": "City Qloo found" }, cities.map((c, i) => el("option", { value: c.id, text: `${c.name}${c.country ? ` (${c.qlooName || c.country})` : ""}`, selected: i === 0 })));
-  const formatSelect = el("select", { id: "confirm-format", "aria-label": "Format", onchange: (e) => setFormat(e.target.value) }, FORMAT_CHIPS.map(([id, label]) => el("option", { value: id, text: label, selected: id === (input.format || "film") })));
+  const formatSelect = el("select", { id: "confirm-format", "aria-label": "Format", onchange: (e) => setFormat(e.target.value) }, formats().map(([id, label]) => el("option", { value: id, text: label, selected: id === (input.format || "film") })));
   if (input.format && input.format !== state.format) setFormat(input.format);
   const themeSelects = (found.themes ?? []).map((t) =>
     el(
@@ -480,7 +485,7 @@ function renderConfirm(found) {
   box.replaceChildren(el(
     "div",
     { class: "confirm-inner" },
-    el("p", { class: "confirm-lead" }, el("strong", { text: "Qloo found → " }), found.cityFound ? el("strong", { class: "confirm-city", text: cities[0]?.name ?? input.city?.query }) : el("span", { class: "confirm-missing", text: input.city?.query || "no city" }), found.cityFound && cities[0]?.qlooName ? el("span", { class: "confirm-sub", text: ` (${cities[0].qlooName})` }) : null, (found.themes ?? []).length ? el("span", {}, " · Theme: ", (found.themes ?? []).map((t, i) => el("strong", { text: (i ? ", " : "") + (t.candidates[0]?.name ?? t.word) }))) : null, " · Format: ", el("strong", { text: FORMAT_CHIPS.find(([id]) => id === (input.format || "film"))?.[1] ?? input.format })),
+    el("p", { class: "confirm-lead" }, el("strong", { text: "Qloo found → " }), found.cityFound ? el("strong", { class: "confirm-city", text: cities[0]?.name ?? input.city?.query }) : el("span", { class: "confirm-missing", text: input.city?.query || "no city" }), found.cityFound && cities[0]?.qlooName ? el("span", { class: "confirm-sub", text: ` (${cities[0].qlooName})` }) : null, (found.themes ?? []).length ? el("span", {}, " · Theme: ", (found.themes ?? []).map((t, i) => el("strong", { text: (i ? ", " : "") + (t.candidates[0]?.name ?? t.word) }))) : null, " · Format: ", el("strong", { text: formatLabel(input.format || "film") })),
     !found.cityFound ? el("p", { class: "confirm-error", text: "Qloo couldn't place that city. Try its common English name with the country, e.g. “Hyderabad, India”." }) : null,
     el(
       "div",
@@ -552,6 +557,8 @@ function resetResults() {
   state.plan = [];
   for (const map of state.maps.values()) map.remove();
   state.maps.clear();
+  destroyViewer();
+  state.garmentPick = null;
   $("#home").hidden = true;
   $("#results").hidden = false;
   $("#error-box").hidden = true;
@@ -617,7 +624,7 @@ function applySnapshot(run) {
 function buildRunView() {
   const run = state.run;
   const input = run.input ?? {};
-  const format = FORMAT_CHIPS.find(([id]) => id === input.format)?.[1] ?? input.format;
+  const format = formatLabel(input.format);
   $("#run-title").replaceChildren(el("strong", { text: format }), el("br"), el("span", { text: input.text ?? "" }));
   $("#stage-cards").replaceChildren(...state.plan.map((s) => stageCard(s)));
   $("#stage-rail").replaceChildren(
@@ -742,7 +749,7 @@ function renderStage(id, s = {}) {
   const renderer = RENDER[id];
   let nodes;
   try {
-    nodes = renderer ? renderer(s.output, state.run) : [pre(s.output)];
+    nodes = renderer ? renderer(s.output, state.run) : [s.output.summary ? note(s.output.summary) : null, el("details", { class: "raw" }, el("summary", { text: "Raw output" }), pre(s.output))];
   } catch (error) {
     console.error(`render ${id}`, error);
     nodes = [pre(s.output)];
@@ -916,7 +923,7 @@ const RENDER = {
 
   write(o, run) {
     const plan = o.plan ?? {};
-    const writer = WRITE[o.writer] ?? ((p) => [pre(p)]);
+    const writer = WRITE[o.writer] ?? WRITE.generic;
     const llm = o.llm ?? run?.llm ?? {};
     const canRegenerate = run?.status !== "running";
     return [
@@ -932,6 +939,93 @@ const RENDER = {
         run?.publish?.url ? el("a", { class: "secondary-link", href: run.publish.url, target: "_blank", rel: "noopener", text: "Open share page" }) : null,
         el("span", { class: "edit-status", id: "write-status" }),
       ),
+    ];
+  },
+
+  produce(o) {
+    const e = o.economics ?? {};
+    const inr = (v) => (typeof v === "number" ? `₹${Math.round(v).toLocaleString("en-IN")}` : "—");
+    const pctOf = (v) => (typeof v === "number" ? `${Math.round(v * 100)}%` : "—");
+    const packs = o.packs ?? [];
+    const cmp = o.compliance ?? {};
+    const sizesText = (sizes) => Object.entries(sizes ?? {}).map(([k, v]) => `${k}: ${v}`).join(" · ");
+    const dl = (pairs) => el("dl", { class: "spec" }, ...pairs.filter(([, v]) => v !== undefined && v !== null && v !== "").flatMap(([k, v]) => [el("dt", { text: k }), el("dd", {}, v)]));
+    return [
+      el("div", { class: "banner" }, el("strong", { text: "All figures are editable assumptions, not forecasts. " }), "Defaults from directory asking prices and seller pages; change them in the run's assumptions."),
+      e.mrp !== undefined
+        ? section(
+            "Unit economics",
+            el("p", { class: "lead" }, el("strong", { text: `MRP ${inr(e.mrp)}` }), ` · ${pctOf(e.gstRate)} GST included · ex-GST ${inr(e.exGst)} · unit cost ${inr(e.unitCost)} · landed ${inr(e.landedCost)}${e.tier ? ` · ${e.tier} tier` : ""}`),
+            e.gstNote ? note(e.gstNote) : null,
+            (e.channels ?? []).length
+              ? el(
+                  "table",
+                  { class: "table" },
+                  el("thead", {}, el("tr", {}, ["Channel", "Fee", "Net / unit", "Margin / unit", "Margin %", "Break-even units"].map((t) => el("th", { text: t })))),
+                  el("tbody", {}, (e.channels ?? []).map((c) => el("tr", {}, el("td", {}, el("strong", { text: c.channel ?? "" }), c.note ? el("span", { class: "sub small", text: c.note }) : null), el("td", { text: pctOf(c.fee) }), el("td", { text: inr(c.netPerUnit) }), el("td", { text: inr(c.marginPerUnit) }), el("td", { text: typeof c.marginPct === "number" ? `${c.marginPct}%` : "—" }), el("td", { text: c.breakEvenUnitsPerStyle !== undefined ? String(c.breakEvenUnitsPerStyle) : "does not clear cost" })))),
+                )
+              : null,
+          )
+        : null,
+      (o.styles ?? []).length
+        ? section(
+            "Styles and quantities",
+            el(
+              "table",
+              { class: "table" },
+              el("thead", {}, el("tr", {}, ["SKU", "Style", "Colourways", "Per colour", "Total", "Sizes"].map((t) => el("th", { text: t })))),
+              el("tbody", {}, o.styles.map((l) => el("tr", {}, el("td", {}, el("code", { text: l.sku ?? "" })), el("td", { text: l.style ?? "" }), el("td", { text: (l.colourways ?? []).join(", ") }), el("td", { text: String(l.quantityPerColour ?? "") }), el("td", {}, el("strong", { text: String(l.total ?? "") })), el("td", { class: "small", text: sizesText(l.sizes) })))),
+            ),
+            o.totalUnits !== undefined ? el("p", { class: "kv" }, el("strong", { text: `${o.totalUnits} units` }), o.investment !== undefined ? ` · ${inr(o.investment)} landed investment` : "") : null,
+          )
+        : null,
+      (o.allocation ?? []).length ? section("City split", list(o.allocation.map((a) => el("span", {}, q(a.city ?? ""), ` · ${pctOf(a.share)} · ${a.units ?? 0} units`, a.why ? el("span", { class: "sub", text: ` ${a.why}` }) : null)))) : null,
+      packs.length
+        ? section(
+            "Tech packs",
+            o.packsBy === "defaults" ? note("Written from labelled defaults, not a model. Add a key and press Write again for packs written to the styles.") : null,
+            el(
+              "div",
+              { class: "packs" },
+              packs.map((p) =>
+                el(
+                  "details",
+                  { class: "pack" },
+                  el("summary", {}, el("strong", { text: p.style ?? "" }), el("span", { class: "sub small", text: `${p.fabric?.composition ?? ""}${p.fabric?.gsm ? ` · ${p.fabric.gsm} GSM` : ""}${p.fallback ? " · defaults" : ""}` })),
+                  el(
+                    "div",
+                    { class: "pack-sheet" },
+                    dl([
+                      ["Fabric", [p.fabric?.composition, p.fabric?.gsm ? `${p.fabric.gsm} GSM` : "", p.fabric?.finish].filter(Boolean).join(" · ")],
+                      ["Construction", (p.construction ?? []).length ? list(p.construction) : ""],
+                      ["Print / embroidery", p.print_or_embroidery?.type && p.print_or_embroidery.type !== "none" ? [p.print_or_embroidery.type, p.print_or_embroidery.placement, p.print_or_embroidery.size_cm ? `${p.print_or_embroidery.size_cm} cm` : ""].filter(Boolean).join(" · ") : "none"],
+                      ["Trims", (p.trims ?? []).length ? chips(p.trims, "small") : ""],
+                      ["Fit notes", p.fit_notes],
+                      ["Packaging", p.packaging],
+                      ["Sizes", (p.sizes ?? []).join(" · ")],
+                    ]),
+                    (p.pointsOfMeasure ?? []).length
+                      ? el(
+                          "table",
+                          { class: "table pom" },
+                          el("thead", {}, el("tr", {}, [["Point of measure", ""], ...(p.sizes ?? []).map((sz) => [sz, "cm"])].map(([t, u]) => el("th", {}, t, u ? el("span", { class: "sub small", text: u }) : null)))),
+                          el("tbody", {}, p.pointsOfMeasure.map((m) => el("tr", {}, el("td", { text: m.name ?? "" }), ...(p.sizes ?? []).map(() => el("td", { class: "blank", text: m.cm || "" }))))),
+                        )
+                      : null,
+                    note("Points of measure stay blank: the sampling room fills them."),
+                  ),
+                ),
+              ),
+            ),
+          )
+        : null,
+      cmp.loose?.length || cmp.prePacked?.length || cmp.registrations?.length
+        ? section(
+            "Compliance",
+            el("div", { class: "cols3" }, cmp.loose?.length ? el("div", {}, h3("Every label"), list(cmp.loose)) : null, cmp.prePacked?.length ? el("div", {}, h3("Pre-packed, also"), list(cmp.prePacked)) : null, cmp.registrations?.length ? el("div", {}, h3("Registrations"), list(cmp.registrations)) : null),
+            cmp.source ? el("p", { class: "footnote", text: cmp.source }) : null,
+          )
+        : null,
     ];
   },
 
@@ -1003,6 +1097,7 @@ const WRITE = {
       p.positioning ? el("p", { class: "lead", text: p.positioning }) : null,
       p.palette?.length ? section("Palette", el("div", { class: "palette" }, p.palette.map((c) => el("div", { class: "chip-color" }, el("span", { class: "chip-fill", style: `background:${hex(c.hex)}` }), el("strong", { text: c.name ?? c.hex }), el("small", { text: (c.from_tags ?? []).join(", ") }))))) : null,
       p.styles?.length ? section("Styles", el("div", { class: "styles" }, p.styles.map((s) => el("div", { class: `style-card ${s.hero ? "hero" : ""}` }, el("strong", { text: s.name ?? "" }), el("span", { class: "sub", text: `${s.category ?? ""}${s.hero ? " · hero" : ""}` }), s.cues?.length ? el("p", { class: "small", text: s.cues.join(" · ") }) : null, s.from_tags?.length ? chips(s.from_tags.map((t) => q(t)), "small") : null, s.colourways?.length ? el("span", { class: "sub small", text: s.colourways.join(" · ") }) : null)))) : null,
+      p.styles?.length ? garmentSection(p) : null,
       p.brands_to_study?.length ? section("Brands to study", chips(p.brands_to_study.map((b) => q(b)))) : null,
       p.soundtrack?.length ? section("Soundtrack", chips(p.soundtrack.map((a) => q(typeof a === "string" ? a : a.artist ?? a.name)))) : null,
       p.first_cities?.length ? section("First cities", chips(p.first_cities.map((c) => q(c)))) : null,
@@ -1010,6 +1105,64 @@ const WRITE = {
       p.avoid?.length ? section("Avoid", chips(p.avoid.map((a) => q(a)), "muted")) : null,
     ];
   },
+};
+
+// Keys whose strings are names that came from a Qloo request (they get the Qloo chip).
+const NAME_KEY = /travel|cities|study|stock|brand|screening|theme|reference|comp|guest|avoid|artist|place|venue|soundtrack|lineup|playlist|names?$|title$|city$|neighbourhood|intro_music/i;
+const NAME_FIELD = /^(name|title|artist|city|venue|item|place)$/i;
+const titleCase = (k) => String(k).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+const isPlainObject = (v) => v && typeof v === "object" && !Array.isArray(v);
+const str = (v) => (typeof v === "string" ? v : v === null || v === undefined ? "" : typeof v === "object" ? "" : String(v));
+
+/** Any writer without its own renderer: titles or names, the lane, then every other key in order. */
+WRITE.generic = (p) => {
+  const big = (p.titles ?? p.names ?? []).filter((t) => typeof t === "string" && t);
+  const nodes = [
+    big.length ? el("div", { class: "titles" }, big.map((t, i) => el("span", { class: `title-option ${i === 0 ? "first" : ""}`, text: t }))) : el("p", { class: "muted", text: p.titles || p.names ? "No titles yet." : "" }),
+    p.lane?.flavour ? el("p", { class: "lane-line" }, tag("Lane", "lane-tag"), " ", q(p.lane.flavour), p.lane.why ? el("span", { class: "sub", text: ` ${p.lane.why}` }) : null) : null,
+  ];
+  let leadDone = false;
+  for (const [key, value] of Object.entries(p)) {
+    if (["titles", "names", "lane", "fallback"].includes(key) || value === null || value === undefined) continue;
+    const title = titleCase(key);
+    const named = NAME_KEY.test(key);
+    if (typeof value === "string") {
+      if (!value.trim()) continue;
+      // A word or two ("interview", "PC") reads as a labelled line; sentences as paragraphs, the first one as the lead.
+      if (value.trim().split(/\s+/).length <= 3) nodes.push(kv(title, value));
+      else {
+        nodes.push(leadDone ? section(title, el("p", { text: value })) : el("p", { class: "lead", text: value }));
+        leadDone = true;
+      }
+    } else if (typeof value === "number" || typeof value === "boolean") nodes.push(kv(title, String(value)));
+    else if (Array.isArray(value)) {
+      const items = value.filter((v) => v !== null && v !== undefined && v !== "");
+      if (!items.length) continue;
+      if (items.every((v) => typeof v !== "object")) nodes.push(section(title, chips(items.map((v) => (named ? q(String(v)) : String(v))), key === "avoid" ? "muted" : "")));
+      else
+        nodes.push(
+          section(
+            title,
+            list(
+              items.map((v) => {
+                if (!isPlainObject(v)) return String(v);
+                const [first, ...rest] = Object.entries(v).filter(([, x]) => str(x) || typeof x === "number");
+                if (!first) return "";
+                const head = NAME_FIELD.test(first[0]) || named ? q(str(first[1])) : str(first[1]);
+                return el("span", {}, el("strong", {}, head), ...rest.map(([k, x]) => (/^(why|take|note|hook|beat|what|slot|when|use)$/i.test(k) ? ` · ${str(x)}` : ` · ${titleCase(k)}: ${str(x)}`)));
+              }),
+            ),
+          ),
+        );
+    } else if (isPlainObject(value)) {
+      const entries = Object.entries(value).filter(([, x]) => str(x));
+      if (!entries.length) continue;
+      const [first, ...rest] = entries;
+      const head = NAME_FIELD.test(first[0]) || named ? q(str(first[1])) : el("strong", { text: str(first[1]) });
+      nodes.push(section(title, el("p", {}, head, rest.length ? ` · ${rest.map(([, x]) => str(x)).join(" · ")}` : "")));
+    }
+  }
+  return nodes;
 };
 
 /** Plain text of the written piece, for the clipboard. */
@@ -1041,7 +1194,7 @@ function planText(o) {
     add("Hashtags", names(p.hashtags));
     add("Why it lands", names(p.why_it_lands, (w) => w.claim));
     add("Alternates", names(p.alternates, (a) => `${a.title} — ${a.hook}`));
-  } else {
+  } else if (o.writer === "fashion") {
     add("Drop", p.drop_name);
     add("Positioning", p.positioning);
     add("Palette", names(p.palette, (c) => `${c.name} ${c.hex}`));
@@ -1051,6 +1204,13 @@ function planText(o) {
     add("First cities", names(p.first_cities));
     add("Channels", names(p.channels));
     add("Avoid", names(p.avoid));
+  } else {
+    for (const [k, v] of Object.entries(p)) {
+      if (k === "fallback" || v === null || v === undefined) continue;
+      if (Array.isArray(v)) add(titleCase(k), v.map((x) => (isPlainObject(x) ? Object.values(x).map(str).filter(Boolean).join(" — ") : str(x))).filter(Boolean).join(", "));
+      else if (isPlainObject(v)) add(titleCase(k), Object.values(v).map(str).filter(Boolean).join(" — "));
+      else add(titleCase(k), str(v));
+    }
   }
   lines.push("", `Made with AYTO on Qloo's taste graph. ${location.origin}/run/${state.run?.id ?? ""}`);
   return lines.join("\n");
@@ -1106,6 +1266,238 @@ async function makeLaneFirst(index) {
     showError(error.message);
     for (const b of buttons) b.disabled = false;
   }
+}
+
+// ---------- the 3D garment preview (fashion) ----------
+// The viewer lives in garment3d.js and loads only when a fashion card renders.
+// If WebGL or the module is missing, a flat SVG croquis stands in. The garment
+// and print are read from the plan's fields when the writer gave them, else
+// from the category and cues (older runs, sample mode); garment3d.js keeps the
+// same rules.
+
+const GARMENT_KINDS = ["tee", "oversized_tee", "hoodie", "sweatshirt", "dress", "kurta", "jacket", "shorts", "set"];
+const hexOk = (h) => /^#[0-9a-f]{6}$/i.test(h ?? "");
+const trim = (v) => String(v ?? "").trim();
+const slug = (v) => trim(v).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "garment";
+
+function garmentKind(style = {}) {
+  const given = trim(style.garment).toLowerCase().replace(/[\s-]+/g, "_");
+  if (GARMENT_KINDS.includes(given)) return given;
+  const text = `${trim(style.category)} ${trim(style.name)}`.toLowerCase();
+  if (/\b(co-?ord|set)\b/.test(text)) return "set";
+  if (/hood/.test(text)) return "hoodie";
+  if (/sweat|crew ?neck|jumper|pullover/.test(text)) return "sweatshirt";
+  if (/dress|frock|gown/.test(text)) return "dress";
+  if (/kurt[ai]|tunic/.test(text)) return "kurta";
+  if (/jacket|bomber|blazer|shacket|overshirt|coat/.test(text)) return "jacket";
+  if (/shorts/.test(text)) return "shorts";
+  if (/oversiz|boxy|drop(ped)?[ -]?shoulder|relaxed/.test(text)) return "oversized_tee";
+  return "tee";
+}
+
+function printSpec(style = {}) {
+  const p = style.print;
+  if (p && typeof p === "object") {
+    const type = trim(p.type).toLowerCase();
+    const placement = trim(p.placement).toLowerCase().replace(/[\s-]+/g, "_");
+    return { type: ["graphic", "stripe", "typographic", "none"].includes(type) ? type : "none", placement: ["chest", "back", "all_over", "sleeve"].includes(placement) ? placement : "chest", motif: trim(p.motif).slice(0, 40) };
+  }
+  const text = (style.cues ?? []).map(trim).join(" ").toLowerCase();
+  const placement = /\bback\b/.test(text) ? "back" : /sleeve/.test(text) ? "sleeve" : /all[ -]?over|repeat/.test(text) ? "all_over" : "chest";
+  if (/stripe|breton/.test(text)) return { type: "stripe", placement: placement === "chest" ? "all_over" : placement, motif: "" };
+  if (/typograph|slogan|wordmark|letter|\btext\b/.test(text)) return { type: "typographic", placement, motif: "" };
+  if (/graphic|print|logo|artwork|motif|emblem|pattern/.test(text)) return { type: "graphic", placement, motif: "" };
+  return { type: "none", placement: "chest", motif: "" };
+}
+
+const paletteHex = (name, palette) => {
+  const key = trim(name).toLowerCase();
+  const hit = key ? palette.find((c) => trim(c.name).toLowerCase() === key) : null;
+  return (hit ?? palette[0])?.hex?.toLowerCase() ?? "#2b2f3a";
+};
+const luminance = (hex) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+/** The palette hex that contrasts most with the base; white or ink when none does. */
+function accentHex(base, palette) {
+  const l = luminance(base);
+  let best = null;
+  let gap = 0;
+  for (const c of palette) {
+    const h = c.hex.toLowerCase();
+    if (h === base) continue;
+    const d = Math.abs(luminance(h) - l);
+    if (d > gap) [best, gap] = [h, d];
+  }
+  return best && gap > 0.18 ? best : l > 0.35 ? "#15171c" : "#f5f5f7";
+}
+
+function destroyViewer() {
+  try {
+    state.viewer?.destroy();
+  } catch (error) {
+    console.warn("viewer teardown", error);
+  }
+  state.viewer = null;
+}
+
+/** "See it in 3D": style tabs, colourway chips, the viewer (or the croquis), a snapshot button and the caption. */
+function garmentSection(p) {
+  const styles = p.styles ?? [];
+  const palette = (p.palette ?? []).filter((c) => hexOk(c?.hex));
+  const paletteNames = palette.map((c) => trim(c.name)).filter(Boolean);
+  const heroIndex = Math.max(0, styles.findIndex((s) => s.hero));
+  const pick = state.garmentPick && styles[state.garmentPick.index] ? state.garmentPick : { index: heroIndex, colourway: "" };
+  const waysFor = (s) => {
+    const own = (s?.colourways ?? []).map(trim).filter((n) => paletteNames.some((pn) => pn.toLowerCase() === n.toLowerCase()));
+    return own.length ? own : paletteNames;
+  };
+  const stage = el("div", { class: "garment-stage", "aria-busy": "true" });
+  const tabs = el("div", { class: "chips garment-tabs", role: "group", "aria-label": "Styles" });
+  const ways = el("div", { class: "chips garment-ways", role: "group", "aria-label": "Colourways" });
+  const snap = el("button", { type: "button", class: "secondary garment-snap", text: "Snapshot PNG", disabled: true });
+  const caption = el("p", { class: "garment-caption", text: "3D preview, not a cloth simulation. The shapes are procedural; the colours come from the palette and the print from the plan." });
+  const box = el("div", { class: "sect garment" }, h3("See it in 3D"), tabs, stage, el("div", { class: "garment-foot" }, ways, snap), caption);
+  let viewer = null;
+
+  const renderTabs = () =>
+    tabs.replaceChildren(...styles.map((s, i) => el("button", { type: "button", class: "chip", "aria-pressed": String(i === pick.index), onclick: () => select(i) }, s.name || `Style ${i + 1}`, s.hero ? el("span", { class: "chip-mark", text: "hero" }) : null)));
+  const renderWays = () => {
+    const list = waysFor(styles[pick.index]);
+    if (!list.some((n) => n.toLowerCase() === pick.colourway.toLowerCase())) pick.colourway = list[0] ?? "";
+    ways.replaceChildren(...list.map((n) => el("button", { type: "button", class: "chip chip-way", "aria-pressed": String(n === pick.colourway), onclick: () => way(n) }, el("span", { class: "chip-dot", style: `background:${paletteHex(n, palette)}` }), n)));
+    ways.hidden = !list.length;
+  };
+  const draw = () => {
+    const style = styles[pick.index];
+    if (!style) return;
+    if (viewer) {
+      viewer.show(pick.index);
+      viewer.setColourway(pick.colourway);
+    } else stage.replaceChildren(croquis(style, paletteHex(pick.colourway, palette), palette));
+  };
+  const select = (i) => {
+    pick.index = i;
+    state.garmentPick = pick;
+    renderTabs();
+    renderWays();
+    draw();
+  };
+  const way = (n) => {
+    pick.colourway = n;
+    state.garmentPick = pick;
+    renderWays();
+    draw();
+  };
+  snap.onclick = () => {
+    if (!viewer) return;
+    try {
+      const link = el("a", { href: viewer.snapshot(), download: `${slug(p.drop_name)}-${slug(styles[pick.index]?.name)}.png` });
+      document.body.append(link);
+      link.click();
+      link.remove();
+      snap.textContent = "Saved";
+    } catch (error) {
+      console.warn("snapshot", error);
+      snap.textContent = "Couldn't snapshot";
+    }
+    setTimeout(() => (snap.textContent = "Snapshot PNG"), 1600);
+  };
+  renderTabs();
+  renderWays();
+  // Mount once the card is in the document; the flat croquis stands in when WebGL or the module is missing.
+  setTimeout(async () => {
+    if (!stage.isConnected) return;
+    destroyViewer();
+    try {
+      const mod = await import("./garment3d.js");
+      if (!stage.isConnected) return;
+      viewer = mod.createGarmentViewer(stage, { styles, palette, label: p.drop_name ?? "" });
+      state.viewer = viewer;
+      snap.disabled = false;
+    } catch (error) {
+      console.warn("3D preview unavailable; showing the flat croquis.", error);
+      viewer = null;
+      box.classList.add("flat");
+      snap.hidden = true;
+      caption.textContent = "Flat preview: 3D isn't available in this browser. The colours come from the palette and the print from the plan.";
+    }
+    stage.removeAttribute("aria-busy");
+    draw();
+  }, 0);
+  return box;
+}
+
+// The flat fallback: a front-view outline per garment in a 200×260 box, filled with the colourway and marked with the print.
+const SVG_NS = "http://www.w3.org/2000/svg";
+const svg = (tag, attrs = {}, ...children) => {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) if (v !== undefined && v !== null && v !== false) node.setAttribute(k, v);
+  for (const child of children.flat(Infinity)) if (child) node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  return node;
+};
+const TEE = "60,60 80,52 95,62 105,62 120,52 140,60 152,98 132,104 132,200 68,200 68,104 48,98";
+const LONG = "60,60 80,52 95,62 105,62 120,52 140,60 158,168 134,172 132,112 132,206 68,206 68,112 66,172 42,168";
+const SHORTS = "66,128 134,128 142,192 106,192 100,156 94,192 58,192";
+const CROQUIS = {
+  tee: [TEE],
+  oversized_tee: ["46,62 80,52 95,62 105,62 120,52 154,62 170,108 142,114 142,216 58,216 58,114 30,108"],
+  hoodie: [LONG],
+  sweatshirt: [LONG],
+  dress: ["70,60 85,52 95,62 105,62 115,52 130,60 142,96 126,102 162,244 38,244 74,102 58,96"],
+  kurta: ["60,60 80,52 95,62 105,62 120,52 140,60 158,168 134,172 132,112 132,236 68,236 68,112 66,172 42,168"],
+  jacket: ["58,62 80,52 96,64 96,208 66,208 66,112 64,172 40,168", "142,62 120,52 104,64 104,208 134,208 134,112 136,172 160,168"],
+  shorts: [SHORTS],
+  set: ["60,60 80,52 95,62 105,62 120,52 140,60 152,98 132,104 132,150 68,150 68,104 48,98", "66,146 134,146 142,206 106,206 100,170 94,206 58,206"],
+};
+
+function croquis(style, hex, palette) {
+  const kind = garmentKind(style);
+  const print = printSpec(style);
+  const accent = accentHex(hex, palette);
+  const id = `cq-${Math.random().toString(36).slice(2, 8)}`;
+  const shapes = CROQUIS[kind] ?? CROQUIS.tee;
+  const line = "rgba(255,255,255,0.32)";
+  const root = svg("svg", { viewBox: "0 0 200 260", class: "croquis", role: "img", "aria-label": `${style.name ?? 'Style'}: flat ${kind.replace('_', ' ')} preview` });
+  root.append(svg("defs", {}, svg("clipPath", { id }, ...shapes.map((pts) => svg("polygon", { points: pts })))));
+  if (kind === "hoodie") root.append(svg("path", { d: "M78,56 Q100,12 122,56 Z", fill: hex, stroke: line, "stroke-width": 1.5 }));
+  for (const pts of shapes) root.append(svg("polygon", { points: pts, fill: hex, stroke: line, "stroke-width": 1.5, "stroke-linejoin": "round" }));
+  const detail = (d) => root.append(svg("path", { d, fill: "none", stroke: line, "stroke-width": 1.2 }));
+  if (kind === "hoodie") detail("M70,168 h60 v32 h-60 Z M68,194 h64");
+  if (kind === "sweatshirt") detail("M68,194 h64 M42,160 l22,2 M136,162 l22,-2");
+  if (kind === "kurta") detail("M100,62 v40 M94,62 v40 M68,206 v30 M132,206 v30");
+  if (kind === "jacket") detail("M96,64 L100,54 L104,64 M72,120 h16 M112,120 h16");
+  if (kind === "set" || kind === "shorts") detail(kind === "set" ? "M66,152 h68" : "M66,134 h68");
+  const g = svg("g", { "clip-path": `url(#${id})` });
+  const markAt = (cx, cy, w, h, dim = false) => {
+    const text = (print.motif || style.name || "").toUpperCase();
+    const m = svg("g", { opacity: dim ? 0.35 : 1 });
+    if (print.type === "typographic") m.append(svg("text", { x: cx, y: cy, fill: accent, "font-family": "Archivo, system-ui, sans-serif", "font-weight": "900", "font-size": Math.min(16, h * 0.6), "text-anchor": "middle", "dominant-baseline": "middle", textLength: text.length > 6 ? w : undefined, lengthAdjust: "spacingAndGlyphs" }, text));
+    else if (print.type === "stripe") for (let i = 0; i < 5; i += 2) m.append(svg("rect", { x: cx - w / 2, y: cy - h / 2 + (i * h) / 5, width: w, height: h / 5, fill: accent }));
+    else {
+      const seed = [...text].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) % 4;
+      const r = Math.min(w, h) / 2;
+      if (seed === 0) m.append(svg("circle", { cx, cy, r: r * 0.9, fill: accent }), svg("circle", { cx, cy, r: r * 0.5, fill: "none", stroke: hex, "stroke-width": r * 0.14 }));
+      else if (seed === 1) for (let i = 0; i < 3; i += 1) m.append(svg("rect", { x: cx - (w * (1 - i * 0.22)) / 2, y: cy - h / 2 + (i * h) / 3, width: w * (1 - i * 0.22), height: h / 5, rx: h / 10, fill: accent }));
+      else if (seed === 2) m.append(svg("path", { d: `M${cx - r * 0.7},${cy + r * 0.2} A${r * 0.7},${r * 0.7} 0 0 1 ${cx + r * 0.7},${cy + r * 0.2}`, fill: "none", stroke: accent, "stroke-width": r * 0.3, "stroke-linecap": "round" }), svg("circle", { cx, cy: cy + r * 0.5, r: r * 0.16, fill: accent }));
+      else m.append(svg("rect", { x: cx - r * 0.62, y: cy - r * 0.62, width: r * 1.25, height: r * 1.25, fill: accent, transform: `rotate(45 ${cx} ${cy})` }), svg("rect", { x: cx - r * 0.22, y: cy - r * 0.22, width: r * 0.44, height: r * 0.44, fill: hex, transform: `rotate(45 ${cx} ${cy})` }));
+    }
+    return m;
+  };
+  if (print.type !== "none") {
+    if (print.placement === "all_over") {
+      if (print.type === "stripe") for (let y = 40; y < 260; y += 16) g.append(svg("rect", { x: 0, y, width: 200, height: 8, fill: accent }));
+      else for (let y = 56; y < 256; y += 22) for (let x = 36 + ((y / 22) % 2) * 11; x < 170; x += 22) g.append(markAt(x, y, 9, 9));
+    } else if (print.placement === "sleeve") g.append(svg("rect", { x: 40, y: 84, width: 30, height: 9, fill: accent, transform: "rotate(14 55 88)" }));
+    else {
+      const chest = kind === "jacket" ? [82, 118, 18, 18] : kind === "shorts" ? [80, 146, 16, 14] : kind === "set" ? [100, 112, 36, 24] : [100, 120, 44, 28];
+      g.append(markAt(...chest, print.placement === "back"));
+      if (print.placement === "back") g.append(svg("text", { x: chest[0], y: chest[1] + chest[3] / 2 + 10, fill: "rgba(255,255,255,0.6)", "font-size": 8, "text-anchor": "middle", "font-family": "Archivo, system-ui, sans-serif" }, "back print"));
+    }
+  }
+  root.append(g);
+  return root;
 }
 
 // ---------- map ----------

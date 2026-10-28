@@ -6,7 +6,7 @@ import { threeColumns } from "../analysis.js";
 import { evidenceFor, registerEntity, registerName } from "../pipeline/evidence.js";
 import { format, lovesIds, placeLabel, themeTagIds } from "./common.js";
 
-const TITLE = { movie: "films", tv_show: "series", artist: "artists", place: "places", brand: "brands", book: "books", podcast: "podcasts", videogame: "games" };
+const TITLE = { movie: "films", tv_show: "series", artist: "artists", place: "places", brand: "brands", book: "books", podcast: "podcasts", videogame: "games", person: "people" };
 
 /**
  * One column, trying the richest request first: theme filter + loves as signals,

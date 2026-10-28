@@ -29,3 +29,33 @@ test("checkEvidence removes names the run never saw from Qloo and keeps the rest
   assert.deepEqual(p.travels_next, ["Kochi"]);
   assert.equal(p.lane.flavour, "Docudrama");
 });
+
+test("check rewrites once with the invented names banned when a model is available", async () => {
+  process.env.GROQ_API_KEY = "";
+  const { check } = await import("../src/pipeline/check.js");
+  // Without a model the check must not attempt a rewrite and must report the first pass only.
+  const run = {
+    id: "r_x",
+    input: { format: "film" },
+    names: { maestro: { name: "Maestro" } },
+    stages: { write: { output: { writer: "film", canWrite: false, fallback: false, plan: { references: [{ title: "Maestro" }, { title: "Invented" }] } } } },
+  };
+  const out = await check(run);
+  assert.equal(out.removed, 1);
+  assert.equal(out.rewrote, undefined);
+  assert.deepEqual(run.stages.write.output.plan.references.map((r) => r.title), ["Maestro"]);
+});
+
+test("check blanks a print motif that names a real brand and drops unknown garments", async () => {
+  const { checkEvidence } = await import("../src/pipeline/check.js");
+  const run = {
+    names: { diesel: { name: "Diesel", kind: "brand" }, ink: { name: "Ink", kind: "tag" } },
+    stages: { write: { output: { writer: "fashion", plan: { styles: [{ name: "Tee 01", garment: "cape", print: { type: "typographic", motif: "Diesel forever" }, from_tags: ["Ink"] }], brands_to_study: ["Diesel"], first_cities: [], palette: [] } } } },
+  };
+  const out = checkEvidence(run);
+  const style = run.stages.write.output.plan.styles[0];
+  assert.equal(style.print.motif, "");
+  assert.equal(style.garment, undefined);
+  assert.equal(out.items.some((i) => i.kind === "motif"), true);
+  assert.deepEqual(run.stages.write.output.plan.brands_to_study, ["Diesel"]); // still allowed as a reference
+});

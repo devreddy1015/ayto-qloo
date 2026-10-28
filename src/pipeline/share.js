@@ -4,7 +4,7 @@ export async function share(run) {
   const w = run.stages.write.output;
   const c = run.stages.check?.output;
   const p = w.plan ?? {};
-  const title = p.titles?.[0] || p.title || p.drop_name || `${r.city.name} ${run.input.format}`;
+  const title = p.titles?.[0] || p.names?.[0] || p.title || p.drop_name || `${r.city.name} ${run.input.format}`;
   const base = String(title).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || run.input.format;
   const slug = `${base}-${run.id.replace(/[^a-z0-9]/gi, "").slice(-5).toLowerCase()}`;
   run.publish = {
@@ -21,6 +21,7 @@ export async function share(run) {
       plan: p,
       lanes: (run.stages.gap?.output?.lanes ?? []).map((l) => ({ name: l.name, cityRank: l.cityRank, countryRank: l.countryRank, supplyCount: l.supplyCount, gap: l.gap })),
       grounded: c ? { grounded: c.grounded, checked: c.checked } : undefined,
+      produce: run.stages.produce?.output ? { mrp: run.stages.produce.output.economics?.mrp, totalUnits: run.stages.produce.output.totalUnits, gstRate: run.stages.produce.output.economics?.gstRate, allocation: run.stages.produce.output.allocation } : undefined,
       ledgerCount: run.ledger?.length ?? 0,
       llm: w.llm,
       fallback: w.fallback,

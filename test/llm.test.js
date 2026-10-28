@@ -25,3 +25,9 @@ test("credentialFrom validates provider and key shape", () => {
   assert.throws(() => credentialFrom({ provider: "openai", key: "short" }), /doesn't look right/);
   assert.equal(credentialFrom(undefined), undefined);
 });
+
+test("the Anthropic adapter is wired for tools (no provider-level refusal)", async () => {
+  const src = await import("node:fs/promises").then((fs) => fs.readFile(new URL("../src/llm.js", import.meta.url), "utf8"));
+  assert.ok(!src.includes("Tool calls need an OpenAI-compatible provider"));
+  assert.ok(src.includes('type: "tool_use"') && src.includes('type: "tool_result"'));
+});

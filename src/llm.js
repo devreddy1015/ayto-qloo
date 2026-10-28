@@ -35,7 +35,20 @@ export function redact(text) {
     .replace(/(authorization|x-api-key|api[-_]?key)(["':\s=]+)[^\s"',]+/gi, "$1$2[redacted]");
 }
 
-const serverCredential = () => (config.groq.apiKey ? { provider: "groq", key: config.groq.apiKey, model: undefined, server: true } : undefined);
+/**
+ * The server's own credential: LLM_PROVIDER + LLM_API_KEY if set, else the first
+ * provider key found in the environment, in this order.
+ */
+const SERVER_KEYS = [["anthropic", "ANTHROPIC_API_KEY"], ["openai", "OPENAI_API_KEY"], ["groq", "GROQ_API_KEY"], ["gemini", "GEMINI_API_KEY"], ["mistral", "MISTRAL_API_KEY"], ["openrouter", "OPENROUTER_API_KEY"]];
+export function serverCredential() {
+  const explicit = String(process.env.LLM_PROVIDER ?? "").toLowerCase();
+  if (explicit && PROVIDERS[explicit] && process.env.LLM_API_KEY) return { provider: explicit, key: process.env.LLM_API_KEY, model: process.env.LLM_MODEL || undefined, server: true };
+  for (const [provider, name] of SERVER_KEYS) {
+    const key = String(process.env[name] ?? "").trim();
+    if (key.length >= 12) return { provider, key, model: process.env.LLM_MODEL || undefined, server: true };
+  }
+  return undefined;
+}
 
 /** Normalise and validate a user credential. Throws on a bad provider; never logs the key. */
 export function credentialFrom(body) {
@@ -67,13 +80,39 @@ function openaiCall(p, cred, model, { messages, tools, json, temperature, maxTok
   return postJson(`${p.baseUrl}/chat/completions`, headers, body).then((r) => ({ ...r, message: r.status === 200 ? r.json?.choices?.[0]?.message : undefined }));
 }
 
-function anthropicCall(p, cred, model, { messages, json, temperature, maxTokens }) {
+/** OpenAI-style messages and tools → Anthropic Messages API, and the reply back to the OpenAI shape ask.js expects. */
+function anthropicCall(p, cred, model, { messages, tools, json, temperature, maxTokens }) {
   const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n") + (json ? "\n\nReturn only a JSON object. No prose, no code fences." : "");
-  const turns = messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content ?? "") }));
-  return postJson(`${p.baseUrl}/messages`, { "x-api-key": cred.key, "anthropic-version": "2023-06-01" }, { model, max_tokens: maxTokens, temperature, system, messages: turns }).then((r) => ({
-    ...r,
-    message: r.status === 200 ? { role: "assistant", content: (r.json?.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("") } : undefined,
-  }));
+  const turns = [];
+  const push = (role, blocks) => {
+    const last = turns.at(-1);
+    if (last && last.role === role) last.content.push(...blocks); // Anthropic wants alternating roles; merge neighbours
+    else turns.push({ role, content: blocks });
+  };
+  for (const m of messages) {
+    if (m.role === "system") continue;
+    if (m.role === "tool") push("user", [{ type: "tool_result", tool_use_id: m.tool_call_id, content: String(m.content ?? "") }]);
+    else if (m.role === "assistant" && m.tool_calls?.length) {
+      const blocks = m.content ? [{ type: "text", text: String(m.content) }] : [];
+      for (const c of m.tool_calls) {
+        let input = {};
+        try {
+          input = JSON.parse(c.function?.arguments || "{}");
+        } catch {}
+        blocks.push({ type: "tool_use", id: c.id, name: c.function?.name, input });
+      }
+      push("assistant", blocks);
+    } else push(m.role === "assistant" ? "assistant" : "user", [{ type: "text", text: String(m.content ?? "") || "." }]);
+  }
+  const body = { model, max_tokens: maxTokens, temperature, system, messages: turns };
+  if (tools?.length) body.tools = tools.map((t) => ({ name: t.function.name, description: t.function.description ?? "", input_schema: t.function.parameters ?? { type: "object", properties: {} } }));
+  return postJson(`${p.baseUrl}/messages`, { "x-api-key": cred.key, "anthropic-version": "2023-06-01" }, body).then((r) => {
+    if (r.status !== 200) return { ...r, message: undefined };
+    const blocks = r.json?.content ?? [];
+    const text = blocks.filter((c) => c.type === "text").map((c) => c.text).join("");
+    const calls = blocks.filter((c) => c.type === "tool_use").map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: JSON.stringify(c.input ?? {}) } }));
+    return { ...r, message: { role: "assistant", content: text, ...(calls.length ? { tool_calls: calls } : {}) } };
+  });
 }
 
 let workingModel; // the server default model that last worked
@@ -86,8 +125,7 @@ export async function chat({ credential, messages, tools, json = false, temperat
   const cred = credential ?? serverCredential();
   if (!cred) throw new LlmError("No language model configured. Add a key in the drawer or set GROQ_API_KEY.");
   const p = PROVIDERS[cred.provider];
-  const models = cred.model ? [cred.model] : cred.server ? (workingModel ? [workingModel, ...config.groq.models.filter((m) => m !== workingModel)] : config.groq.models) : [p.model];
-  if (p.kind === "anthropic" && tools?.length) throw new LlmError("Tool calls need an OpenAI-compatible provider.");
+  const models = cred.model ? [cred.model] : cred.server && cred.provider === "groq" ? (workingModel ? [workingModel, ...config.groq.models.filter((m) => m !== workingModel)] : config.groq.models) : [p.model];
 
   let lastError;
   for (const model of models) {
@@ -133,7 +171,8 @@ export async function chatJson({ credential, system, user, temperature = 0.2, ma
 export async function checkCredential(credential) {
   try {
     const m = await chat({ credential, messages: [{ role: "system", content: "Reply with the single word: ok" }, { role: "user", content: "ready?" }], temperature: 0, maxTokens: 8 });
-    return { ok: true, model: credential?.model ?? (credential ? PROVIDERS[credential.provider].model : workingModel), reply: String(m.content ?? "").slice(0, 20) };
+    const cred = credential ?? serverCredential();
+    return { ok: true, provider: cred?.provider, model: credential?.model ?? workingModel ?? (cred ? PROVIDERS[cred.provider].model : undefined), reply: String(m.content ?? "").slice(0, 20) };
   } catch (error) {
     return { ok: false, error: redact(error.message).slice(0, 240) };
   }
@@ -141,16 +180,16 @@ export async function checkCredential(credential) {
 
 // ---------- server default status ----------
 
-let status = { available: Boolean(config.groq.apiKey), probed: false, model: undefined, error: undefined };
-
 /** Probe the server default once (at boot). "available" then means a call succeeded. */
 export async function probeServerLlm() {
-  if (!config.groq.apiKey) return (status = { available: false, probed: true, error: "No GROQ_API_KEY" });
+  const cred = serverCredential();
+  if (!cred) return (status = { available: false, probed: true, error: "No server LLM key (ANTHROPIC_API_KEY, OPENAI_API_KEY, GROQ_API_KEY…)" });
   const r = await checkCredential(undefined);
-  status = { available: r.ok, probed: true, model: r.ok ? workingModel : undefined, error: r.ok ? undefined : r.error, at: new Date().toISOString() };
+  status = { available: r.ok, probed: true, provider: cred.provider, model: r.ok ? (workingModel ?? cred.model ?? PROVIDERS[cred.provider].model) : undefined, error: r.ok ? undefined : r.error, at: new Date().toISOString() };
   return status;
 }
 
-export const llmStatus = () => ({ ...status, model: status.model ?? workingModel ?? config.groq.models[0] });
+let status = { available: Boolean(serverCredential()), probed: false, provider: serverCredential()?.provider, model: undefined, error: undefined };
+export const llmStatus = () => ({ ...status, model: status.model ?? workingModel ?? (status.provider ? PROVIDERS[status.provider].model : undefined) });
 export const llmAvailable = () => status.available;
-export const currentModel = () => workingModel ?? config.groq.models[0];
+export const currentModel = () => workingModel ?? (serverCredential() ? serverCredential().model ?? PROVIDERS[serverCredential().provider].model : config.groq.models[0]);

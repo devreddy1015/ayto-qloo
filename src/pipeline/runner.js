@@ -14,11 +14,12 @@ import { FORMATS, STAGE_LABELS } from "../formats.js";
 import { clearRunCredential, setRunCredential } from "../keys.js";
 import { check } from "./check.js";
 import { diff } from "./diff.js";
+import { produce } from "./produce.js";
 import { share } from "./share.js";
 import { emitEvent, newId, saveRun } from "./store.js";
 import { write } from "./write.js";
 
-export const STAGE_RUNNERS = { resolve, read, gap, audio, spots, audience, travels, write, check, diff, share };
+export const STAGE_RUNNERS = { resolve, read, gap, audio, spots, audience, travels, write, check, produce, diff, share };
 export const stageInfo = (id) => ({ id, ...(STAGE_LABELS[id] ?? { label: id, output: "" }) });
 export const planFor = (format) => (FORMATS[format] ?? FORMATS.film).plan;
 

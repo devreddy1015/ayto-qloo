@@ -1412,6 +1412,146 @@ button.linkish:disabled {
   font-size: var(--step-1);
   font-variation-settings: var(--wide);
 }
+/* produce: tech packs, economics, compliance */
+.packs {
+  display: grid;
+  gap: 0.5rem;
+}
+.pack {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--well);
+  padding: 0.6rem 0.9rem;
+  min-width: 0;
+}
+.pack > summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.7rem;
+  align-items: baseline;
+  list-style: none;
+}
+.pack > summary::-webkit-details-marker {
+  display: none;
+}
+.pack > summary::before {
+  content: "+";
+  font-weight: 800;
+  color: var(--fg-mute);
+  width: 1rem;
+}
+.pack[open] > summary::before {
+  content: "−";
+}
+.pack-sheet {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0.8rem 0 0.3rem 1rem;
+}
+.pack-sheet .spec dd .plain-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.table.pom td.blank {
+  min-width: 3rem;
+  border-bottom: 1px dashed var(--line-strong);
+}
+.table .sub.small {
+  font-weight: 400;
+}
+details.raw > summary {
+  cursor: pointer;
+  font-size: var(--step--1);
+  color: var(--fg-soft);
+}
+/* the 3D garment preview on the fashion write card */
+.garment {
+  min-width: 0;
+}
+.garment-stage {
+  position: relative;
+  height: 360px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: radial-gradient(120% 90% at 50% 100%, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.015) 60%, transparent);
+  display: grid;
+  place-items: center;
+}
+.garment-stage[aria-busy="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.05) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.garment-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+  cursor: grab;
+}
+.garment-canvas:active {
+  cursor: grabbing;
+}
+.croquis {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  padding: 0.8rem 0;
+}
+.garment-tabs .chip,
+.garment-ways .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.chip-mark {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tape);
+}
+.chip[aria-pressed="true"] .chip-mark {
+  color: var(--tape-deep);
+}
+.chip-dot {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  flex: none;
+}
+.garment-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.8rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.garment-foot .garment-ways {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.garment-snap {
+  padding: 0.5rem 0.9rem;
+  font-size: var(--step--1);
+}
+.garment-caption {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--fg-mute);
+}
 .write-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1769,6 +1909,9 @@ button.linkish:disabled {
   }
   .map {
     height: 240px;
+  }
+  .garment-stage {
+    height: 300px;
   }
   .hook {
     font-size: var(--step-1);

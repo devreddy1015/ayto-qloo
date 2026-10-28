@@ -11,6 +11,11 @@ const WITHOUT = {
   film: `A filmmaker describes a film they want to make. With no external data, suggest: 3 reference films they should study, 3 artists for the soundtrack, 3 cities beyond their own where it would land, and the sub-genre lane to take. Return JSON {"references":[""],"artists":[""],"cities":[""],"lane":""}`,
   reel: `A creator describes a reel they want to make. With no external data, suggest: the song or artist to use, 3 places in that city to shoot, and 3 films or series to nod to. Return JSON {"artists":[""],"places":[""],"references":[""]}`,
   fashion: `A small maker describes a drop. With no external data, suggest: 4 brands to study, 3 first cities, 3 artists for the launch. Return JSON {"brands":[""],"cities":[""],"artists":[""]}`,
+  podcast: `Someone describes a podcast they want to start in a city. With no external data, suggest: 3 podcasts to study, 3 guests, an intro-music artist, 3 cities beyond their own where it would land. Return JSON {"references":[""],"guests":[""],"artists":[""],"cities":[""]}`,
+  game: `A small studio describes a game for a city. With no external data, suggest: 3 games to study, a soundtrack artist, 3 cities beyond their own. Return JSON {"references":[""],"artists":[""],"cities":[""]}`,
+  cafe: `Someone describes a café they want to open in a city. With no external data, suggest: 3 places in that city to study, 4 artists for the playlist, 3 brands to stock. Return JSON {"places":[""],"artists":[""],"brands":[""]}`,
+  event: `Someone describes a live night in a city. With no external data, suggest: 3 artists for the lineup, 2 venues, 2 films to screen. Return JSON {"artists":[""],"places":[""],"references":[""]}`,
+  book: `A writer describes a book for a city's readers. With no external data, suggest: 4 comparable titles, 3 cities beyond their own. Return JSON {"references":[""],"cities":[""]}`,
 };
 
 export async function diff(run) {
@@ -32,13 +37,20 @@ export async function diff(run) {
   }
   const flat = (o) => Object.values(o ?? {}).flatMap((v) => (Array.isArray(v) ? v : [v])).filter((x) => typeof x === "string" && x.trim());
   const withoutNames = flat(without);
+  // Writers differ in shape: a field may be a list, one object, or missing. Normalise before reading names.
+  const list = (v) => (Array.isArray(v) ? v : v && typeof v === "object" ? [v] : v ? [v] : []);
+  const pl = w?.plan ?? {};
   const withNames = flat({
-    a: (w?.plan?.references ?? []).map((x) => x?.title ?? x),
-    b: (w?.plan?.soundtrack ?? []).map((x) => x?.artist ?? x),
-    c: w?.plan?.travels_next ?? w?.plan?.first_cities ?? [],
-    d: (w?.plan?.spots ?? []).map((x) => x?.name ?? x),
-    e: w?.plan?.brands_to_study ?? [],
-    f: w?.plan?.audio?.artist,
+    a: list(pl.references).map((x) => x?.title ?? x),
+    b: list(pl.soundtrack).map((x) => x?.artist ?? x),
+    c: [...list(pl.travels_next), ...list(pl.first_cities)],
+    d: list(pl.spots).map((x) => x?.name ?? x),
+    e: [...list(pl.brands_to_study), ...list(pl.brands_to_stock)],
+    f: [pl.audio?.artist, pl.intro_music?.artist].filter(Boolean),
+    g: [...list(pl.guests), ...list(pl.lineup), ...list(pl.playlist)].map((x) => x?.name ?? x?.artist ?? x),
+    h: list(pl.comps).map((x) => x?.title ?? x),
+    i: [...list(pl.study_these), ...list(pl.screening_or_theme)],
+    j: [pl.venue?.name, pl.neighbourhood?.name].filter(Boolean),
   });
   const count = (list) => ({ named: list.length, grounded: list.filter((n) => isKnownName(run, n)).length });
   const a = count(withNames);

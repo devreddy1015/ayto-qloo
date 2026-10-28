@@ -122,7 +122,8 @@ app.post("/api/parse", async (req, res) => {
 app.post("/api/runs", async (req, res) => {
   const body = req.body ?? {};
   const showcase = typeof body.showcase === "string" ? SHOWCASES.find((s) => s.id === body.showcase) : undefined;
-  const credential = showcase ? undefined : credentialOf(body, res);
+  // A showcase may carry the user's own key too, so a judge with a key gets real writing from one click.
+  const credential = credentialOf(body, res);
   if (credential === null) return;
   if (!showcase && !allow(req.ip)) return res.status(429).json({ error: "You've started a lot of runs this hour. Try again later." });
   if (!showcase && !allowGlobal({ llm: !credential && llmAvailable() })) return res.status(503).json({ error: "The demo has hit today's budget. The showcase runs still work, or bring your own LLM key." });
