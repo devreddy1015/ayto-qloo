@@ -673,6 +673,10 @@ function onEvent(event) {
     case "call":
       upsertCall(event);
       break;
+    case "usage":
+      if (state.run) state.run.usage = event.usage;
+      updateStatus();
+      break;
     case "thought":
       showThought(event);
       break;
@@ -688,7 +692,9 @@ function updateStatus() {
   const llm = run.llm?.byok ? `your ${providerInfo(run.llm.provider)?.label ?? run.llm.provider} key${run.llm.model ? ` (${run.llm.model})` : ""}` : state.presets.llm?.available ? `the server's model (${state.presets.llm.model})` : "no language model";
   const mode = run.mode === "samples" ? "recorded samples" : run.mode === "fake" ? "synthetic sample data" : "live Qloo data";
   const head = run.status === "running" ? `Working: ${done} of ${state.plan.length} stages done.` : run.status === "error" ? "Stopped on an error." : `Done: ${state.plan.length} stages.`;
-  $("#run-status").textContent = `${head} ${mode[0].toUpperCase() + mode.slice(1)}; writing with ${llm}.`;
+  const u = run.usage;
+  const meter = u?.calls ? ` Model tokens so far: ${(u.input + u.output).toLocaleString()} over ${u.calls} call${u.calls === 1 ? "" : "s"}${u.byok ? " on your key" : ""}.` : "";
+  $("#run-status").textContent = `${head} ${mode[0].toUpperCase() + mode.slice(1)}; writing with ${llm}.${meter}`;
   const calls = run.ledger?.length ?? $("#trace-list").children.length;
   $("#trace-status").textContent = `${calls} Qloo request${calls === 1 ? "" : "s"}`;
   if (run.status !== "running") setupAsk();

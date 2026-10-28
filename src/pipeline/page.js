@@ -69,7 +69,7 @@ export function renderSharePage(run) {
   const body = pg.format === "reel" ? reelBody(p) : pg.format === "fashion" ? fashionBody(p, pg) : pg.format === "film" ? filmBody(p) : genericBody(p);
   const NOUN = { film: "A film", reel: "A reel", fashion: "A drop", podcast: "A podcast", game: "A game", cafe: "A café", event: "A night", book: "A book" };
   const kicker = `${NOUN[pg.format] ?? "An idea"} for ${pg.city}`;
-  const fine = `Built with AYTO on Qloo taste signals (${pg.ledgerCount} requests)${pg.grounded ? `; ${pg.grounded.grounded} of ${pg.grounded.checked} names trace to Qloo` : ""}. Qloo describes aggregate taste, not individuals and not sales. ${pg.fallback ? "Written from the evidence template without a language model." : `Written with ${pg.llm?.provider ?? "a language model"}${pg.llm?.model ? ` (${pg.llm.model})` : ""}.`}`;
+  const fine = `Built with AYTO on Qloo taste signals (${pg.ledgerCount} requests)${pg.grounded ? `; ${pg.grounded.grounded} of ${pg.grounded.checked} names trace to Qloo` : ""}. Qloo describes aggregate taste, not individuals and not sales. ${pg.fallback ? "Written from the evidence template without a language model." : `Written with ${pg.llm?.provider ?? "a language model"}${pg.llm?.model ? ` (${pg.llm.model})` : ""}.`}${pg.usage?.calls ? ` Model tokens: ${pg.usage.input + pg.usage.output} over ${pg.usage.calls} call${pg.usage.calls === 1 ? "" : "s"}${pg.usage.byok ? ", on the maker's own key" : ""}.` : ""}`;
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(pg.title)} · AYTO</title>
