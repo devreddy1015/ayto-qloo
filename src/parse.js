@@ -43,7 +43,7 @@ export function heuristicParse(text) {
 }
 
 const EXTRACT = `Extract a structured request from a creator's message. Return JSON:
-{"format":"one of film|reel|fashion|other. film = any movie, short film, series or story. reel = short video, reel, TikTok, YouTube short. fashion = clothing, a drop, a label, a garment.",
+{"format":"one of film|reel|fashion|podcast|game|cafe|event|book|other. film = any movie, short film, series or screen story. reel = short video, reel, TikTok, YouTube short. fashion = clothing, a drop, a label, a garment. podcast = an audio or talk show. game = a video game. cafe = a café, restaurant, bar or menu. event = a live night, gig, party, screening or pop-up. book = a novel, web novel, comic or story collection.",
  "city":"the city name only, in its common English spelling, else \\"\\"",
  "country":"the country if given or clearly implied by the city, else \\"\\"",
  "theme":"the subject or genre in 1-3 plain words (crime, nightlife and food, romance), else \\"\\"",

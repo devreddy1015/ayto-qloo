@@ -67,4 +67,35 @@ export const GROUND = {
     ["plan.palette[].from_tags[]", "tag"],
     ["plan.soundtrack[]", "artist"],
   ],
+  podcast: [
+    ["plan.guests[].name", "person"],
+    ["plan.intro_music.artist", "artist"],
+    ["plan.references[].title", "title"],
+    ["plan.travels_next[]", "city"],
+    ["plan.lane.flavour", "tag"],
+  ],
+  game: [
+    ["plan.references[].title", "title"],
+    ["plan.soundtrack.artist", "artist"],
+    ["plan.travels_next[]", "city"],
+    ["plan.lane.flavour", "tag"],
+  ],
+  cafe: [
+    ["plan.playlist[].artist", "artist"],
+    ["plan.neighbourhood.name", "neighbourhood"],
+    ["plan.study_these[]", "place"],
+    ["plan.brands_to_stock[]", "brand"],
+    ["plan.lane.flavour", "tag"],
+  ],
+  event: [
+    ["plan.lineup[].artist", "artist"],
+    ["plan.venue.name", "place"],
+    ["plan.screening_or_theme[]", "title"],
+    ["plan.lane.flavour", "tag"],
+  ],
+  book: [
+    ["plan.comps[].title", "title"],
+    ["plan.travels_next[]", "city"],
+    ["plan.lane.flavour", "tag"],
+  ],
 };

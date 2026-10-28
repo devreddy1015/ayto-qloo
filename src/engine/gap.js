@@ -16,6 +16,16 @@ async function flavourRead(q, title, { type, tagIds, entityIds, where }) {
   return tagPoints(raw ?? {});
 }
 
+/** The year an entity came out, from whichever field its type carries (films: release_year; podcasts and games: release_date; books: publication_year). */
+export function yearOf(e) {
+  const p = e?.properties ?? {};
+  const n = Number(p.release_year ?? p.publication_year);
+  if (Number.isFinite(n) && n > 1800) return n;
+  const d = String(p.release_date ?? p.publication_date ?? "").slice(0, 4);
+  const y = Number(d);
+  return Number.isFinite(y) && y > 1800 ? y : undefined;
+}
+
 /** Words to the same stem, so "Biographical" (an affinity tag) meets "biography" (an entity tag). */
 const stem = (name) => String(name ?? "").toLowerCase().replace(/[^a-z0-9]/g, "").replace(/(ical|ies|ing|ed|al|s|y)$/, "");
 
@@ -27,7 +37,8 @@ const stem = (name) => String(name ?? "").toLowerCase().replace(/[^a-z0-9]/g, ""
  */
 async function supplyRead(q, { type, themeIds, flavours, where }) {
   const minYear = thisYear() - 4;
-  const raw = await q.tryInsights(`The ${type === "tv_show" ? "series" : "films"} with the theme that ${where.split(",")[0]} favours, with their tags and years`, {
+  const NOUN = { movie: "films", tv_show: "series", podcast: "podcasts", videogame: "games", book: "books" };
+  const raw = await q.tryInsights(`The ${NOUN[type] ?? type} with the theme that ${where.split(",")[0]} favours, with their tags and years`, {
     "filter.type": `urn:entity:${type}`,
     "filter.tags": themeIds[0],
     "signal.location.query": where,
@@ -35,14 +46,14 @@ async function supplyRead(q, { type, themeIds, flavours, where }) {
   });
   const entities = raw?.results?.entities ?? [];
   if (!entities.length) return { supply: {}, sample: 0, recent: 0, minYear };
-  const isRecent = (e) => (e.properties?.release_year ?? 0) >= minYear;
+  const isRecent = (e) => (yearOf(e) ?? 0) >= minYear;
   const supply = {};
   for (const f of flavours) {
     const fs = stem(f.name);
     const matches = entities.filter((e) => (e.tags ?? []).some((t) => (t.tag_id ?? t.id) === f.id || stem(t.name) === fs));
     const recent = matches.filter(isRecent);
     // count = recent titles in the lane (what the gap weighs); total = the lane exists in this theme's catalogue at all.
-    supply[f.id] = { id: f.id, name: f.name, count: recent.length, total: matches.length, titles: [...recent, ...matches.filter((e) => !isRecent(e))].slice(0, 6).map((e) => ({ name: e.name, year: e.properties?.release_year, recent: isRecent(e) })) };
+    supply[f.id] = { id: f.id, name: f.name, count: recent.length, total: matches.length, titles: [...recent, ...matches.filter((e) => !isRecent(e))].slice(0, 6).map((e) => ({ name: e.name, year: yearOf(e), recent: isRecent(e) })) };
   }
   return { supply, sample: entities.length, recent: entities.filter(isRecent).length, minYear };
 }

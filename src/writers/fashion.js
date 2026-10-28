@@ -8,7 +8,7 @@ ${RULES}
 Return JSON:
 {"drop_name":"two or three words, original, no real brand or title in it",
  "positioning":"one sentence: what this drop is and who it is for",
- "styles":[{"name":"short product name","category":"e.g. oversized tee","cues":["silhouette, material, print, detail"],"from_tags":["flavour tags from the evidence"],"colourways":["palette names"],"hero":true}],
+ "styles":[{"name":"short product name","category":"e.g. oversized tee","garment":"one of tee|oversized_tee|hoodie|sweatshirt|dress|kurta|jacket|shorts|set","cues":["silhouette, material, print, detail"],"print":{"type":"graphic|stripe|typographic|none","placement":"chest|back|all_over|sleeve","motif":"2-4 words, no real brand or title"},"from_tags":["flavour tags from the evidence"],"colourways":["palette names"],"hero":true}],
  "palette":[{"name":"","hex":"#rrggbb","from_tags":[""]}],
  "brands_to_study":["from the evidence: the ones this city favours beyond the country"],
  "soundtrack":["artists from the evidence, for the launch reel"],
@@ -22,8 +22,11 @@ Give 3-5 styles with 1-2 hero, 3-5 palette colours. Every style needs non-empty 
     return {
       drop_name: `${ev.city} Drop 01`,
       positioning: `A small drop for the ${ev.city} crowd${ev.loves?.length ? ` that loves ${ev.loves.join(" and ")}` : ""}.`,
-      styles: [{ name: "Tee 01", category: "tee", cues: [], from_tags: tags.slice(0, 2), colourways: [], hero: true }],
-      palette: [],
+      styles: [
+        { name: "Tee 01", category: "tee", garment: "tee", cues: ["regular fit", "180 GSM cotton"], print: { type: "typographic", placement: "chest", motif: ev.city ?? "" }, from_tags: tags.slice(0, 2), colourways: [], hero: true },
+        { name: "Hoodie 01", category: "hoodie", garment: "hoodie", cues: ["relaxed fit", "fleece"], print: { type: "graphic", placement: "back", motif: "" }, from_tags: tags.slice(1, 3), colourways: [], hero: false },
+      ],
+      palette: [{ name: "Ink", hex: "#19234d", from_tags: tags.slice(0, 1) }, { name: "Tape", hex: "#f2be22", from_tags: tags.slice(1, 2) }, { name: "Chalk", hex: "#f3efe6", from_tags: [] }],
       brands_to_study: (ev.what_the_city_favours?.brand?.only_here ?? []).slice(0, 4),
       soundtrack: (ev.artists ?? []).slice(0, 2).map((a) => a.name),
       first_cities: [ev.city, ...(ev.cities_that_lean_the_same_way ?? []).slice(0, 2)].filter(Boolean),

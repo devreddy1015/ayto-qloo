@@ -33,24 +33,42 @@ function reelBody(p) {
   ].join("");
 }
 
-function fashionBody(p) {
+function fashionBody(p, pg) {
   return [
     section("Positioning", para(p.positioning)),
     p.palette?.length ? `<div class="pal">${p.palette.slice(0, 6).map((c) => `<span style="background:${hex(c.hex)}">${esc(c.name)}</span>`).join("")}</div>` : "",
-    p.styles?.length ? section("The pieces", `<div class="grid">${p.styles.map((s) => `<article class="card${s.hero ? " hero" : ""}"><h3>${esc(s.name)}</h3><p>${esc(s.category)}</p>${s.cues?.length ? `<p>${esc(s.cues.join(" · "))}</p>` : ""}${s.colourways?.length ? `<p>${esc(s.colourways.join(" · "))}</p>` : ""}</article>`).join("")}</div>`) : "",
+    p.styles?.length ? section("The pieces", `<div class="grid">${p.styles.map((s) => `<article class="card${s.hero ? " hero" : ""}"><h3>${esc(s.name)}</h3><p>${esc(s.category)}${s.garment ? ` · ${esc(String(s.garment).replace(/_/g, " "))}` : ""}</p>${s.cues?.length ? `<p>${esc(s.cues.join(" · "))}</p>` : ""}${s.print?.type && s.print.type !== "none" ? `<p>${esc(s.print.type)} print, ${esc(String(s.print.placement ?? "").replace(/_/g, " "))}${s.print.motif ? `: ${esc(s.print.motif)}` : ""}</p>` : ""}${s.colourways?.length ? `<p>${esc(s.colourways.join(" · "))}</p>` : ""}</article>`).join("")}</div>`) : "",
     p.brands_to_study?.length ? section("Study these", chips(p.brands_to_study)) : "",
     p.first_cities?.length ? section("Land first in", chips(p.first_cities)) : "",
     p.soundtrack?.length ? section("Launch soundtrack", chips(p.soundtrack)) : "",
     p.channels?.length ? section("Channels", chips(p.channels)) : "",
+    pg.produce?.mrp ? section("First run (editable assumptions)", para(`MRP ₹${pg.produce.mrp} incl. ${Math.round((pg.produce.gstRate ?? 0) * 100)}% GST · ${pg.produce.totalUnits} units` + (pg.produce.allocation?.length ? ` · ${pg.produce.allocation.map((a) => `${a.city} ${a.units}`).join(", ")}` : ""))) : "",
   ].join("");
+}
+
+const LABEL = (k) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+const SKIP = new Set(["titles", "names", "fallback", "lane"]);
+/** Any format: strings as paragraphs, string lists as chips, object lists as bullet lists, objects as lines. */
+function genericBody(p) {
+  const out = [];
+  if (p.lane?.flavour) out.push(section("The lane", para(`${p.lane.flavour}. ${p.lane.why ?? ""}`)));
+  for (const [k, v] of Object.entries(p)) {
+    if (SKIP.has(k) || v === undefined || v === null || v === "") continue;
+    if (typeof v === "string") out.push(section(LABEL(k), para(v)));
+    else if (Array.isArray(v) && v.every((x) => typeof x === "string")) out.push(v.length ? section(LABEL(k), chips(v)) : "");
+    else if (Array.isArray(v)) out.push(v.length ? section(LABEL(k), `<ul>${v.map((x) => `<li>${Object.entries(x ?? {}).map(([kk, vv], i) => (i === 0 ? `<strong>${esc(vv)}</strong>` : esc(String(vv ?? "")))).join(" ")}</li>`).join("")}</ul>`) : "");
+    else if (typeof v === "object") out.push(section(LABEL(k), para(Object.values(v).filter((x) => typeof x === "string" && x).join(". "))));
+  }
+  return out.join("");
 }
 
 export function renderSharePage(run) {
   const pg = run.publish?.page;
   if (!pg) return undefined;
   const p = pg.plan ?? {};
-  const body = pg.format === "reel" ? reelBody(p) : pg.format === "fashion" ? fashionBody(p) : filmBody(p);
-  const kicker = `${pg.format === "film" ? "A film" : pg.format === "reel" ? "A reel" : "A drop"} for ${pg.city}`;
+  const body = pg.format === "reel" ? reelBody(p) : pg.format === "fashion" ? fashionBody(p, pg) : pg.format === "film" ? filmBody(p) : genericBody(p);
+  const NOUN = { film: "A film", reel: "A reel", fashion: "A drop", podcast: "A podcast", game: "A game", cafe: "A café", event: "A night", book: "A book" };
+  const kicker = `${NOUN[pg.format] ?? "An idea"} for ${pg.city}`;
   const fine = `Built with AYTO on Qloo taste signals (${pg.ledgerCount} requests)${pg.grounded ? `; ${pg.grounded.grounded} of ${pg.grounded.checked} names trace to Qloo` : ""}. Qloo describes aggregate taste, not individuals and not sales. ${pg.fallback ? "Written from the evidence template without a language model." : `Written with ${pg.llm?.provider ?? "a language model"}${pg.llm?.model ? ` (${pg.llm.model})` : ""}.`}`;
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
