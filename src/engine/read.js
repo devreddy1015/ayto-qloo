@@ -43,15 +43,47 @@ export async function read(run) {
   const columns = {};
   await Promise.all(
     f.types.map(async (type) => {
+      // Places are local by nature, and Qloo's place index with category tags signalled at country scope is far too slow
+      // (90 s timeouts for Spain). Read venues inside the city instead, with no country or contrast column.
+      if (type === "place") {
+        const tagIds = filterIds.place?.length ? filterIds.place : themeIds;
+        const base = { target_type: "place", limit: 20, filter_location: cityWhere };
+        // Richest first: category tags with the loves as signals; then the city itself as the taste signal; then plain venues in the city.
+        const attempts = [
+          tagIds.length && signals.length ? ["by category, for the loves", { include_tags: tagIds, signals }] : undefined,
+          tagIds.length ? ["by category", { include_tags: tagIds, signal_location: cityWhere }] : undefined,
+          signals.length ? ["for the loves", { signals }] : undefined,
+          ["within the city", { signal_location: cityWhere }],
+        ].filter(Boolean);
+        let env;
+        let mode = "none";
+        for (const [label, extra] of attempts) {
+          env = await q.tryTool(`places in ${r.city.name}, ${label}`, "qloo_recommend", { ...base, ...extra });
+          if (env?.results?.length) {
+            mode = label;
+            break;
+          }
+        }
+        const rows = threeColumns(env?.results ?? [], [], []).map((x) => ({ ...x, onlyHere: false, notCountry: undefined, notContrast: undefined }));
+        for (const row of rows) {
+          registerEntity(run, { id: row.id, name: row.name, type, source: "recommend" });
+          registerName(run, row.name, type, { id: row.id });
+        }
+        columns.place = { type, filter: mode, rows, countryNames: [], contrastNames: [], onlyHere: [], hiddenGems: rows.filter((x) => x.hiddenGem).map((x) => x.name), coverage: rows.length === 0 ? "none" : rows.length < 8 ? "thin" : "ok" };
+        return;
+      }
       // A type with a category filter for this format (fashion brands, café places) uses it; everything else uses the theme tags.
       const filterTags = filterIds[type]?.length ? filterIds[type] : themeIds;
-      const city = await column(q, type, cityWhere, filterTags, signals, `in ${r.city.name}`);
-      // The country and contrast reads use the same shape the city read ended up with, so the lists are comparable.
-      const sameAs = city.extra;
-      const [country, contrast] = await Promise.all([
-        q.tryTool(`Same read for ${countryWhere}`, "qloo_recommend", { target_type: type, limit: 20, ...sameAs, signal_location: countryWhere }),
-        contrastWhere ? q.tryTool(`Same read for ${r.contrast.name} (contrast)`, "qloo_recommend", { target_type: type, limit: 20, ...sameAs, signal_location: contrastWhere }) : Promise.resolve(undefined),
-      ]);
+      // The country and contrast reads must use the same request shape as the city read so the lists are comparable.
+      // They start at once with the richest shape; only if the city read had to fall back are they run again.
+      const guess = filterTags.length && signals.length ? { include_tags: filterTags, signals } : filterTags.length ? { include_tags: filterTags } : signals.length ? { signals } : {};
+      const others = (extra) =>
+        Promise.all([
+          q.tryTool(`Same read for ${countryWhere}`, "qloo_recommend", { target_type: type, limit: 20, ...extra, signal_location: countryWhere }),
+          contrastWhere ? q.tryTool(`Same read for ${r.contrast.name} (contrast)`, "qloo_recommend", { target_type: type, limit: 20, ...extra, signal_location: contrastWhere }) : Promise.resolve(undefined),
+        ]);
+      const [city, firstOthers] = await Promise.all([column(q, type, cityWhere, filterTags, signals, `in ${r.city.name}`), others(guess)]);
+      const [country, contrast] = JSON.stringify(city.extra) === JSON.stringify(guess) ? firstOthers : await others(city.extra);
       const rows = threeColumns(city.results, country?.results ?? [], contrast?.results ?? []);
       for (const row of rows) {
         registerEntity(run, { id: row.id, name: row.name, type, source: "recommend" });

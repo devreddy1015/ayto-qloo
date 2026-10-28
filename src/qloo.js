@@ -234,6 +234,7 @@ async function withRetry(fn, attempts = 3) {
     } catch (error) {
       lastError = error;
       if (!(error instanceof QlooError) || !error.retryable || i === attempts - 1) throw error;
+      if (error.code === "QLOO_TIMEOUT" && i >= 1) throw error; // a call that timed out twice is slow, not flaky
       await new Promise((r) => setTimeout(r, 800 * 2 ** i));
     }
   }
