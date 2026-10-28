@@ -8,6 +8,7 @@ import { qlooSearch, qlooTool } from "./qloo.js";
 
 const ENTITY_TYPES = ["artist", "tv_show", "movie", "person", "brand", "videogame", "podcast", "book"];
 const GENRES = ["crime", "romance", "romantic", "comedy", "horror", "thriller", "drama", "action", "fantasy", "sci-fi", "science fiction", "documentary", "animation", "mystery", "nightlife", "food", "street food", "travel", "fitness", "dance", "music", "hip hop", "k-pop", "kpop", "anime", "gaming", "sports", "cricket", "football", "wedding", "festival", "family", "kids", "history", "mythology", "devotional", "political", "war", "heist", "gangster", "courtroom", "revenge", "superhero", "coming of age", "college", "office", "tech", "startup", "cars", "bikes", "nature", "wildlife", "beach", "monsoon", "comedy", "satire", "true crime", "biopic", "musical", "rom-com", "noir", "western", "spy", "survival", "zombie", "streetwear", "luxury", "vintage", "minimal"];
+const NOT_A_CITY = new Set(["cafe", "café", "cafes", "home", "office", "school", "college", "studio", "shop", "store", "mall", "city", "town", "village", "india", "bed", "car", "bus", "train", "street", "park", "club", "bar", "pub", "hotel", "room", "house", "kitchen", "garden", "beach", "mountains", "hills", "love", "life", "general", "public", "this", "that", "there", "here", "it", "them", "future", "past", "time", "night", "morning", "evening", "cinema", "theatre", "theater", "market", "gym", "hospital", "temple", "church", "mosque"]);
 const STOP = new Set(["for", "about", "with", "and", "the", "theme", "will", "would", "that", "which", "it", "is", "to", "a", "an", "my", "our", "on", "of", "be", "where", "there", "here", "city"]);
 
 const clean = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
@@ -27,6 +28,9 @@ export function heuristicParse(text) {
       kept.push(w);
     }
     city = title(kept.join(" ").replace(/[.,;!?]+$/, ""));
+    // "in a café", "in the office", "in crime": a format, genre or everyday-place word is never a city.
+    const word = city.toLowerCase();
+    if (!word || GENRES.includes(word) || NOT_A_CITY.has(word) || FORMAT_HINTS.some(([, re]) => re.test(word))) city = "";
   }
   let theme = "";
   const a = t.match(/\b(?:about|theme(?:d)?(?:\s+(?:is|will be|would be|of))?|genre(?:\s+is)?)\s+([a-z][\w' -]{2,40}?)(?=[,.;!?]|\s+(?:in|for|and|with|that|which|set)\b|$)/i);
@@ -100,8 +104,11 @@ export async function candidates(input) {
   const [cityPart, countryPart] = input.city.query.split(",").map((s) => s.trim());
   const cityEnv = await qlooSearch({ query: cityPart, type: "locality", take: 8 }).catch(() => ({ results: [] }));
   const best = pickCity(cityEnv.results ?? [], cityPart, { wantedId: input.city.id });
+  // Only localities whose name (or an alias) carries what was typed are offered; a typo never turns into a random city.
+  const needle = cityPart.toLowerCase();
+  const matches = (r) => [r.name, ...(r.properties?.akas ?? []).map((a) => a?.value)].some((n) => String(n ?? "").toLowerCase().includes(needle));
   const seen = new Set();
-  const cities = [best, ...(cityEnv.results ?? [])]
+  const cities = [best, ...(cityEnv.results ?? []).filter(matches)]
     .filter((r) => r?.entity_id && r?.location && !seen.has(r.entity_id) && seen.add(r.entity_id))
     .slice(0, 5)
     .map((r) => toCity(r, countryPart && marketFor(countryPart)))

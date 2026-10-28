@@ -95,6 +95,21 @@ export const FORMATS = {
 
 export const FORMAT_IDS = Object.keys(FORMATS);
 
+/**
+ * Category filters for reads whose entity type is broad. Qloo's "brand" holds museums and
+ * nonprofits next to labels, and "place" holds theatres next to cafés; the format says which slice it means.
+ * Each entry: the find_tags queries and the name/id pattern a tag must match.
+ */
+export const CATEGORY_FILTERS = {
+  fashion: { brand: { queries: ["clothing brand", "fashion", "streetwear", "footwear"], match: /cloth|apparel|fashion|streetwear|footwear|sneaker|shoe|luxury|sportswear|athleisure|denim|accessor|jewel|handbag/i } },
+  cafe: {
+    brand: { queries: ["coffee brand", "food brand", "beverage", "bakery"], match: /coffee|food|beverage|drink|tea|bakery|snack|dairy|chocolate|juice|cafe|café/i },
+    place: { queries: ["cafe", "coffee shop", "restaurant", "bakery", "bar"], match: /caf|coffee|restaurant|bakery|dessert|tea|bar\b|pub|bistro|diner|eatery|food/i },
+  },
+  event: { place: { queries: ["music venue", "bar", "club", "theater", "arena"], match: /venue|bar\b|club|lounge|theat|arena|hall|stage|pub|rooftop|live music/i } },
+  reel: { place: { queries: ["bar", "cafe", "park", "nightclub", "landmark"], match: /bar\b|caf|park|club|lounge|landmark|attraction|rooftop|beach|market|street food|restaurant/i } },
+};
+
 export const STAGE_LABELS = {
   resolve: { label: "Resolve", output: "City, theme and loves as Qloo knows them" },
   read: { label: "Read the city", output: "What this city loves vs the country" },

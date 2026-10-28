@@ -2,6 +2,7 @@
 // with a city Qloo cannot place; a theme Qloo cannot tag is kept as plain
 // words and the read falls back to the loves.
 import { CANDIDATE_CITIES, COUNTRY_ALIASES, displayName, localityName, pickLocality } from "../cities.js";
+import { CATEGORY_FILTERS } from "../formats.js";
 import { evidenceFor, registerEntity, registerName } from "../pipeline/evidence.js";
 
 const TAG_PREFERENCE = ["urn:tag:genre:qloo", "urn:tag:genre:media", "urn:tag:subgenre:qloo", "urn:tag:theme:qloo", "urn:tag:category:qloo", "urn:tag:category:place", "urn:tag:plot:qloo", "urn:tag:keyword:qloo", "urn:tag:keyword:media"];
@@ -115,22 +116,35 @@ async function resolveLove(q, run, love) {
   return entity;
 }
 
-const FASHION_TAG = /cloth|apparel|fashion|streetwear|footwear|sneaker|shoe|luxury|sportswear|athleisure|denim|accessor|jewel|handbag/i;
-/** Qloo's fashion categories, so the brand read stays on clothing and not energy drinks. */
-async function fashionTags(q) {
+/**
+ * Qloo's category tags for one slice of a broad type ("coffee brand", "cafe"), so a brand read
+ * stays on labels and a place read on cafés. One receipt per query; only tags that look like
+ * brand or place categories and match the format's pattern are kept.
+ */
+async function categoryTags(q, type, { queries, match }) {
   const found = new Map();
-  for (const query of ["clothing brand", "fashion", "streetwear", "footwear"]) {
-    const env = await q.tryTool(`Find Qloo's fashion categories (“${query}”)`, "qloo_find_tags", { query, limit: 10 });
-    for (const t of env?.results ?? []) if (t?.id && FASHION_TAG.test(t.name ?? "") && /brand|category/i.test(`${t.type ?? ""} ${t.id}`)) found.set(t.id, { id: t.id, name: t.name, type: t.type });
+  for (const query of queries) {
+    const env = await q.tryTool(`Find Qloo's ${type} categories (“${query}”)`, "qloo_find_tags", { query, limit: 10 });
+    for (const t of env?.results ?? []) {
+      const kind = `${t.type ?? ""} ${t.id ?? ""}`;
+      if (t?.id && match.test(t.name ?? "") && /brand|category|place|cuisine|amenity|genre/i.test(kind)) found.set(t.id, { id: t.id, name: t.name, type: t.type });
+    }
   }
   return [...found.values()].slice(0, 8);
+}
+
+async function formatFilters(q, format) {
+  const spec = CATEGORY_FILTERS[format] ?? {};
+  const out = {};
+  for (const [type, cfg] of Object.entries(spec)) out[type] = await categoryTags(q, type, cfg);
+  return out;
 }
 
 export async function resolve(run) {
   const q = evidenceFor(run, "resolve");
   const input = run.input;
   const city = await resolveCity(q, run, input);
-  const [contrast, theme, fashion, ...loves] = await Promise.all([resolveContrast(q, run, city), resolveTheme(q, run, input), input.format === "fashion" ? fashionTags(q) : Promise.resolve([]), ...(input.loves ?? []).slice(0, 3).map((l) => resolveLove(q, run, l))]);
+  const [contrast, theme, filters, ...loves] = await Promise.all([resolveContrast(q, run, city), resolveTheme(q, run, input), formatFilters(q, input.format), ...(input.loves ?? []).slice(0, 3).map((l) => resolveLove(q, run, l))]);
   const found = loves.filter(Boolean);
   if (!theme.tags.length && !found.length && (input.theme?.query || input.loves?.length)) {
     throw new Error("Qloo couldn't find that theme or those names. Try a genre word (crime, romance, nightlife) or an exact title.");
@@ -139,7 +153,8 @@ export async function resolve(run) {
     city,
     contrast,
     theme,
-    fashionTags: fashion,
+    filters,
+    fashionTags: filters.brand ?? [],
     loves: found,
     label: `${city.name}, ${city.market ?? city.country}`,
     summary: `${city.name} (${city.market ?? city.country})${theme.tags.length ? ` · ${theme.tags.map((t) => t.name).join(", ")}` : ""}${found.length ? ` · ${found.map((l) => l.name).join(", ")}` : ""}${contrast ? ` · vs ${contrast.name}` : ""}`,

@@ -29,3 +29,10 @@ test("a short film is a film, not a reel; shorts alone is a reel", () => {
   assert.equal(heuristicParse("I make YouTube shorts in Pune").format, "reel");
   assert.equal(heuristicParse("I make reels in Las Vegas").format, "reel");
 });
+
+test("a format or everyday word after 'in' is never taken as the city", () => {
+  assert.equal(heuristicParse("i want to drink a cup in cafe").city, "");
+  assert.equal(heuristicParse("a crime story set in crime").city, "");
+  assert.equal(heuristicParse("I work in the office").city, "");
+  assert.equal(heuristicParse("a café in Kochi").city, "Kochi");
+});
