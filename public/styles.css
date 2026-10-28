@@ -1929,3 +1929,12 @@ details.raw > summary {
     transition: none !important;
   }
 }
+
+/* ---- editable production assumptions (produce card) ---- */
+.assumptions { margin: 0.75rem 0 1.25rem; }
+.agrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.6rem 0.8rem; }
+.afield { display: grid; gap: 0.25rem; font-size: 0.8rem; color: var(--fg-soft, #b6b6be); }
+.afield input, .afield select { width: 100%; min-width: 0; background: rgba(255,255,255,0.06); color: inherit; border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; padding: 0.45rem 0.55rem; font: inherit; }
+.afield input:focus, .afield select:focus { outline: 2px solid #f2be22; outline-offset: 1px; }
+.assumptions .actions { display: flex; align-items: center; gap: 0.8rem; margin-top: 0.7rem; flex-wrap: wrap; }
+@media (max-width: 720px) { .agrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

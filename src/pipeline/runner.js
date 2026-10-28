@@ -132,6 +132,20 @@ export async function editAndRerun(run, stageId, edits, credential) {
   return run;
 }
 
+/** Rerun from a stage with changed input (production assumptions). The stages before it keep their outputs. */
+export async function rerunFrom(run, stageId, { assumptions } = {}) {
+  const index = run.plan.indexOf(stageId);
+  if (index < 0) throw new Error("This run has no such stage.");
+  if (isRunning(run.id)) throw new Error("This run is still working. Wait for it to finish.");
+  if (index > 0 && run.stages[run.plan[index - 1]]?.status !== "done") throw new Error("The stages before it must finish first.");
+  if (assumptions) {
+    const prev = run.input.assumptions ?? {};
+    run.input.assumptions = { ...prev, ...assumptions, unitCost: { ...(prev.unitCost ?? {}), ...(assumptions.unitCost ?? {}) } };
+  }
+  await saveRun(run);
+  return startRun(run, index);
+}
+
 /** Rerun from the write stage, with a (new) credential. */
 export async function regenerate(run, credential) {
   const index = run.plan.indexOf("write");

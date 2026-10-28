@@ -14,6 +14,7 @@ function filmBody(p) {
     p.synopsis ? section("Synopsis", ["act1", "act2", "act3"].map((k, i) => (p.synopsis[k] ? `<p><strong>Act ${i + 1}.</strong> ${esc(p.synopsis[k])}</p>` : "")).join("")) : "",
     p.characters?.length ? section("Characters", `<ul>${p.characters.map((c) => `<li><strong>${esc(c.role)}</strong> ${esc(c.note)}</li>`).join("")}</ul>`) : "",
     p.references?.length ? section("Study these", `<ul>${p.references.map((c) => `<li><strong>${esc(c.title)}</strong> ${esc(c.take)}</li>`).join("")}</ul>`) : "",
+    p.cast_ideas?.length ? section("Cast ideas", `<ul>${p.cast_ideas.map((c) => `<li><strong>${esc(c.name)}</strong>${c.role ? ` as ${esc(c.role)}` : ""}${c.why ? ` · ${esc(c.why)}` : ""}</li>`).join("")}</ul>`) : "",
     p.soundtrack?.length ? section("Soundtrack", chips(p.soundtrack.map((s) => `${s.artist}${s.use ? ` · ${s.use}` : ""}`))) : "",
     p.travels_next?.length ? section("Travels next", chips(p.travels_next)) : "",
     p.avoid?.length ? section("Avoid", `<ul>${p.avoid.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>`) : "",
@@ -62,6 +63,36 @@ function genericBody(p) {
   return out.join("");
 }
 
+/** The same page as Markdown, for a producer's inbox or a sampling room. */
+export function renderShareMarkdown(run) {
+  const pg = run.publish?.page;
+  if (!pg) return undefined;
+  const p = pg.plan ?? {};
+  const NOUN = { film: "A film", reel: "A reel", fashion: "A drop", podcast: "A podcast", game: "A game", cafe: "A café", event: "A night", book: "A book" };
+  const lines = [`# ${pg.title}`, "", `${NOUN[pg.format] ?? "An idea"} for ${pg.city}${pg.theme?.length ? ` · ${pg.theme.join(", ")}` : ""}${pg.loves?.length ? ` · ${pg.loves.join(", ")}` : ""}`, ""];
+  if (pg.lanes?.length) {
+    lines.push("## The gap", "");
+    for (const l of pg.lanes) lines.push(`- **${l.name}**: ${pg.city} #${l.cityRank} · ${pg.country} #${l.countryRank ?? "–"}${l.supplyCount !== undefined ? ` · ${l.supplyCount} recent titles` : ""}`);
+    lines.push("");
+  }
+  const label = (k) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+  const present = (vv) => vv !== undefined && vv !== null && vv !== "" && typeof vv !== "boolean" && !(Array.isArray(vv) && !vv.length) && !(typeof vv === "object" && !Array.isArray(vv) && !Object.values(vv).some((x) => x !== undefined && x !== ""));
+  // Nested values flatten to text: lists join, objects become "key value" pairs, so nothing prints as [object Object].
+  const flat = (vv) => (Array.isArray(vv) ? vv.map(flat).join(", ") : vv && typeof vv === "object" ? Object.entries(vv).filter(([, x]) => present(x)).map(([k, x]) => `${k.replace(/_/g, " ")} ${flat(x)}`).join(", ") : String(vv));
+  const skip = new Set(["titles", "names", "fallback", "title", "drop_name"]);
+  for (const [k, v] of Object.entries(p)) {
+    if (skip.has(k) || v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length)) continue;
+    lines.push(`## ${label(k)}`, "");
+    if (typeof v === "string") lines.push(v, "");
+    else if (Array.isArray(v) && v.every((x) => typeof x === "string")) lines.push(...v.map((x) => `- ${x}`), "");
+    else if (Array.isArray(v)) lines.push(...v.map((x) => `- ${Object.entries(x ?? {}).filter(([, vv]) => present(vv)).map(([kk, vv], i) => (i === 0 ? `**${flat(vv)}**` : `${label(kk).toLowerCase()}: ${flat(vv)}`)).join(" · ")}`), "");
+    else if (typeof v === "object") lines.push(...Object.entries(v).filter(([, vv]) => present(vv)).map(([kk, vv]) => `- ${label(kk)}: ${flat(vv)}`), "");
+  }
+  if (pg.produce?.mrp) lines.push("## First run (editable assumptions)", "", `MRP ₹${pg.produce.mrp} incl. ${Math.round((pg.produce.gstRate ?? 0) * 100)}% GST · ${pg.produce.totalUnits} units${pg.produce.allocation?.length ? ` · ${pg.produce.allocation.map((a) => `${a.city} ${a.units}`).join(", ")}` : ""}`, "");
+  lines.push("---", "", `Built with AYTO on Qloo taste signals (${pg.ledgerCount} requests)${pg.grounded ? `; ${pg.grounded.grounded} of ${pg.grounded.checked} names trace to Qloo` : ""}. Qloo describes aggregate taste, not individuals and not sales.${pg.usage?.calls ? ` Model tokens: ${pg.usage.input + pg.usage.output} over ${pg.usage.calls} calls.` : ""}`, "");
+  return lines.join("\n");
+}
+
 export function renderSharePage(run) {
   const pg = run.publish?.page;
   if (!pg) return undefined;
@@ -92,10 +123,13 @@ p,li{max-width:66ch;font-size:1.05rem}ul,ol{padding-left:1.2rem}
 .card{border:1.5px solid var(--line);border-radius:10px;padding:1rem}.card h3{margin:0 0 .3rem}.card p{margin:0;color:var(--soft);font-size:.9rem}.hero{outline:2px solid var(--tape)}
 .lanes{margin-top:1rem}.lane{display:flex;align-items:center;gap:.8rem;margin:.4rem 0}.lane b{min-width:10rem}.bar{height:10px;background:var(--tape);border-radius:5px}
 .fine{margin-top:3rem;font-size:.85rem;color:var(--soft);max-width:70ch;border-top:1.5px solid var(--line);padding-top:1rem}
+.tools{display:flex;gap:.6rem;margin-top:1rem}.tools a{border:1.5px solid var(--ink);border-radius:6px;padding:.4rem .8rem;font-weight:700;text-decoration:none;color:var(--ink)}
+@media print{:root{--ink:#111;--paper:#fff;--soft:#444;--line:#bbb}body{background:#fff;color:#111}main{max-width:none;padding:0}.tools{display:none}.chips span,.card{border-color:#999}h1{font-size:2.4rem}a{color:inherit}}
 </style></head><body><main>
 <span class="k">${esc(kicker)}</span>
 <h1>${esc(pg.title)}</h1>
 <div class="meta">${[...(pg.theme ?? []), ...(pg.loves ?? [])].map((x) => `<span>${esc(x)}</span>`).join(" · ")}</div>
+<div class="tools"><a href="${esc(run.publish.url)}.md" download>Download as Markdown</a><a href="${esc(run.publish.url)}">Print or save as PDF: Ctrl+P</a></div>
 ${pg.lanes?.length ? `<h2>The gap</h2><div class="lanes">${pg.lanes.map((l) => `<div class="lane"><b>${esc(l.name)}</b><div class="bar" style="width:${Math.round((l.gap ?? 0) * 220)}px"></div><span>${esc(pg.city)} #${esc(l.cityRank)} · ${esc(pg.country)} #${esc(l.countryRank ?? "–")}${l.supplyCount !== undefined ? ` · ${esc(l.supplyCount)} recent` : ""}</span></div>`).join("")}</div>` : ""}
 ${body}
 <p class="fine">${esc(fine)}</p>

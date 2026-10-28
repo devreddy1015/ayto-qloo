@@ -6,8 +6,8 @@ import { checkCredential, credentialFrom, llmAvailable, llmStatus, probeServerLl
 import { discovery, mcpHandler } from "./mcp.js";
 import { mosaic } from "./mosaic.js";
 import { candidates, parseInput } from "./parse.js";
-import { renderSharePage } from "./pipeline/page.js";
-import { createRun, editAndRerun, isRunning, regenerate, startRun } from "./pipeline/runner.js";
+import { renderShareMarkdown, renderSharePage } from "./pipeline/page.js";
+import { createRun, editAndRerun, isRunning, regenerate, rerunFrom, startRun } from "./pipeline/runner.js";
 import { findRunBySlug, loadRun, publicRun, subscribe } from "./pipeline/store.js";
 import { formatList, MARKETS, SHOWCASES } from "./presets.js";
 import { closeQloo, qlooStatus } from "./qloo.js";
@@ -182,6 +182,30 @@ app.post("/api/runs/:id/edit", async (req, res) => {
   }
 });
 
+/** Change the production assumptions and recompute from the produce stage. Numbers only; nothing else in the run moves. */
+app.post("/api/runs/:id/assumptions", async (req, res) => {
+  const run = await loadRun(req.params.id);
+  if (!run) return res.status(404).json({ error: "No such run." });
+  if (!allow(req.ip, { perHour: 30, bucket: "assumptions" })) return res.status(429).json({ error: "Too many recomputes this hour." });
+  const a = req.body?.assumptions;
+  if (!a || typeof a !== "object") return res.status(400).json({ error: "Send assumptions." });
+  const num = (v, lo, hi) => (typeof v === "number" && Number.isFinite(v) && v >= lo && v <= hi ? v : undefined);
+  const clean = {};
+  for (const k of ["moqPerStylePerColour", "heroQuantity", "otherQuantity", "logisticsPerUnit"]) if (num(a[k], 0, 1e6) !== undefined) clean[k] = Math.round(a[k]);
+  for (const k of ["returnsReserveShare", "homeCityShare"]) if (num(a[k], 0, 1) !== undefined) clean[k] = a[k];
+  if (["value", "mid", "premium"].includes(a.tier)) clean.tier = a.tier;
+  if (a.unitCost && typeof a.unitCost === "object") {
+    clean.unitCost = {};
+    for (const k of ["fabric", "cmt", "print", "trimsAndPacking"]) if (num(a.unitCost[k], 0, 1e5) !== undefined) clean.unitCost[k] = Math.round(a.unitCost[k]);
+  }
+  try {
+    await rerunFrom(run, "produce", { assumptions: clean });
+    res.json({ ok: true, assumptions: run.input.assumptions });
+  } catch (error) {
+    res.status(400).json({ error: publicError(error) });
+  }
+});
+
 /** Write again, with the user's own key. */
 app.post("/api/runs/:id/regenerate", async (req, res) => {
   const run = await loadRun(req.params.id);
@@ -212,6 +236,16 @@ app.post("/api/ask", async (req, res) => {
     emit({ type: "end" });
     res.end();
   }
+});
+
+/** The share page as Markdown: a file for a producer's inbox or a sampling room. */
+app.get("/s/:slug.md", async (req, res) => {
+  const slug = String(req.params.slug);
+  if (!/^[a-z0-9-]{3,60}$/.test(slug)) return res.status(404).send("Not found");
+  const run = await findRunBySlug(slug);
+  const md = run && renderShareMarkdown(run);
+  if (!md) return res.status(404).send("This page doesn't exist (yet).");
+  res.set("content-disposition", `attachment; filename="${slug}.md"`).type("text/markdown").send(md);
 });
 
 /** The share page. */

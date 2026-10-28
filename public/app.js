@@ -943,6 +943,7 @@ const RENDER = {
         el("button", { type: "button", class: "secondary", text: "Copy", onclick: (e) => copyPlan(o, e.target) }),
         el("button", { type: "button", class: "primary", text: "Write again", disabled: !canRegenerate, onclick: (e) => regenerate(e.target) }),
         run?.publish?.url ? el("a", { class: "secondary-link", href: run.publish.url, target: "_blank", rel: "noopener", text: "Open share page" }) : null,
+        run?.publish?.url ? el("a", { class: "secondary-link", href: `${run.publish.url}.md`, download: "", text: "Download brief (.md)" }) : null,
         el("span", { class: "edit-status", id: "write-status" }),
       ),
     ];
@@ -957,7 +958,8 @@ const RENDER = {
     const sizesText = (sizes) => Object.entries(sizes ?? {}).map(([k, v]) => `${k}: ${v}`).join(" · ");
     const dl = (pairs) => el("dl", { class: "spec" }, ...pairs.filter(([, v]) => v !== undefined && v !== null && v !== "").flatMap(([k, v]) => [el("dt", { text: k }), el("dd", {}, v)]));
     return [
-      el("div", { class: "banner" }, el("strong", { text: "All figures are editable assumptions, not forecasts. " }), "Defaults from directory asking prices and seller pages; change them in the run's assumptions."),
+      el("div", { class: "banner" }, el("strong", { text: "All figures are editable assumptions, not forecasts. " }), "Defaults from directory asking prices and seller pages. Change any number below and recompute."),
+      assumptionsForm(o.assumptions ?? {}),
       e.mrp !== undefined
         ? section(
             "Unit economics",
@@ -1065,6 +1067,54 @@ const RENDER = {
 
 const kv = (label, value) => (value ? el("p", { class: "kv" }, el("strong", { text: `${label}: ` }), value) : null);
 
+/** The produce card's inputs: the maker's own numbers, recomputed on the server from the produce stage. */
+function assumptionsForm(a) {
+  const field = (label, name, value, step = 1) => el("label", { class: "afield" }, el("span", { text: label }), el("input", { type: "number", name, value: String(value ?? ""), step: String(step), min: "0", inputmode: "decimal" }));
+  const form = el(
+    "form",
+    { class: "assumptions", onsubmit: (e) => recompute(e) },
+    el("div", { class: "agrid" },
+      field("MOQ per style & colour", "moqPerStylePerColour", a.moqPerStylePerColour),
+      field("Hero style units", "heroQuantity", a.heroQuantity),
+      field("Other style units", "otherQuantity", a.otherQuantity),
+      field("Fabric ₹/unit", "unitCost.fabric", a.unitCost?.fabric),
+      field("Cut-make-trim ₹/unit", "unitCost.cmt", a.unitCost?.cmt),
+      field("Print ₹/unit", "unitCost.print", a.unitCost?.print),
+      field("Trims & packing ₹/unit", "unitCost.trimsAndPacking", a.unitCost?.trimsAndPacking),
+      field("Logistics ₹/unit", "logisticsPerUnit", a.logisticsPerUnit),
+      field("Returns reserve (0–1)", "returnsReserveShare", a.returnsReserveShare, 0.01),
+      field("Home city share (0–1)", "homeCityShare", a.homeCityShare, 0.05),
+      el("label", { class: "afield" }, el("span", { text: "Price tier" }), el("select", { name: "tier" }, ["value", "mid", "premium"].map((t) => el("option", { value: t, text: t, selected: t === (a.tier ?? "mid") ? "selected" : null })))),
+    ),
+    el("div", { class: "actions" }, el("button", { type: "submit", class: "primary", text: "Recompute" }), el("span", { class: "sub small", text: "Reruns the produce stage with your numbers; nothing before it changes." })),
+  );
+  return form;
+}
+
+async function recompute(event) {
+  event.preventDefault();
+  const run = state.run;
+  if (!run) return;
+  const form = event.target;
+  const data = new FormData(form);
+  const assumptions = { unitCost: {} };
+  for (const [name, raw] of data.entries()) {
+    const v = name === "tier" ? String(raw) : Number(raw);
+    if (name === "tier") assumptions.tier = v;
+    else if (name.startsWith("unitCost.")) assumptions.unitCost[name.slice(9)] = v;
+    else assumptions[name] = v;
+  }
+  const button = form.querySelector("button");
+  button.disabled = true;
+  try {
+    await post(`/api/runs/${run.id}/assumptions`, { assumptions });
+    attach(run.id);
+  } catch (error) {
+    showError(error.message);
+    button.disabled = false;
+  }
+}
+
 const WRITE = {
   film(p) {
     const titles = (p.titles ?? []).filter(Boolean);
@@ -1076,6 +1126,7 @@ const WRITE = {
       p.synopsis && Object.values(p.synopsis).some(Boolean) ? el("div", { class: "acts" }, ["act1", "act2", "act3"].map((k, i) => el("div", { class: "act" }, el("span", { class: "k", text: `Act ${i + 1}` }), el("p", { text: p.synopsis[k] || "—" })))) : null,
       p.characters?.length ? section("Characters", list(p.characters.map((c) => el("span", {}, el("strong", { text: c.role ?? "" }), c.note ? ` ${c.note}` : "")))) : null,
       p.references?.length ? section("References", list(p.references.map((r) => el("span", {}, q(r.title), r.take ? ` · ${r.take}` : "")))) : null,
+      p.cast_ideas?.length ? section("Cast ideas", list(p.cast_ideas.map((c) => el("span", {}, q(c.name), c.role ? ` as ${c.role}` : "", c.why ? el("span", { class: "sub", text: ` · ${c.why}` }) : null)))) : null,
       p.soundtrack?.length ? section("Soundtrack", list(p.soundtrack.map((s) => el("span", {}, q(s.artist), s.use ? tag(s.use) : null)))) : null,
       p.audience?.who ? section("Audience", el("p", {}, el("strong", { text: p.audience.who }), p.audience.note ? ` ${p.audience.note}` : "")) : null,
       p.travels_next?.length ? section("Travels next", chips(p.travels_next.map((c) => q(c)))) : null,
