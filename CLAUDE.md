@@ -22,10 +22,10 @@ heatmaps, tag reads and tagged entity reads). LLM: provider table in src/llm.js 
 server default is Groq. MCP door in src/mcp.js. Hackathon host: https://hackathon.api.qloo.com.
 
 ## Code map
-- src/formats.js: formats (film, reel, fashion), their entity types and stage plans, stage labels.
+- src/formats.js: formats (film, reel, fashion, podcast, game, cafe, event, book), their entity types and stage plans, stage labels, parse hints.
 - src/parse.js: sentence → input (model or rules) + Qloo candidates for the confirm step.
 - src/engine/: resolve, read (three columns), gap (demand lift + supply from a tagged catalogue read), audio, spots, audience, travels.
-- src/writers/: film, reel, fashion prompts + evidence digest + grounding paths (shared.js).
+- src/writers/: one prompt per format + evidence digest + grounding paths (shared.js). src/pipeline/produce.js: fashion production path.
 - src/pipeline/: runner (per-run plan, edit-and-rerun, regenerate), store, evidence (ledger), write, check, diff, share, page.
 - src/llm.js (providers, redactor, boot probe), src/keys.js (per-run credentials, memory only), src/mcp.js, src/server.js.
 - src/analysis.js: heat/lift maths from the first build + threeColumns, demandLift, laneGap, averageSkew, cleanPlaceName.
@@ -61,7 +61,11 @@ npm install · npm start (live if QLOO_API_KEY) · CULTURE_GAP_MODE=fake npm sta
 this machine; .claude/launch.json starts it). Showcases: POST /api/runs {showcase:"hyderabad-crime-film"|"vegas-reel"|"tiruppur-kidswear"}.
 PREWARM=1 runs them at boot. Scratch probes live outside the repo.
 
-## Status (28 Oct 2026, late)
-Done: engine, writers, check, diff, share, BYOK providers, MCP door, fake mode, tests. Front end rebuilt for the new flow.
-Blocked: a working Groq key (every LLM call 401 → writers show the evidence template). Next: real key, live UI pass, deploy
-(Render Starter, Dockerfile ready), public repo + MIT in About, video, Devpost write-up.
+## Status (29 Oct 2026, 03:30 IST)
+Done and on GitHub main (devreddy1015/ayto-qloo, MIT detected): engine, eight formats (film, reel, fashion, podcast, game, cafe,
+event, book), writers with a rewrite-once loop, check, diff, share, produce stage (fashion), 3D garment viewer (public/garment3d.js),
+BYOK with 12 providers (Anthropic adapter carries tool calls), MCP door, fake mode, 49 tests, dark infinite-canvas UI.
+Blocked on the user: an LLM key on this box (every attempt to add ANTHROPIC_API_KEY to the worktree .env left the file unchanged;
+the user's terminal and my tools are both on host voldmart, cause unknown) and the deploy (no host account yet; Render blueprint,
+Railway or Fly from the Dockerfile). The writers have never run against a real provider. Next: deploy with the key as a secret,
+read the showcases from the live API, fix prompts, live URL into README, Devpost form from docs/SUBMISSION.md.
