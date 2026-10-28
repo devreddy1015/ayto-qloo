@@ -1,4 +1,4 @@
-# Culture Gap: Node backend that runs Qloo's official harness (`qloo mcp`) as a
+# AYTO: Node backend that runs Qloo's official harness (`qloo mcp`) as a
 # local stdio MCP server. It needs a long-running container, not serverless.
 FROM node:22-slim
 

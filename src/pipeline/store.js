@@ -69,3 +69,20 @@ export function publicRun(run) {
   const { events, ...rest } = run;
   return rest;
 }
+
+/** The most recently updated runs on disk (and in memory), newest first. */
+export async function recentRuns({ limit = 8 } = {}) {
+  let files = [];
+  try {
+    const { stat } = await import("node:fs/promises");
+    const names = (await readdir(DIR)).filter((f) => f.endsWith(".json"));
+    files = (await Promise.all(names.map(async (f) => ({ id: f.replace(/\.json$/, ""), at: (await stat(join(DIR, f))).mtimeMs })))).sort((a, b) => b.at - a.at).slice(0, limit * 3);
+  } catch {}
+  const out = [];
+  for (const { id } of files) {
+    const run = await loadRun(id);
+    if (run) out.push(run);
+    if (out.length >= limit) break;
+  }
+  return out;
+}

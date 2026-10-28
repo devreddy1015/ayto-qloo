@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Culture Gap</title>
+    <title>AYTO</title>
     <meta
       name="description"
-      content="Fashion follows culture. Culture Gap turns what people love, read from Qloo's taste graph, into a launch-ready product plan and a live drop page."
+      content="Are you the one? Tell AYTO what you're making and where. It reads what the city loves from Qloo's taste graph, finds the gap, and writes you into it."
     />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='1' y='9' width='30' height='14' rx='3' fill='%23F2BE22'/%3E%3Cpath d='M6 9v6M11 9v4M16 9v6M21 9v4M26 9v6' stroke='%2319234D' stroke-width='2'/%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -16,13 +16,18 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <div id="canvas" class="canvas" aria-hidden="true">
+      <div id="canvas-grid" class="canvas-grid"></div>
+      <div class="canvas-vignette"></div>
+    </div>
+
     <header class="site">
-      <a class="wordmark" href="/" aria-label="Culture Gap home">
+      <a class="wordmark" href="/" aria-label="AYTO home">
         <svg class="wordmark-tape" viewBox="0 0 40 20" aria-hidden="true">
           <rect x="1" y="3" width="38" height="14" rx="3" />
           <path d="M6 3v6M11 3v4M16 3v6M21 3v4M26 3v6M31 3v4M36 3v6" />
         </svg>
-        <span>Culture Gap</span>
+        <span>AYTO</span>
       </a>
       <nav>
         <a href="#how">How it works</a>
@@ -31,79 +36,80 @@
     </header>
 
     <main>
-      <section class="hero" aria-labelledby="hero-title">
-        <h1 id="hero-title">Fashion follows culture. Launch where it hasn't arrived yet.</h1>
-        <p class="lede">
-          Say what you make and what you love. Eleven agents read the culture through Qloo's taste graph, find the cities
-          where the fans are ahead of the fashion, and hand you a launch kit with a live drop page.
-        </p>
-        <div class="hero-tape" aria-hidden="true">
-          <div class="tape">
-            <div class="tape-ticks"></div>
-            <div class="tape-gap"></div>
-            <span class="tape-dot culture"></span>
-            <span class="tape-dot fashion"></span>
-          </div>
-          <div class="tape-legend">
-            <span><i class="key culture"></i>Culture lands</span>
-            <span><i class="key gap"></i>The gap: your window</span>
-            <span><i class="key fashion"></i>Fashion catches up</span>
-          </div>
-        </div>
-      </section>
+      <div id="home">
+        <section class="hero" aria-labelledby="hero-title">
+          <h1 id="hero-title">Are you the one?</h1>
+          <p class="lede">Tell AYTO what you're making and where. It finds the gap in what the city loves and writes you into it.</p>
+          <p class="hero-steps" aria-hidden="true"><span>The city loves it</span><span>The gap: your lane</span><span>The thing arrives</span></p>
+        </section>
 
-      <section class="composer" aria-label="Start a run">
-        <form id="run-form" autocomplete="off">
-          <label class="field field-wave">
-            <span class="field-label">Who are you, and what do you love?</span>
-            <textarea
-              id="text-input"
-              name="text"
-              rows="2"
-              maxlength="600"
-              required
-              placeholder="I'm in Kadapa, Andhra Pradesh. I want to start a clothing brand. I love Diljit Dosanjh and Squid Game."
-            ></textarea>
-          </label>
-
-          <fieldset class="field field-markets">
-            <legend class="field-label">Where do you sell? <span class="hint">Up to 3 countries, or leave it to the agent</span></legend>
-            <div id="market-chips" class="chips" role="group"></div>
-          </fieldset>
-
-          <div class="row">
-            <label class="field">
-              <span class="field-label">You make</span>
-              <select id="maker" name="maker">
-                <option value="">Let the agent read it</option>
-                <option value="clothing">Clothing</option>
-                <option value="streetwear">Streetwear</option>
-                <option value="ethnic wear">Ethnic wear</option>
-                <option value="kidswear">Kidswear</option>
-                <option value="footwear">Footwear</option>
-                <option value="accessories">Accessories</option>
-                <option value="merch">Merch</option>
-              </select>
+        <section class="composer" aria-label="Start a run">
+          <form id="run-form" autocomplete="off">
+            <label class="field field-wave">
+              <span class="field-label">What are you making, and where?</span>
+              <textarea id="text-input" name="text" rows="2" maxlength="600" required placeholder="I'm making a crime short film in Hyderabad."></textarea>
             </label>
-            <label class="field">
-              <span class="field-label">Home city <span class="hint">Optional</span></span>
-              <input id="city" name="city" type="text" maxlength="80" placeholder="e.g. Kadapa, India" />
-            </label>
-            <button id="run-button" class="primary" type="submit">Run the agents</button>
-          </div>
-        </form>
 
-        <div class="examples">
-          <span class="examples-label">Or replay a showcase run</span>
-          <div id="example-list" class="example-list"></div>
-        </div>
-        <p id="mode-note" class="mode-note" hidden></p>
-      </section>
+            <fieldset class="field">
+              <legend class="field-label">Format <span class="hint">Optional. Leave it and AYTO reads it from the sentence.</span></legend>
+              <div id="format-chips" class="chips" role="group" aria-label="Format"></div>
+            </fieldset>
+
+            <div class="row">
+              <label class="field">
+                <span class="field-label">City <span class="hint">Optional</span></span>
+                <input id="city-input" name="city" type="text" maxlength="80" placeholder="e.g. Hyderabad, India" />
+              </label>
+              <label class="field">
+                <span class="field-label">Theme <span class="hint">Optional</span></span>
+                <input id="theme-input" name="theme" type="text" maxlength="60" placeholder="e.g. crime, or nightlife, food" />
+              </label>
+              <button id="parse-button" class="primary" type="submit">Check with Qloo</button>
+            </div>
+
+            <details id="key-drawer" class="drawer">
+              <summary>Use my own LLM key</summary>
+              <div class="drawer-body">
+                <p class="block-note">The key travels once, to this server, for this run only. It is never stored on disk and never written to a run file or a log.</p>
+                <div class="row row-key">
+                  <label class="field">
+                    <span class="field-label">Provider</span>
+                    <select id="llm-provider"></select>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">Key</span>
+                    <input id="llm-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…" />
+                  </label>
+                  <label class="field">
+                    <span class="field-label">Model <span class="hint">Optional</span></span>
+                    <input id="llm-model" type="text" autocomplete="off" spellcheck="false" placeholder="provider default" />
+                  </label>
+                </div>
+                <div class="drawer-actions">
+                  <button id="llm-check" class="secondary" type="button">Check key</button>
+                  <label class="check"><input id="llm-remember" type="checkbox" /> Remember for this tab</label>
+                  <span id="llm-check-result" class="check-result" role="status"></span>
+                </div>
+              </div>
+            </details>
+          </form>
+
+          <div id="confirm" class="confirm" hidden aria-live="polite"></div>
+
+          <div class="examples">
+            <span class="examples-label">Or watch a showcase run</span>
+            <div id="showcase-list" class="example-list"></div>
+          </div>
+          <p id="mode-note" class="mode-note"></p>
+        </section>
+      </div>
 
       <section id="results" class="results pipeline" hidden aria-live="polite">
-        <aside class="rail" aria-label="Pipeline stages">
+        <aside class="rail" aria-label="Stages in this run">
+          <p id="run-title" class="run-title"></p>
           <ol id="stage-rail" class="stage-rail"></ol>
           <p id="run-status" class="run-status"></p>
+          <p class="run-status"><a href="/" id="new-run-link">Start another</a></p>
         </aside>
 
         <div class="results-main">
@@ -112,9 +118,9 @@
 
           <section id="ask" class="block ask" hidden>
             <h2>Ask the analyst</h2>
-            <p class="block-note">The agent picks the Qloo lookups it needs, runs them, and answers with what it found.</p>
+            <p class="block-note">The analyst picks the Qloo lookups it needs, runs them, and answers with what it found.</p>
             <form id="ask-form" class="ask-form" autocomplete="off">
-              <input id="ask-input" type="text" maxlength="400" placeholder="e.g. Which of these brands is strongest in Hyderabad?" required />
+              <input id="ask-input" type="text" maxlength="400" placeholder="e.g. Which of these artists is strongest in Vizag?" required />
               <button class="primary" type="submit">Ask</button>
             </form>
             <div id="ask-suggestions" class="ask-suggestions"></div>
@@ -132,41 +138,31 @@
         </aside>
       </section>
 
-      <section id="how" class="how" aria-labelledby="how-title">
+      <section id="how" class="how glass" aria-labelledby="how-title">
         <h2 id="how-title">How it works</h2>
         <div class="how-grid">
           <div>
-            <h3>Qloo thinks first</h3>
-            <p>
-              The agent finds your wave in Qloo, reads the taste tags its fans share, who they are in aggregate, and, city by
-              city, where the wave is hotter than the city's size predicts.
-            </p>
+            <h3>Qloo reads the city</h3>
+            <p>AYTO finds your city in Qloo's taste graph and reads what its people love beyond the rest of the country, against a contrast city, with every request kept as a receipt.</p>
           </div>
           <div>
-            <h3>It measures the gap</h3>
-            <p>
-              It asks Qloo which fashion brands those fans favour and maps where that fashion has landed. Where the culture is
-              ahead and the fashion isn't, there's room to get there first.
-            </p>
+            <h3>It finds the gap</h3>
+            <p>Flavours the city ranks far above the country, with too little recent supply, become lanes. Lane one is where the thing you're making is loved here and under-served.</p>
           </div>
           <div>
-            <h3>Eleven agents build the kit</h3>
-            <p>
-              Product line, collection, tech packs, costing, an evidence check, a with-and-without-Qloo diff, channels,
-              name, launch plan, and a live drop page. Edit any stage and rerun from there.
-            </p>
+            <h3>Your model writes into it</h3>
+            <p>A language model, the server's or your own, writes the film, the reel or the drop from that evidence only. A check removes any name it made up.</p>
           </div>
         </div>
         <p class="fine">
-          Qloo describes aggregate taste across large groups. It doesn't know about any individual, and it isn't sales data.
-          Every brand, city and tag in a kit comes from a Qloo request you can open; the Test stage removes anything the
-          agents made up. Culture Gap never sends personal data to Qloo.
+          Qloo describes aggregate taste across large groups, not individuals, and it isn't sales data. Every name comes from a Qloo request you can open; the Check stage removes anything the model made up. Your LLM key is used for this run only and never stored.
         </p>
       </section>
     </main>
 
     <footer class="site-foot">
       <p>Built for the Qloo Agentic Hackathon with Qloo's taste graph. Not affiliated with or endorsed by Qloo.</p>
+      <p>Background inspired by Skiper UI's Infinite Canvas. Film and music images come from Qloo's API for this demo; fashion photos are from Unsplash.</p>
     </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>

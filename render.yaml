@@ -1,0 +1,16 @@
+# Render blueprint: one long-running web service (the app runs Qloo's harness as a child process).
+services:
+  - type: web
+    name: ayto
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: QLOO_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: PREWARM
+        value: "1"
+      - key: PUBLIC_URL
+        sync: false

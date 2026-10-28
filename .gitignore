@@ -9,3 +9,5 @@ node_modules/
 # Qloo response data must not be published (hackathon API terms)
 samples/qloo/
 probe-out/
+# local Claude Code session files (launch config, worktrees)
+.claude/

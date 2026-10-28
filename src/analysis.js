@@ -300,3 +300,110 @@ export function styleTags(tags = []) {
     .filter((t) => !seen.has(t.name.toLowerCase()) && seen.add(t.name.toLowerCase()))
     .map((t) => ({ id: t.id, name: t.name, type: t.type, affinity: num(t.affinity), popularity: num(t.popularity) }));
 }
+
+// ---------- AYTO: three-column reads, demand lift, lanes ----------
+
+/** Normalise a Qloo recommend result into { id, name, type, affinity, popularity, year, image }. */
+export function entityPoint(r) {
+  // Prefer an English alias when Qloo's name is in another script (劉亦菲 → Liu Yifei).
+  const en = /[^\u0000-\u024F\u1E00-\u1EFF\s\d\p{P}\p{S}]/u.test(String(r.name ?? "")) ? (r.properties?.akas ?? []).find((a) => a?.language === "en" && a.value)?.value : undefined;
+  return {
+    id: r.entity_id ?? r.id,
+    name: en ?? r.name,
+    qlooName: en ? r.name : undefined,
+    type: String(r.subtype ?? r.type ?? "").replace(/^urn:entity:/, ""),
+    affinity: num(r.affinity) ?? num(r.query?.affinity),
+    popularity: num(r.popularity),
+    year: num(r.properties?.release_year),
+    image: r.properties?.image?.url ?? r.properties?.image,
+  };
+}
+
+/**
+ * Compare what a city favours with what the country and a contrast city favour.
+ * All three lists come from the same request shape, so they are comparable.
+ *   onlyHere   : in the city list, in neither of the other two
+ *   notCountry : in the city list, not in the country list
+ *   hiddenGem  : near the top on affinity while small on popularity
+ * Raw affinity is never the sort key: the lists come back flat at the top.
+ * Sort: onlyHere first, then hidden gems, then by affinity minus popularity.
+ */
+export function threeColumns(cityRaw = [], countryRaw = [], contrastRaw = [], { gemPopularity = 0.5, gemSlack = 0.06 } = {}) {
+  const city = cityRaw.map(entityPoint).filter((e) => e.id && e.name);
+  const country = new Set(countryRaw.map((r) => r.entity_id ?? r.id));
+  const contrast = new Set(contrastRaw.map((r) => r.entity_id ?? r.id));
+  const top = Math.max(...city.map((e) => e.affinity ?? 0), 0);
+  const rows = city.map((e, i) => {
+    const notCountry = !country.has(e.id);
+    const notContrast = contrastRaw.length ? !contrast.has(e.id) : undefined;
+    const onlyHere = notCountry && notContrast !== false;
+    const hiddenGem = e.affinity !== undefined && e.popularity !== undefined && e.affinity >= top - gemSlack && e.popularity <= gemPopularity;
+    const edge = e.affinity !== undefined && e.popularity !== undefined ? round(e.affinity - e.popularity) : undefined;
+    return { ...e, rank: i + 1, onlyHere, notCountry, notContrast, hiddenGem, edge };
+  });
+  const score = (r) => (r.onlyHere ? 2 : r.notCountry ? 1 : 0) + (r.hiddenGem ? 1.5 : 0) + (r.edge ?? 0);
+  return rows.sort((a, b) => score(b) - score(a) || a.rank - b.rank);
+}
+
+/**
+ * Demand lift of each flavour tag: how much higher it ranks for the city than
+ * for the country, in rank positions. A tag missing from the country list
+ * counts as one past the end. Positive = the city cares more than the country.
+ */
+export function demandLift(cityTags = [], countryTags = [], { take } = {}) {
+  const n = take ?? Math.max(cityTags.length, countryTags.length, 1);
+  const countryRank = new Map(countryTags.map((t, i) => [t.id ?? t.name, i + 1]));
+  return cityTags
+    .filter((t) => t?.name)
+    .map((t, i) => {
+      const key = t.id ?? t.name;
+      const cr = countryRank.get(key) ?? n + 1;
+      return { id: t.id, name: t.name, type: t.type, affinity: t.affinity, cityRank: i + 1, countryRank: countryRank.has(key) ? cr : undefined, lift: cr - (i + 1) };
+    })
+    .sort((a, b) => b.lift - a.lift || a.cityRank - b.cityRank);
+}
+
+/**
+ * Lanes: flavours the city wants more than the country, weighted by how little
+ * recent supply carries them.
+ *   demand = lift / n          (clamped 0..1)
+ *   fill   = min(count, cap) / cap   (undefined when no supply read)
+ *   gap    = demand × (1 − fill)      (demand alone when fill is undefined)
+ * `supply` maps a flavour id to { count, titles }. Flavours with lift ≤ 0 are dropped.
+ */
+export function laneGap(flavours = [], supply = {}, { n = 30, cap = 10, minLift = 1 } = {}) {
+  return flavours
+    .filter((f) => f.lift >= minLift)
+    .map((f) => {
+      const s = supply[f.id];
+      const demand = Math.min(1, Math.max(0, f.lift / n));
+      const fill = s ? Math.min(s.count, cap) / cap : undefined;
+      const gap = fill === undefined ? demand : demand * (1 - fill);
+      return { ...f, demand: round(demand), fill: fill === undefined ? undefined : round(fill), gap: round(gap), supplyCount: s?.count, supplyTotal: s?.total, supplyTitles: s?.titles ?? [], supplyRead: Boolean(s), mode: s ? "demand-and-supply" : "demand-only" };
+    })
+    .sort((a, b) => b.gap - a.gap || b.lift - a.lift);
+}
+
+/** Average several audience skews (age, gender) into one, keeping the entity count. */
+export function averageSkew(results = []) {
+  const rows = results.map((r) => r?.query ?? r).filter((q) => q?.age || q?.gender);
+  if (!rows.length) return undefined;
+  const avg = (key) => {
+    const out = {};
+    for (const r of rows) for (const [k, v] of Object.entries(r[key] ?? {})) if (num(v) !== undefined) out[k] = (out[k] ?? 0) + v / rows.length;
+    for (const k of Object.keys(out)) out[k] = round(out[k]);
+    return out;
+  };
+  return { age: avg("age"), gender: avg("gender"), entities: rows.length };
+}
+
+/** A place name worth printing: no phone numbers, emoji, shouting, or two-letter stubs. */
+export function cleanPlaceName(name) {
+  const s = String(name ?? "").trim();
+  if (s.length < 3 || s.length > 60) return false;
+  if (/\d{5,}/.test(s)) return false; // phone numbers
+  if (/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}]/u.test(s)) return false; // emoji
+  if (/^[^a-z]*$/.test(s) && /[A-Z]{4,}/.test(s)) return false; // ALL CAPS
+  if (/\b(ambulance|apartment|apartments|residency|pvt|ltd|llc|inc\.?|hospital|clinic|atm|bank)\b/i.test(s)) return false;
+  return true;
+}
