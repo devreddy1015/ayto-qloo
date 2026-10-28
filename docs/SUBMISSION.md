@@ -29,7 +29,7 @@ More formats (a café, a tour, a podcast) on the same engine; a real supply read
 
 ## Links
 - Live: _fill in_
-- Repo: _fill in_ (MIT)
+- Repo: https://github.com/devreddy1015/ayto-qloo (MIT)
 - Video: _fill in_
 
 ## Video script (3 minutes)

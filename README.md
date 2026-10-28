@@ -2,7 +2,7 @@
 
 **Tell AYTO what you're making and where. Qloo reads what that city's people love and finds the gap. Your own LLM writes the idea into it.**
 
-Live demo: _coming before submission_ · Video: _coming before submission_ · Built for the [Qloo Agentic Hackathon](https://qloo.devpost.com).
+Live demo: _coming before submission_ · Source: [github.com/devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) · Built for the [Qloo Agentic Hackathon](https://qloo.devpost.com).
 
 **Who it's for.** The filmmaker in Hyderabad, and the production house behind them, deciding what to make next. Everything else is the same engine in another format.
 
