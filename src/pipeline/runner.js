@@ -23,7 +23,9 @@ export const STAGE_RUNNERS = { resolve, read, gap, audio, spots, audience, trave
 export const stageInfo = (id) => ({ id, ...(STAGE_LABELS[id] ?? { label: id, output: "" }) });
 export const planFor = (format) => (FORMATS[format] ?? FORMATS.film).plan;
 
-const STAGE_TIMEOUT_MS = 120000;
+// Wall-clock budget per stage. The read runs up to four entity types across three locations through a
+// harness that serialises calls, so it gets more room than the single-call stages.
+const STAGE_TIMEOUT_MS = { default: 120000, read: 300000, travels: 180000, gap: 180000 };
 const active = new Map(); // runId -> Promise
 
 export async function createRun(input, meta = {}) {
@@ -76,7 +78,7 @@ async function execute(run, fromIndex) {
     state.startedAt = new Date().toISOString();
     emitEvent(run, { type: "stage", id, status: "running" });
     try {
-      const output = await withTimeout(STAGE_RUNNERS[id](run), STAGE_TIMEOUT_MS, `${stageInfo(id).label} took too long`);
+      const output = await withTimeout(STAGE_RUNNERS[id](run), STAGE_TIMEOUT_MS[id] ?? STAGE_TIMEOUT_MS.default, `${stageInfo(id).label} took too long`);
       state.output = applyEdits(output, state.userEdits);
       state.status = "done";
       state.endedAt = new Date().toISOString();

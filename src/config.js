@@ -40,7 +40,7 @@ export const config = {
   },
   qloo: {
     command: process.env.QLOO_COMMAND || join(ROOT, "node_modules", ".bin", "qloo"),
-    timeoutMs: int("QLOO_TIMEOUT_MS", 45000),
+    timeoutMs: int("QLOO_TIMEOUT_MS", 30000),
     concurrency: int("QLOO_CONCURRENCY", 4),
   },
   cacheDir: process.env.CACHE_DIR || join(ROOT, ".cache"),
