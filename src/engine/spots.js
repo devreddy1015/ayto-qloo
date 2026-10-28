@@ -11,7 +11,7 @@ export async function spots(run) {
   const signals = crowdIds(run);
   const where = placeLabel(r.city);
   const [venueEnv, heatRaw, subEnv] = await Promise.all([
-    signals.length ? q.tryTool(`Places this crowd goes in ${r.city.name}`, "qloo_recommend", { target_type: "place", signals, filter_location: where, limit: 15 }) : Promise.resolve(undefined),
+    signals.length ? q.tryTool(`Places this crowd goes in ${r.city.name}`, "qloo_recommend", { target_type: "place", signals, filter_location: where, limit: 15, ...(r.filters?.place?.length ? { include_tags: r.filters.place.map((t) => t.id) } : {}) }) : Promise.resolve(undefined),
     signals.length ? q.tryInsights(`Where inside ${r.city.name} this taste runs hottest`, { "filter.type": "urn:heatmap", "signal.interests.entities": signals, "filter.location.query": where, "output.heatmap.boundary": "urn:geohash" }) : Promise.resolve(undefined),
     q.trySearch(`Neighbourhoods of ${r.city.name} that Qloo knows`, { query: r.city.name, type: "locality", take: 20 }),
   ]);

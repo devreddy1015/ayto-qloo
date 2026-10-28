@@ -35,7 +35,7 @@ export async function read(run) {
   const r = run.stages.resolve.output;
   const themeIds = themeTagIds(run);
   const signals = lovesIds(run);
-  const fashionIds = (r.fashionTags ?? []).map((t) => t.id);
+  const filterIds = Object.fromEntries(Object.entries(r.filters ?? {}).map(([type, tags]) => [type, tags.map((t) => t.id)]));
   const cityWhere = placeLabel(r.city);
   const countryWhere = r.city.market ?? r.city.country;
   const contrastWhere = r.contrast ? placeLabel(r.contrast) : undefined;
@@ -43,8 +43,8 @@ export async function read(run) {
   const columns = {};
   await Promise.all(
     f.types.map(async (type) => {
-      // Brands in a fashion run are filtered to Qloo's fashion categories; everything else uses the theme tags.
-      const filterTags = type === "brand" && fashionIds.length ? fashionIds : themeIds;
+      // A type with a category filter for this format (fashion brands, café places) uses it; everything else uses the theme tags.
+      const filterTags = filterIds[type]?.length ? filterIds[type] : themeIds;
       const city = await column(q, type, cityWhere, filterTags, signals, `in ${r.city.name}`);
       // The country and contrast reads use the same shape the city read ended up with, so the lists are comparable.
       const sameAs = city.extra;

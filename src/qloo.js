@@ -116,9 +116,14 @@ export async function listQlooTools() {
 
 async function callMcpTool(name, args) {
   const client = await mcpClient();
-  const result = await client.callTool({ name, arguments: args }, undefined, {
-    timeout: config.qloo.timeoutMs,
-  });
+  let result;
+  try {
+    result = await client.callTool({ name, arguments: args }, undefined, { timeout: config.qloo.timeoutMs });
+  } catch (error) {
+    // A harness timeout under load is worth one more try; withRetry only retries QlooErrors marked retryable.
+    if (error?.code === -32001 || /timed out/i.test(error?.message ?? "")) throw new QlooError(`Qloo tool ${name} timed out after ${config.qloo.timeoutMs} ms`, { code: "QLOO_TIMEOUT", retryable: true });
+    throw error;
+  }
   const envelope = result.structuredContent ?? safeParse(result.content?.[0]?.text) ?? {};
   if (envelope.status === "error" || result.isError) {
     throw new QlooError(envelope.summary || `Qloo tool ${name} failed`, {
