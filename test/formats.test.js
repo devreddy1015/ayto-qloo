@@ -43,3 +43,20 @@ test("format hints pick the new formats from a sentence", async () => {
   assert.equal(heuristicParse("running a club night in Mumbai").format, "event");
   assert.equal(heuristicParse("writing a web novel set in Chennai").format, "book");
 });
+
+test("recomputing the produce stage with new assumptions changes the numbers and nothing before it", async () => {
+  const { rerunFrom } = await import("../src/pipeline/runner.js");
+  const { SHOWCASES } = await import("../src/presets.js");
+  const sc = SHOWCASES.find((s) => s.format === "fashion");
+  const run = await createRun(await parseInput(sc), { showcase: sc.id });
+  await startRun(run, 0);
+  const before = run.stages.produce.output;
+  const writeBefore = run.stages.write.output.plan;
+  await rerunFrom(run, "produce", { assumptions: { moqPerStylePerColour: 50, heroQuantity: 100, otherQuantity: 60, tier: "premium", unitCost: { fabric: 200 } } });
+  const after = run.stages.produce.output;
+  assert.equal(run.status, "done");
+  assert.notEqual(after.totalUnits, before.totalUnits);
+  assert.ok(after.economics.mrp > before.economics.mrp);
+  assert.equal(after.assumptions.unitCost.cmt, before.assumptions.unitCost.cmt); // untouched costs keep their defaults
+  assert.deepEqual(run.stages.write.output.plan, writeBefore); // the writing did not move
+});

@@ -51,6 +51,7 @@ export function digest(run) {
 export const GROUND = {
   film: [
     ["plan.references[].title", "title"],
+    ["plan.cast_ideas[].name", "person"],
     ["plan.soundtrack[].artist", "artist"],
     ["plan.travels_next[]", "city"],
     ["plan.lane.flavour", "tag"],

@@ -7,7 +7,7 @@ export const FORMATS = {
     id: "film",
     label: "Short film / feature",
     noun: "film",
-    types: ["movie", "tv_show"],
+    types: ["movie", "tv_show", "person"],
     supply: ["movie", "tv_show"],
     audio: true,
     spots: false,

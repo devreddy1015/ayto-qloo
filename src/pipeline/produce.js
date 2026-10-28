@@ -68,7 +68,9 @@ export async function produce(run) {
   const plan = run.stages.write?.output?.plan ?? {};
   const styles = (plan.styles ?? []).filter((s) => s?.name);
   if (!styles.length) return { packs: [], economics: {}, styles: [], allocation: [], summary: "No styles to produce." };
-  const A = structuredClone({ ...ASSUMPTIONS, ...(run.input.assumptions ?? {}) });
+  // A maker may change one cost component; the others keep their defaults.
+  const given = run.input.assumptions ?? {};
+  const A = structuredClone({ ...ASSUMPTIONS, ...given, unitCost: { ...ASSUMPTIONS.unitCost, ...(given.unitCost ?? {}) } });
   const kids = /kid|child|boys|girls/i.test(`${run.input.text} ${run.input.theme?.query ?? ""} ${plan.positioning ?? ""}`);
   const curve = kids ? A.kidsSizeCurve : A.sizeCurve;
 
