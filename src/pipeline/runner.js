@@ -12,6 +12,7 @@ import { spots } from "../engine/spots.js";
 import { travels } from "../engine/travels.js";
 import { FORMATS, STAGE_LABELS } from "../formats.js";
 import { clearRunCredential, setRunCredential } from "../keys.js";
+import { runWithUsage } from "../usage.js";
 import { check } from "./check.js";
 import { diff } from "./diff.js";
 import { produce } from "./produce.js";
@@ -78,11 +79,13 @@ async function execute(run, fromIndex) {
     state.startedAt = new Date().toISOString();
     emitEvent(run, { type: "stage", id, status: "running" });
     try {
-      const output = await withTimeout(STAGE_RUNNERS[id](run), STAGE_TIMEOUT_MS[id] ?? STAGE_TIMEOUT_MS.default, `${stageInfo(id).label} took too long`);
+      const before = run.usage?.calls ?? 0;
+      const output = await withTimeout(runWithUsage(run, id, () => STAGE_RUNNERS[id](run)), STAGE_TIMEOUT_MS[id] ?? STAGE_TIMEOUT_MS.default, `${stageInfo(id).label} took too long`);
       state.output = applyEdits(output, state.userEdits);
       state.status = "done";
       state.endedAt = new Date().toISOString();
       emitEvent(run, { type: "stage", id, status: "done", output: state.output, summary: state.output?.summary });
+      if ((run.usage?.calls ?? 0) > before) emitEvent(run, { type: "usage", usage: { calls: run.usage.calls, input: run.usage.input, output: run.usage.output, byok: run.usage.byok, provider: run.usage.provider, model: run.usage.model } });
     } catch (error) {
       state.status = "error";
       state.error = error.message;

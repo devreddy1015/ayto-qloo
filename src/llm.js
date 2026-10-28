@@ -6,6 +6,7 @@
 // carry the user's own credential { provider, key, model } instead; it lives in
 // memory (keys.js), never in a run file, an event, the cache or a log line.
 import { config } from "./config.js";
+import { recordUsage } from "./usage.js";
 
 export class LlmError extends Error {}
 
@@ -77,7 +78,7 @@ function openaiCall(p, cred, model, { messages, tools, json, temperature, maxTok
   const body = { model, messages, temperature, max_tokens: maxTokens, ...(tools?.length ? { tools, tool_choice: "auto" } : {}), ...(json && p.json ? { response_format: { type: "json_object" } } : {}) };
   const headers = { authorization: `Bearer ${cred.key}` };
   if (cred.provider === "openrouter") Object.assign(headers, { "http-referer": "https://ayto.app", "x-title": "AYTO" });
-  return postJson(`${p.baseUrl}/chat/completions`, headers, body).then((r) => ({ ...r, message: r.status === 200 ? r.json?.choices?.[0]?.message : undefined }));
+  return postJson(`${p.baseUrl}/chat/completions`, headers, body).then((r) => ({ ...r, message: r.status === 200 ? r.json?.choices?.[0]?.message : undefined, usage: r.status === 200 ? { input: r.json?.usage?.prompt_tokens ?? 0, output: r.json?.usage?.completion_tokens ?? 0 } : undefined }));
 }
 
 /** OpenAI-style messages and tools → Anthropic Messages API, and the reply back to the OpenAI shape ask.js expects. */
@@ -111,7 +112,7 @@ function anthropicCall(p, cred, model, { messages, tools, json, temperature, max
     const blocks = r.json?.content ?? [];
     const text = blocks.filter((c) => c.type === "text").map((c) => c.text).join("");
     const calls = blocks.filter((c) => c.type === "tool_use").map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: JSON.stringify(c.input ?? {}) } }));
-    return { ...r, message: { role: "assistant", content: text, ...(calls.length ? { tool_calls: calls } : {}) } };
+    return { ...r, message: { role: "assistant", content: text, ...(calls.length ? { tool_calls: calls } : {}) }, usage: { input: r.json?.usage?.input_tokens ?? 0, output: r.json?.usage?.output_tokens ?? 0 } };
   });
 }
 
@@ -135,6 +136,7 @@ export async function chat({ credential, messages, tools, json = false, temperat
       const r = await call(p, cred, model, { messages, tools, json: useJson, temperature, maxTokens }).catch((error) => ({ status: 0, text: error?.name === "TimeoutError" ? "timed out" : String(error?.message ?? error) }));
       if (r.message) {
         if (cred.server) workingModel = model;
+        if (r.usage) recordUsage({ provider: cred.provider, model, input: r.usage.input, output: r.usage.output, byok: !cred.server });
         return r.message;
       }
       const detail = redact(r.json?.error?.message || r.json?.error?.msg || r.text || "").slice(0, 240);
