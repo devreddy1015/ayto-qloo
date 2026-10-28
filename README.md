@@ -7,7 +7,7 @@ Live demo: _coming before submission_ · Source: [github.com/devreddy1015/ayto-q
 **Who it's for.** The filmmaker in Hyderabad, and the production house behind them, deciding what to make next. Everything else is the same engine in another format.
 
 - Making a **crime short film in Hyderabad**? You get a lane the city loves and isn't getting (Biographical: Hyderabad ranks it #9 for crime fans, India doesn't rank it in its top 30, and one recent crime film carries it), three titles, a logline, three acts, the films to study, a composer shortlist, and the cities that lean the same way.
-- Same engine, other formats: a **reel in Las Vegas** (the hook, the beats, the song, the spots, the caption) or a **kidswear drop in Tiruppur** (a design brief, the brands this crowd favours beyond the country, where to land first).
+- Same engine, seven other formats: a **reel** (hook, beats, song, spots, caption), a **fashion drop** (styles you can turn in 3D, a palette, brands to study, a first production run with costing), a **podcast**, an **indie game**, a **café menu and playlist**, a **live event night**, a **book or web novel**. Say which, or let AYTO read it from the sentence.
 
 Every name on the page comes from a Qloo request you can open. It never says "hit"; it says "built on what this city already loves".
 
@@ -34,13 +34,33 @@ The organisers' test: *"If your submission would work the same without Qloo, you
 4. **Supply, inside one response.** The films with the theme that the city favours, with their own tags (`filter.type=urn:entity:movie`, `filter.tags=<theme>`, `signal.location.query=<city>`, 50 titles). A flavour's supply is how many of those titles carry it; recent means the last four years. (Filtering by the flavour tag returns nothing for most affinity tags: they are not entity tags.)
 5. **The gap.** `demand = lift / 30`, `fill = min(recent, 10) / 10`, `gap = demand × (1 − fill)`. A lane must exist in the catalogue at least once. Top three lanes, with the titles. Formats without release years (reels) get demand-only lanes, and the card says so.
 6. **Audience, audio, spots, where it travels.** Aggregate skew of the city's own picks. Artists the crowd favours here and not nationally. Places, with junk names dropped. A geohash heatmap across the country, cells snapped to Qloo's localities, lift = affinity percentile − popularity percentile, so big cities don't win by size.
-7. **Write.** The format's writer gets a compact evidence digest, never raw Qloo, and returns JSON. **Check** looks up every named claim in the names Qloo returned during the run and removes the rest. **Diff** asks the same question with no evidence. **Share** renders a static page with no scripts.
+7. **Write.** The format's writer gets a compact evidence digest, never raw Qloo, and returns JSON. **Check** looks up every named claim in the names Qloo returned during the run and removes the rest; if anything was removed and a model is available, the writer runs once more with those names banned and the card shows both passes. **Diff** asks the same question with no evidence. **Share** renders a static page with no scripts.
+8. **Produce** (fashion only). A first production run as editable assumptions, never forecasts: a minimum tech pack per style with blank points of measure for the sampling room, unit economics per channel at today's take rates (Flipkart, Meesho and Myntra's emerging-brand scheme at 0%, Ajio 20%), the ₹2,500 GST cliff, MOQ, size curves, a city split by taste lean, and the Legal Metrology declarations.
+9. **See it in 3D** (fashion only). Each written style becomes a garment on a mannequin in the browser: nine garment types, the drop's own palette as colourways, the print placed from the cues, drag to orbit, snapshot to PNG. A silhouette-and-colour preview, not a cloth simulation; a flat croquis when WebGL is off.
+
+---
+
+## What makes it Qloo-powered
+
+Nothing on the page exists without Qloo. Every step is a request you can open in the receipts panel:
+
+| Step | Qloo request | What AYTO reads from it |
+|---|---|---|
+| Resolve | `/search` (locality), `qloo_find_tags`, `qloo_describe` | the city with its id and coordinates; the theme as a tag; the loves as entities |
+| Read | `qloo_recommend` with `include_tags` + `signal_location`, three times (city, country, contrast city) | only-here picks, hidden gems, what the country prefers instead |
+| Flavours | `/v2/insights` `filter.type=urn:tag` with `signal.interests.tags` + `signal.location.query` | demand lift: how much higher the city ranks each flavour than the country |
+| Supply | `/v2/insights` `filter.type=urn:entity:<type>` with `filter.tags` + `signal.location.query`, 50 titles with their own tags and years | how many recent titles carry each flavour: the gap |
+| Audience | `qloo_audience_demographics` | aggregate age and gender skew of the city's picks |
+| Audio, spots | `qloo_recommend` for artists and places with the city's picks as signals | the shortlist and the venues |
+| Travels | `/v2/insights` `filter.type=urn:heatmap` with `urn:geohash`, snapped to localities | cities that lean the same way, lift against popularity |
+
+The **with vs without Qloo** card runs the same sentence through the same model with no evidence and counts how many of its names trace to anything. Remove Qloo and the product is a prompt.
 
 ---
 
 ## Bring your own key
 
-Twelve providers, eleven on the same OpenAI-compatible wire format plus an Anthropic adapter: Groq, OpenAI, Anthropic, Gemini, Mistral, OpenRouter, Together, Fireworks, DeepSeek, xAI, Cerebras, SambaNova. The key travels once in the run request, lives in memory for that run, and is never written to a run file, an event, the cache or a log. Error text passes through a redactor. `POST /api/llm/check` makes one 8-token call so a bad key fails before the run. The server's own key is capped per IP and per day; your key skips the LLM cap and still counts against the Qloo cap.
+Twelve providers, eleven on the same OpenAI-compatible wire format plus an Anthropic adapter that also carries tool calls for the analyst: Groq, OpenAI, Anthropic, Gemini, Mistral, OpenRouter, Together, Fireworks, DeepSeek, xAI, Cerebras, SambaNova. The showcase buttons use your key too. The key travels once in the run request, lives in memory for that run, and is never written to a run file, an event, the cache or a log. Error text passes through a redactor. `POST /api/llm/check` makes one 8-token call so a bad key fails before the run. The server's own key is capped per IP and per day; your key skips the LLM cap and still counts against the Qloo cap.
 
 ## The agent door
 
@@ -69,6 +89,7 @@ Twelve providers, eleven on the same OpenAI-compatible wire format plus an Anthr
 ## Honest limits
 
 - Qloo describes aggregate taste across large groups. It does not know any individual and it is not sales data. AYTO never claims a hit.
+- The fashion numbers (MOQ, unit cost, markup, take rates) are directory asking prices and seller pages read in October 2026, shown as editable assumptions. The 3D view shows silhouette and colour, not fit or drape. Supply for reels, cafés and events is demand-only because those entities carry no release year.
 - Trend data in the hackathon API is frozen; there is no "rising now".
 - Supply is counted inside Qloo's catalogue for the city, not the market's full release slate.
 - The quality of the written output depends on the model you bring. The server default is capped.
@@ -84,7 +105,7 @@ CULTURE_GAP_MODE=fake npm start   # synthetic sample data, no keys
 npm test
 ```
 
-`PORT` (default 8080), `PREWARM=1` runs the three showcases at boot, `MAX_RUNS_PER_DAY`, `MAX_LLM_RUNS_PER_DAY`, `SCANS_PER_IP_PER_HOUR`, `PUBLIC_URL` for the discovery document. Docker: `docker build -t ayto . && docker run -p 8080:8080 --env-file .env ayto`. The app runs Qloo's official harness (`qloo mcp`) as a child process, so it needs a long-running container, not serverless.
+`PORT` (default 8080), `PREWARM=1` runs the three showcases at boot, `MAX_RUNS_PER_DAY`, `MAX_LLM_RUNS_PER_DAY`, `SCANS_PER_IP_PER_HOUR`, `PUBLIC_URL` for the discovery document. The server's own model comes from the first key it finds: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, or `LLM_PROVIDER` + `LLM_API_KEY`. Docker: `docker build -t ayto . && docker run -p 8080:8080 --env-file .env ayto`. The app runs Qloo's official harness (`qloo mcp`) as a child process, so it needs a long-running container, not serverless: Render (`render.yaml` is a ready blueprint), Railway or Fly.io from the Dockerfile all work.
 
 ## Ethics
 
