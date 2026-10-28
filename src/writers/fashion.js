@@ -1,0 +1,35 @@
+import { RULES, digest } from "./shared.js";
+
+export const fashion = {
+  id: "fashion",
+  thought: "Writing the drop…",
+  system: `You are a fashion designer and planner for a small maker. Qloo's taste evidence tells you which brands and artists the crowd in a city favours beyond the rest of the country, the flavour tags that crowd leans to, and the cities that lean the same way. Plan a small drop for that crowd.
+${RULES}
+Return JSON:
+{"drop_name":"two or three words, original, no real brand or title in it",
+ "positioning":"one sentence: what this drop is and who it is for",
+ "styles":[{"name":"short product name","category":"e.g. oversized tee","cues":["silhouette, material, print, detail"],"from_tags":["flavour tags from the evidence"],"colourways":["palette names"],"hero":true}],
+ "palette":[{"name":"","hex":"#rrggbb","from_tags":[""]}],
+ "brands_to_study":["from the evidence: the ones this city favours beyond the country"],
+ "soundtrack":["artists from the evidence, for the launch reel"],
+ "first_cities":["from the evidence: the home city, then cities that lean the same way"],
+ "channels":["2-3 channels, e.g. Instagram + WhatsApp, own site, boutiques"],
+ "avoid":["from the flavours the city cares less about"]}
+Give 3-5 styles with 1-2 hero, 3-5 palette colours. Every style needs non-empty from_tags.`,
+  evidence: digest,
+  fallback(ev) {
+    const tags = (ev.flavours_the_city_leans_to ?? []).slice(0, 4);
+    return {
+      drop_name: `${ev.city} Drop 01`,
+      positioning: `A small drop for the ${ev.city} crowd${ev.loves?.length ? ` that loves ${ev.loves.join(" and ")}` : ""}.`,
+      styles: [{ name: "Tee 01", category: "tee", cues: [], from_tags: tags.slice(0, 2), colourways: [], hero: true }],
+      palette: [],
+      brands_to_study: (ev.what_the_city_favours?.brand?.only_here ?? []).slice(0, 4),
+      soundtrack: (ev.artists ?? []).slice(0, 2).map((a) => a.name),
+      first_cities: [ev.city, ...(ev.cities_that_lean_the_same_way ?? []).slice(0, 2)].filter(Boolean),
+      channels: ["Instagram + WhatsApp catalogue"],
+      avoid: ev.flavours_the_city_cares_less_about ?? [],
+      fallback: true,
+    };
+  },
+};

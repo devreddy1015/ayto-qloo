@@ -2,12 +2,15 @@ import express from "express";
 import { join } from "node:path";
 import { runAsk } from "./ask.js";
 import { config, ROOT } from "./config.js";
-import { currentModel, llmAvailable } from "./llm.js";
-import { renderDropPage } from "./pipeline/page.js";
-import { createRun, editAndRerun, isRunning, parseInput, STAGES, startRun } from "./pipeline/runner.js";
+import { checkCredential, credentialFrom, llmAvailable, llmStatus, probeServerLlm, providerList, redact } from "./llm.js";
+import { discovery, mcpHandler } from "./mcp.js";
+import { mosaic } from "./mosaic.js";
+import { candidates, parseInput } from "./parse.js";
+import { renderSharePage } from "./pipeline/page.js";
+import { createRun, editAndRerun, isRunning, regenerate, startRun } from "./pipeline/runner.js";
 import { findRunBySlug, loadRun, publicRun, subscribe } from "./pipeline/store.js";
+import { formatList, MARKETS, SHOWCASES } from "./presets.js";
 import { closeQloo, qlooStatus } from "./qloo.js";
-import { EXAMPLES, MARKETS } from "./presets.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -18,38 +21,32 @@ app.use(express.static(join(ROOT, "public"), { maxAge: "5m" }));
 // ---------- abuse / quota protection ----------
 
 const hits = new Map(); // ip -> [timestamps]
-let runsToday = 0;
-let dayKey = new Date().toISOString().slice(0, 10);
+const counters = { day: new Date().toISOString().slice(0, 10), runs: 0, llmRuns: 0 };
 
-function allow(ip, weight = 1) {
+function allow(ip, { perHour = config.scansPerIpPerHour, bucket = "runs" } = {}) {
   const now = Date.now();
-  const recent = (hits.get(ip) ?? []).filter((t) => now - t < 3600e3);
-  if (recent.length + weight > config.scansPerIpPerHour) return false;
-  for (let i = 0; i < weight; i += 1) recent.push(now);
-  hits.set(ip, recent);
+  const key = `${bucket}:${ip}`;
+  const recent = (hits.get(key) ?? []).filter((t) => now - t < 3600e3);
+  if (recent.length + 1 > perHour) return false;
+  recent.push(now);
+  hits.set(key, recent);
   return true;
 }
 
-function allowGlobal() {
+function allowGlobal({ llm = false } = {}) {
   const today = new Date().toISOString().slice(0, 10);
-  if (today !== dayKey) {
-    dayKey = today;
-    runsToday = 0;
-  }
-  if (runsToday >= config.maxRunsPerDay) return false;
-  runsToday += 1;
+  if (today !== counters.day) Object.assign(counters, { day: today, runs: 0, llmRuns: 0 });
+  if (counters.runs >= config.maxRunsPerDay) return false;
+  if (llm && counters.llmRuns >= config.maxLlmRunsPerDay) return false;
+  counters.runs += 1;
+  if (llm) counters.llmRuns += 1;
   return true;
 }
 
 // ---------- helpers ----------
 
 function sse(res) {
-  res.writeHead(200, {
-    "content-type": "text/event-stream; charset=utf-8",
-    "cache-control": "no-cache, no-transform",
-    connection: "keep-alive",
-    "x-accel-buffering": "no",
-  });
+  res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-transform", connection: "keep-alive", "x-accel-buffering": "no" });
   res.flushHeaders?.();
   const ping = setInterval(() => !res.writableEnded && res.write(": ping\n\n"), 15000);
   res.on("close", () => clearInterval(ping));
@@ -67,36 +64,73 @@ const publicError = (error) =>
       ? error.message
       : /rate|429/i.test(error?.message ?? "")
         ? "Qloo or the language model is rate limiting right now. Try again in a minute."
-        : (error?.message ?? "Something went wrong.").slice(0, 300);
+        : redact(error?.message ?? "Something went wrong.").slice(0, 300);
+
+/** The user's own credential, if the body carries one. Never logged, never echoed. */
+function credentialOf(body, res) {
+  try {
+    return credentialFrom(body?.llm);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+    return null;
+  }
+}
 
 // ---------- routes ----------
 
 app.get("/api/health", async (_req, res) => {
   const qloo = await qlooStatus();
-  res.json({ ok: qloo.ready, qloo, llm: { available: llmAvailable(), model: currentModel() } });
+  res.json({ ok: qloo.ready, qloo, llm: llmStatus() });
 });
 
 app.get("/api/presets", (_req, res) => {
-  res.json({
-    examples: EXAMPLES.map(({ id, label, text }) => ({ id, label, text })),
-    markets: MARKETS,
-    stages: STAGES.map(({ id, label, output }) => ({ id, label, output })),
-    mode: config.mode,
-    llm: llmAvailable(),
-  });
+  res.json({ showcases: SHOWCASES.map(({ id, label, text, format }) => ({ id, label, text, format })), formats: formatList(), markets: MARKETS, providers: providerList(), mode: config.mode, llm: llmStatus() });
+});
+
+app.get("/api/llm/providers", (_req, res) => res.json({ providers: providerList() }));
+
+/** Images for the background: a run's own picks, or the showcases' when there is no run. */
+app.get("/api/mosaic", async (req, res) => {
+  const runId = typeof req.query.run === "string" && /^[A-Za-z0-9_-]{3,40}$/.test(req.query.run) ? req.query.run : undefined;
+  res.set("cache-control", runId ? "private, max-age=60" : "public, max-age=300");
+  res.json(await mosaic({ runId }));
+});
+
+/** One tiny call with the user's key, so a bad key fails before a run. The key is not kept. */
+app.post("/api/llm/check", async (req, res) => {
+  if (!allow(req.ip, { perHour: 20, bucket: "check" })) return res.status(429).json({ error: "Too many key checks this hour." });
+  const body = req.body?.llm ? req.body : { llm: req.body };
+  const credential = credentialOf(body, res);
+  if (credential === null) return;
+  if (!credential) return res.status(400).json({ error: "Send a provider and a key." });
+  res.json(await checkCredential(credential));
+});
+
+/** Sentence → structured input plus what Qloo makes of it. Nothing runs yet. */
+app.post("/api/parse", async (req, res) => {
+  if (!allow(req.ip, { perHour: 40, bucket: "parse" })) return res.status(429).json({ error: "Too many requests this hour." });
+  try {
+    const input = await parseInput(req.body ?? {});
+    const found = await candidates(input);
+    res.json({ input, ...found });
+  } catch (error) {
+    res.status(400).json({ error: publicError(error) });
+  }
 });
 
 /** Start a run. Responds at once with the run id; progress streams from /events. */
 app.post("/api/runs", async (req, res) => {
   const body = req.body ?? {};
-  const example = typeof body.example === "string" ? EXAMPLES.find((e) => e.id === body.example) : undefined;
-  if (!example && !allow(req.ip)) return res.status(429).json({ error: "You've started a lot of runs this hour. Try again later." });
-  if (!example && !allowGlobal()) return res.status(503).json({ error: "The demo has hit today's Qloo budget. The showcase runs still work." });
+  const showcase = typeof body.showcase === "string" ? SHOWCASES.find((s) => s.id === body.showcase) : undefined;
+  const credential = showcase ? undefined : credentialOf(body, res);
+  if (credential === null) return;
+  if (!showcase && !allow(req.ip)) return res.status(429).json({ error: "You've started a lot of runs this hour. Try again later." });
+  if (!showcase && !allowGlobal({ llm: !credential && llmAvailable() })) return res.status(503).json({ error: "The demo has hit today's budget. The showcase runs still work, or bring your own LLM key." });
   try {
-    const input = await parseInput(example ?? body);
-    const run = await createRun(input, { example: example?.id });
+    const input = await parseInput(showcase ?? body);
+    const run = await createRun(input, { showcase: showcase?.id, credential });
     startRun(run, 0).catch(() => {});
-    res.status(201).json({ id: run.id, input });
+    res.status(201).json({ id: run.id, input, llm: run.llm });
   } catch (error) {
     res.status(400).json({ error: publicError(error) });
   }
@@ -137,9 +171,28 @@ app.post("/api/runs/:id/edit", async (req, res) => {
   if (!allow(req.ip)) return res.status(429).json({ error: "Too many reruns this hour." });
   const { stage, edits } = req.body ?? {};
   if (typeof stage !== "string" || !edits || typeof edits !== "object") return res.status(400).json({ error: "Send a stage and edits." });
+  const credential = credentialOf(req.body, res);
+  if (credential === null) return;
   try {
-    editAndRerun(run, stage, edits).catch(() => {});
+    await editAndRerun(run, stage, edits, credential).catch(() => {});
     res.json({ ok: true });
+  } catch (error) {
+    res.status(400).json({ error: publicError(error) });
+  }
+});
+
+/** Write again, with the user's own key. */
+app.post("/api/runs/:id/regenerate", async (req, res) => {
+  const run = await loadRun(req.params.id);
+  if (!run) return res.status(404).json({ error: "No such run." });
+  if (!allow(req.ip)) return res.status(429).json({ error: "Too many reruns this hour." });
+  const credential = credentialOf(req.body, res);
+  if (credential === null) return;
+  if (!credential && !llmAvailable()) return res.status(400).json({ error: "Add a key to write again." });
+  if (!credential && !allowGlobal({ llm: true })) return res.status(503).json({ error: "The demo has hit today's budget. Bring your own key to write." });
+  try {
+    regenerate(run, credential).catch(() => {});
+    res.json({ ok: true, llm: run.llm });
   } catch (error) {
     res.status(400).json({ error: publicError(error) });
   }
@@ -160,32 +213,41 @@ app.post("/api/ask", async (req, res) => {
   }
 });
 
-/** The published drop page. */
-app.get("/d/:slug", async (req, res) => {
+/** The share page. */
+app.get("/s/:slug", async (req, res) => {
   const slug = String(req.params.slug);
   if (!/^[a-z0-9-]{3,60}$/.test(slug)) return res.status(404).send("Not found");
   const run = await findRunBySlug(slug);
-  const html = run && renderDropPage(run);
-  if (!html) return res.status(404).send("This drop page doesn't exist (yet).");
+  const html = run && renderSharePage(run);
+  if (!html) return res.status(404).send("This page doesn't exist (yet).");
   res.type("html").send(html);
 });
 
 app.get("/run/:id", (_req, res) => res.sendFile(join(ROOT, "public", "index.html")));
 
-const server = app.listen(config.port, () => {
-  console.log(`Culture Gap on :${config.port} (mode=${config.mode}, llm=${llmAvailable() ? "on" : "off"})`);
-  if (process.env.PREWARM === "1" && config.mode === "live") setTimeout(prewarm, 3000);
+// ---------- the agent door ----------
+
+const publicUrl = (req) => (process.env.PUBLIC_URL || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
+app.get("/.well-known/ayto.json", (req, res) => res.json(discovery(publicUrl(req))));
+app.post("/mcp", (req, res, next) => (allow(req.ip, { perHour: 30, bucket: "mcp" }) ? next() : res.status(429).json({ jsonrpc: "2.0", error: { code: -32000, message: "Too many MCP calls this hour." }, id: null })), mcpHandler());
+app.get("/mcp", (_req, res) => res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "AYTO's MCP server is stateless: POST JSON-RPC here. Discovery at /.well-known/ayto.json" }, id: null }));
+app.delete("/mcp", (_req, res) => res.status(405).end());
+
+const server = app.listen(config.port, async () => {
+  const llm = await probeServerLlm();
+  console.log(`AYTO on :${config.port} (mode=${config.mode}, llm=${llm.available ? `on (${llm.model})` : `off: ${llm.error ?? "no key"}`})`);
+  if (process.env.PREWARM === "1" && config.mode !== "samples") setTimeout(prewarm, 3000);
 });
 
-// Run the showcase examples once in the background so judges never wait on Qloo.
+// Run the showcases once in the background so judges never wait on Qloo.
 async function prewarm() {
-  for (const example of EXAMPLES) {
+  for (const showcase of SHOWCASES) {
     try {
-      const run = await createRun(await parseInput(example), { example: example.id });
+      const run = await createRun(await parseInput(showcase), { showcase: showcase.id });
       await startRun(run, 0);
-      console.log(`prewarmed ${example.id}: ${run.status}`);
+      console.log(`prewarmed ${showcase.id}: ${run.status}`);
     } catch (error) {
-      console.log(`prewarm ${example.id} failed: ${error.message}`);
+      console.log(`prewarm ${showcase.id} failed: ${redact(error.message)}`);
     }
   }
 }

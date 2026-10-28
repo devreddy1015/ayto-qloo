@@ -100,3 +100,15 @@ test("subLocalities keeps only Qloo localities whose parent chain names the city
   ];
   assert.deepEqual(subLocalities(results, { city: "Kadapa", market: "India" }).map((p) => p.name), ["Dongala Cheruvu"]);
 });
+
+test("displayName drops administrative suffixes and prefixes", async () => {
+  const { displayName } = await import("../src/cities.js");
+  assert.equal(displayName("Mysuru District"), "Mysuru");
+  assert.equal(displayName("Mangaluru taluk"), "Mangaluru");
+  assert.equal(displayName("Municipio de Tijuana"), "Tijuana");
+  assert.equal(displayName("Autonomous community of the Region of Murcia"), "Murcia");
+  assert.equal(displayName("Vijayawada (Urban)"), "Vijayawada");
+  assert.equal(displayName("Bhubaneswar Municipal Corporation"), "Bhubaneswar");
+  assert.equal(displayName("Los Angeles County"), "Los Angeles");
+  assert.equal(displayName("New York"), "New York");
+});

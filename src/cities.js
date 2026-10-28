@@ -64,10 +64,23 @@ export function localityName(entity) {
   return en?.value ?? entity?.name;
 }
 
+/**
+ * The name a person would say: "Mysuru" for "Mysuru District", "Tijuana" for
+ * "Municipio de Tijuana". Qloo's own name stays on `qlooName` for the receipts.
+ */
+export function displayName(name) {
+  let s = String(name ?? "").trim();
+  s = s.replace(/^(municipio de|município de|autonomous community of the region of|autonomous community of|región de|region of|comunidad de|province of|county of|city of)\s+/i, "");
+  s = s.replace(/\s*\((urban|rural|city|town|m\.?\s?corp\.?)\)\s*$/i, "");
+  s = s.replace(/\s+(district|taluk|taluka|tehsil|mandal|municipal corporation|municipality|metropolitan region|metropolitan area|metro|county|city|urban agglomeration)$/i, "");
+  return s || String(name ?? "");
+}
+
 /** Shape a Qloo locality for the heatmap: id, name, coordinates, market. */
 export const toPlace = (r, market) => ({
   id: r.entity_id,
-  name: localityName(r),
+  name: displayName(localityName(r)),
+  qlooName: localityName(r),
   lat: r.location.lat,
   lon: r.location.lon,
   popularity: r.popularity,

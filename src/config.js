@@ -48,4 +48,6 @@ export const config = {
   // Abuse and quota protection for the public demo.
   scansPerIpPerHour: int("SCANS_PER_IP_PER_HOUR", 6),
   maxRunsPerDay: int("MAX_RUNS_PER_DAY", 150),
+  // Runs that spend the server's own LLM key (bring-your-own-key runs are not counted).
+  maxLlmRunsPerDay: int("MAX_LLM_RUNS_PER_DAY", 100),
 };
