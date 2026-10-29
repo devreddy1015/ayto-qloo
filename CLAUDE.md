@@ -35,7 +35,12 @@ server default is Groq. MCP door in src/mcp.js. Hackathon host: https://hackatho
 ## Gap formula (src/engine/gap.js, src/analysis.js)
 demand lift = country rank − city rank of a flavour tag (tag read with the theme as signal, parents = the format's entity type).
 supply = recent (last 4 years) titles in the city's themed catalogue (raw entity Insights, with tags) that carry the flavour.
-gap = (lift/30) × (1 − min(recent,10)/10). A lane must exist in the catalogue at least once. Compare only within one response.
+Control cities (3 from CANDIDATE_CITIES, not the city or contrast): specific lift = lift − median(control lifts); lanes rank on it
+(scope "this city" ≥ 8, "leans here" ≥ 3, else "most cities"). gap = (lift/30) × (1 − min(recent,10)/10). A lane must exist in the
+catalogue at least once unless specific ≥ 20 (then zero supply is the open lane). Compare only within one response.
+Look stage (src/engine/look.js): film = style-tag share lift between city and country catalogues + style_description quotes;
+fashion = aesthetic/personal_style typed tag lift + material/age/segment share lift on fashion labels + the loves' own tags.
+Research behind this: /home/dev/hackthons/culture-gap/research.txt (29 Oct 2026, another session; verified live).
 
 ## Hard rules
 - Never commit keys. `.env` is git-ignored. Never commit Qloo response data (.cache/, samples/qloo/, probe-out/ are ignored).

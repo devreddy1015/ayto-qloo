@@ -261,6 +261,14 @@ export async function qlooSearch(args) {
   });
 }
 
+/** Entities by id, with their tags and properties (a love's own style and theme tags). */
+export async function qlooEntities(ids) {
+  const list = [...new Set((ids ?? []).filter(Boolean))].slice(0, 10);
+  if (!list.length) return { results: [] };
+  if (config.mode === "fake") return (await import("./fake-qloo.js")).fakeEntities(list);
+  return cached("api", "entities", { ids: list }, () => rawGet("/entities", { entity_ids: list }));
+}
+
 /** Raw Insights request (heatmaps, typed tag reads). Returns the raw API response. */
 export async function qlooInsights(params) {
   if (config.mode === "fake") return (await import("./fake-qloo.js")).fakeInsights(params);

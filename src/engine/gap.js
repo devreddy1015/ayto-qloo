@@ -1,7 +1,8 @@
 // Stage 3: the gap. Demand = flavour tags the city ranks higher than the
 // country. Supply = recent titles that carry the theme AND that flavour, read
 // with the city as the signal. Lanes = high demand, low supply.
-import { demandLift, laneGap, tagPoints } from "../analysis.js";
+import { demandLift, laneGap, median, tagPoints } from "../analysis.js";
+import { CANDIDATE_CITIES } from "../cities.js";
 import { evidenceFor, registerName } from "../pipeline/evidence.js";
 import { crowdIds, format, placeLabel, themeTagIds, thisYear } from "./common.js";
 
@@ -72,7 +73,21 @@ export async function gap(run) {
     flavourRead(q, `Flavours ${r.city.name} leans to (${type.replace("_", " ")} tags)`, { type, tagIds: themeIds, entityIds, where }),
     flavourRead(q, `Same flavours for ${country}`, { type, tagIds: themeIds, entityIds, where: country }),
   ]);
-  const flavours = demandLift(cityTags, countryTags, { take: TAKE });
+  const flavoursRaw = demandLift(cityTags, countryTags, { take: TAKE });
+
+  // Control cities: the country baseline behaves like its largest city, so a lift over the country is
+  // often shared by every other big city. Read the same flavours for up to three controls and keep
+  // "specific lift" = this city's lift minus the controls' median. Lanes rank on the specific lift.
+  const lower = (x) => String(x ?? "").toLowerCase();
+  const controls = (CANDIDATE_CITIES[country] ?? []).filter((n) => lower(n) !== lower(r.city.name) && lower(n) !== lower(r.contrast?.name) && !lower(r.city.qlooName).includes(lower(n))).slice(1, 4);
+  const controlTags = await Promise.all(controls.map((name) => flavourRead(q, `Control city ${name}: the same flavours`, { type, tagIds: themeIds, entityIds, where: `${name}, ${country}` })));
+  const controlLifts = controlTags.filter((t) => t.length).map((t) => new Map(demandLift(t, countryTags, { take: TAKE }).map((f) => [f.id ?? f.name, f.lift])));
+  const flavours = flavoursRaw.map((f) => {
+    const lifts = controlLifts.map((m) => m.get(f.id ?? f.name) ?? -(TAKE + 1));
+    const specific = controlLifts.length ? Math.round(f.lift - median(lifts)) : undefined;
+    const scope = specific === undefined ? "unknown" : specific >= 8 ? "this city" : specific >= 3 ? "leans here" : "most cities";
+    return { ...f, rawLift: f.lift, specific, scope, controls: controls.slice(0, controlLifts.length) };
+  });
   for (const t of flavours) registerName(run, t.name, "tag", { id: t.id });
 
   const canCount = f.supply.includes(type) && themeIds.length > 0;
@@ -81,9 +96,13 @@ export async function gap(run) {
   const themeNames = new Set((r.theme?.tags ?? []).map((t) => t.name.toLowerCase()));
   const notTheme = (t) => !themeIds.includes(t.id) && !themeNames.has(String(t.name).toLowerCase());
   // A lane must exist in the theme's catalogue at least once; a flavour no title carries is a taste, not a lane.
-  const exists = (t) => !read.sample || (supply[t.id]?.total ?? 0) > 0;
-  const candidates = flavours.filter(notTheme).filter(exists);
-  const lanes = laneGap(candidates.length ? candidates : flavours.filter(notTheme), supply, { n: TAKE }).slice(0, 3);
+  // A lane must exist in the theme's catalogue at least once, unless the flavour is strongly specific to this
+  // city (control cities do not share it): then zero supply is the open lane itself, and the card says so.
+  const exists = (t) => !read.sample || (supply[t.id]?.total ?? 0) > 0 || (typeof t.specific === "number" && t.specific >= 20);
+  // Rank on the specific lift when controls were read; a city with no specific flavour falls back to the raw lift.
+  const specificOnes = flavours.filter(notTheme).filter(exists).filter((t) => typeof t.specific === "number" && t.specific >= 3).map((t) => ({ ...t, lift: t.specific }));
+  const candidates = specificOnes.length ? specificOnes : flavours.filter(notTheme).filter(exists);
+  const lanes = laneGap(candidates.length ? candidates : flavours.filter(notTheme), supply, { n: TAKE }).slice(0, 3).map((l) => ({ ...l, lift: l.rawLift ?? l.lift }));
   for (const lane of lanes) for (const t of lane.supplyTitles) registerName(run, t.name, type, {});
   // Demand-only when the catalogue read came back empty: say so rather than show zeros.
   if (canCount && !read.sample) for (const lane of lanes) Object.assign(lane, { supplyRead: false, supplyCount: undefined, fill: undefined, mode: "demand-only" });
@@ -108,6 +127,7 @@ export async function gap(run) {
     lanes,
     avoid,
     coverage: cityTags.length === 0 ? "none" : cityTags.length < 10 ? "thin" : "ok",
-    summary: lanes.length ? `Lane 1: ${lanes[0].name} (${r.city.name} #${lanes[0].cityRank} vs ${country} #${lanes[0].countryRank ?? "–"}${lanes[0].supplyRead ? `, ${lanes[0].supplyCount} recent of ${supply[lanes[0].id]?.total ?? 0} titles` : ", demand only"}).` : `No flavour ranks higher in ${r.city.name} than in ${country}.`,
+    controls: controls.slice(0, controlLifts.length),
+    summary: lanes.length ? `Lane 1: ${lanes[0].name} (${r.city.name} #${lanes[0].cityRank} vs ${country} #${lanes[0].countryRank ?? "–"}${typeof lanes[0].specific === "number" ? `, ${lanes[0].scope}` : ""}${lanes[0].supplyRead ? `, ${lanes[0].supplyCount} recent of ${supply[lanes[0].id]?.total ?? 0} titles` : ", demand only"}).` : `No flavour ranks higher in ${r.city.name} than in ${country}.`,
   };
 }

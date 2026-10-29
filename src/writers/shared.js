@@ -36,7 +36,8 @@ export function digest(run) {
         },
       ]),
     ),
-    lanes: (g?.lanes ?? []).map((l) => ({ flavour: l.name, city_rank: l.cityRank, country_rank: l.countryRank ?? "not in the country's top 30", recent_supply: l.supplyRead ? { count: l.supplyCount, titles: l.supplyTitles.map((x) => (x.year ? `${x.name} (${x.year})` : x.name)) } : "not read", gap: l.gap })),
+    lanes: (g?.lanes ?? []).map((l) => ({ flavour: l.name, city_rank: l.cityRank, country_rank: l.countryRank ?? "not in the country's top 30", scope: l.scope === "this city" ? `specific to ${r.city?.name} (control cities do not share it)` : l.scope === "leans here" ? "leans here more than comparable cities" : l.scope === "most cities" ? "shared by most big cities in the country" : undefined, recent_supply: l.supplyRead ? { count: l.supplyCount, titles: l.supplyTitles.map((x) => (x.year ? `${x.name} (${x.year})` : x.name)) } : "not read", gap: l.gap })),
+    look: lookDigest(run.stages.look?.output),
     flavours_the_city_leans_to: (g?.flavours ?? []).slice(0, 10).map((x) => x.name),
     flavours_the_city_cares_less_about: (g?.avoid ?? []).map((x) => x.name),
     artists: (a?.shortlist ?? []).map((x) => ({ name: x.name, why: x.why })),
@@ -45,6 +46,27 @@ export function digest(run) {
     audience: d?.skew ? { leans: d.leans, gender: d.gender } : undefined,
     cities_that_lean_the_same_way: (t?.cities ?? []).filter((c) => !c.home).slice(0, 5).map((c) => c.name),
   };
+}
+
+/** The look stage, compact: only the words, with their lifts, so the writer cannot invent a style. */
+function lookDigest(l) {
+  if (!l) return undefined;
+  const w = (list = [], n = 6) => list.slice(0, n).map((x) => (typeof x.lift === "number" ? `${x.name} (+${x.lift})` : x.name));
+  if (l.kind === "fashion") {
+    return {
+      aesthetics_this_city_leans_to: w(l.aesthetics),
+      personal_styles: w(l.personalStyles),
+      materials_more_than_the_country: w(l.materials?.over),
+      materials_less_than_the_country: w(l.materials?.under),
+      age_groups: w(l.ages?.over, 3),
+      segments: w(l.segments?.over, 4),
+      aesthetics_the_country_prefers_instead: w(l.avoid),
+      motifs_from_the_loves: (l.motifs ?? []).slice(0, 8).map((m) => `${m.name} (from ${m.from})`),
+      labels_this_city_favours: (l.labels ?? []).slice(0, 6).map((x) => x.name),
+      note: l.note,
+    };
+  }
+  return { style_this_city_leans_to: w(l.styles), style_it_cares_less_about: w(l.avoid, 4), style_notes_on_its_own_picks: (l.descriptions ?? []).map((d) => `${d.title}: ${d.text}`) };
 }
 
 /** Names that the check stage must find in the Qloo evidence, per writer. Paths walk the written plan. */

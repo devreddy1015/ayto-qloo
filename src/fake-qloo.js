@@ -57,9 +57,21 @@ function ranked(type, seed, n = 20) {
     .filter((x) => x.r > 0.35)
     .sort((a, b) => b.r - a.r)
     .slice(0, n)
-    .map(({ name, r, pop }, i) => ({ entity_id: idFor(`${type}:${name}`), name, type: `urn:entity:${type}`, subtype: `urn:entity:${type}`, popularity: Math.round(pop * 100) / 100, affinity: Math.round((0.99 - i * 0.004) * 1000) / 1000, properties: { release_year: 2019 + (hash(name)[1] % 7), image: undefined }, tags: tagsFor(name) }));
+    .map(({ name, r, pop }, i) => ({ entity_id: idFor(`${type}:${name}`), name, type: `urn:entity:${type}`, subtype: `urn:entity:${type}`, popularity: Math.round(pop * 100) / 100, affinity: Math.round((0.99 - i * 0.004) * 1000) / 1000, properties: { release_year: 2019 + (hash(name)[1] % 7), image: undefined, style_description: type === "movie" || type === "tv_show" ? `Synthetic style note for ${name}: moody, kinetic, high-contrast.` : undefined }, tags: type === "brand" ? brandTagsFor(name) : tagsFor(name) }));
 }
-const tagsFor = (name) => [...FLAVOURS_BY_DOMAIN.screen.filter((_, i) => rnd(`tag|${name}`, i) > 0.72).map((t) => ({ tag_id: `urn:tag:genre:qloo:${t.toLowerCase().replace(/[^a-z]+/g, "_")}`, name: t })), ...STYLE_TAGS.filter((_, i) => rnd(`style|${name}`, i) > 0.6).map((t) => ({ tag_id: `urn:tag:style:qloo:${t.toLowerCase().replace(/\s+/g, "_")}`, name: t }))];
+const FAMILIES = {
+  material: ["Cotton", "Silk", "Organza", "Velvet", "Linen", "Denim", "Fleece", "Chiffon"],
+  target_age_group: ["Teens", "Young Adults", "Adults", "Middle-Aged", "Seniors"],
+  aesthetic_property: ["Intricate Embroidery", "Minimalist", "Traditional Motifs", "Rich Color Palettes", "Clean Lines", "Contemporary Silhouettes", "Bold Graphics", "Vintage"],
+  personal_style: ["Sophisticated", "Elegant", "Casual", "Classic", "Bohemian", "Glamorous", "Sporty", "Streetwear"],
+  fashion_segment: ["Ready-to-Wear", "Luxury", "Casual Wear", "Heritage", "Ethnic Wear", "Contemporary", "Kidswear"],
+};
+const slug = (t) => t.toLowerCase().replace(/[^a-z]+/g, "_").replace(/^_|_$/g, "");
+const tagsFor = (name) => [
+  ...FLAVOURS_BY_DOMAIN.screen.filter((_, i) => rnd(`tag|${name}`, i) > 0.72).map((t) => ({ tag_id: `urn:tag:genre:qloo:${slug(t)}`, name: t })),
+  ...STYLE_TAGS.filter((_, i) => rnd(`style|${name}`, i) > 0.6).map((t) => ({ tag_id: `urn:tag:style:qloo:${slug(t)}`, name: t })),
+];
+const brandTagsFor = (name) => Object.entries(FAMILIES).flatMap(([family, list]) => list.filter((_, i) => rnd(`${family}|${name}`, i) > 0.55).map((t) => ({ tag_id: `urn:tag:${family}:qloo:${slug(t)}`, name: t })));
 
 export async function fakeTool(name, args) {
   await wait(120 + rnd(name + JSON.stringify(args)) * 300);
@@ -121,12 +133,16 @@ export async function fakeInsights(params) {
   await wait(150);
   const where = String(params["filter.location.query"] ?? params["signal.location.query"] ?? "");
   if (params["filter.type"] === "urn:tag") {
-    // Flavour tags: the order depends on the location, so a city and its country differ.
-    const seed = JSON.stringify([where, params["signal.interests.tags"], params["signal.interests.entities"], params["filter.parents.types"]]);
-    const tags = FLAVOURS_BY_DOMAIN[domainFor(params["filter.parents.types"])].map((t, i) => ({ t, r: rnd(`flav|${seed}`, i) }))
+    // Flavour tags: the order depends on the location, so a city and its country differ. A typed read
+    // (filter.tag.types) draws from that family instead of the flavour vocabulary.
+    const seed = JSON.stringify([where, params["signal.interests.tags"], params["signal.interests.entities"], params["filter.parents.types"], params["filter.tag.types"]]);
+    const typed = String(params["filter.tag.types"] ?? "").match(/^urn:tag:([a-z_]+):qloo$/)?.[1];
+    const vocab = typed && FAMILIES[typed] ? FAMILIES[typed] : FLAVOURS_BY_DOMAIN[domainFor(params["filter.parents.types"])];
+    const family = typed && FAMILIES[typed] ? typed : "genre";
+    const tags = vocab.map((t, i) => ({ t, r: rnd(`flav|${seed}`, i) }))
       .sort((a, b) => b.r - a.r)
       .slice(0, params.take ?? 20)
-      .map(({ t }, i) => ({ tag_id: `urn:tag:genre:qloo:${t.toLowerCase().replace(/[^a-z]+/g, "_")}`, name: t, subtype: "urn:tag:genre:qloo", popularity: 0.5, query: { affinity: Math.round((0.95 - i * 0.01) * 100) / 100 } }));
+      .map(({ t }, i) => ({ tag_id: `urn:tag:${family}:qloo:${slug(t)}`, name: t, subtype: `urn:tag:${family}:qloo`, popularity: 0.5, query: { affinity: Math.round((0.95 - i * 0.01) * 100) / 100 } }));
     return { results: { tags } };
   }
   if (/^urn:entity:/.test(params["filter.type"] ?? "")) {
@@ -149,4 +165,10 @@ export async function fakeInsights(params) {
       })),
     },
   };
+}
+
+/** Synthetic entity lookup: the love's own style and theme tags. */
+export async function fakeEntities(ids) {
+  await wait(80);
+  return { results: ids.map((id) => ({ entity_id: id, name: `Entity ${id.slice(-4)}`, type: "urn:entity:movie", tags: ["Neon Infused", "Glam Spectacle", "Textured Collage", "Stylized", "Vibrant"].map((t) => ({ tag_id: `urn:tag:style:qloo:${slug(t)}`, name: t })).concat([{ tag_id: "urn:tag:theme:qloo:sisterhood", name: "Sisterhood" }]) })) };
 }

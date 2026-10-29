@@ -10,6 +10,8 @@ Return JSON:
  "lane":{"flavour":"lane 1 flavour name exactly as in the evidence","why":"one sentence citing the city rank vs country rank and the recent supply count"},
  "logline":"one sentence",
  "theme":"one sentence on what it is really about",
+ "look":"one or two sentences on the visual style, using only the style words the evidence gives for this city",
+ 
  "synopsis":{"act1":"2-3 sentences","act2":"2-3 sentences","act3":"2-3 sentences"},
  "characters":[{"role":"","note":"one line"}],
  "references":[{"title":"from the evidence","take":"what to borrow from it"}],
@@ -27,6 +29,7 @@ Give 3 titles, 2-4 characters, 3-5 references, 2-4 cast ideas (only people from 
       lane: lane ? { flavour: lane.flavour, why: `${ev.city} ranks it #${lane.city_rank}; ${ev.country} ${typeof lane.country_rank === "number" ? `ranks it #${lane.country_rank}` : "doesn't rank it in its top 30"}.` } : undefined,
       logline: "",
       theme: "",
+      look: (ev.look?.style_this_city_leans_to ?? []).length ? `Leans ${ev.look.style_this_city_leans_to.slice(0, 4).join(", ")}.` : "",
       synopsis: { act1: "", act2: "", act3: "" },
       characters: [],
       references: ["movie", "tv_show"].flatMap((t) => ev.what_the_city_favours?.[t]?.only_here ?? []).slice(0, 4).map((title) => ({ title, take: "" })),

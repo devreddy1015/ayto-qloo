@@ -292,7 +292,13 @@ async function init() {
   const presets = state.presets;
   loadMosaic();
 
-  $("#format-chips").replaceChildren(...formats().map(([id, label]) => el("button", { type: "button", class: "chip", "aria-pressed": "false", "data-format": id, text: label, onclick: () => setFormat(state.format === id ? "" : id) })));
+  const PRIMARY = ["film", "reel", "fashion"];
+  const chip = ([id, label]) => el("button", { type: "button", class: `chip ${PRIMARY.includes(id) ? "" : "beta"}`, "aria-pressed": "false", "data-format": id, text: PRIMARY.includes(id) ? label : `${label} · beta`, onclick: () => setFormat(state.format === id ? "" : id) });
+  const primary = formats().filter(([id]) => PRIMARY.includes(id)).map(chip);
+  const more = formats().filter(([id]) => !PRIMARY.includes(id)).map(chip);
+  const toggle = more.length ? el("button", { type: "button", class: "chip ghost", text: `More formats (${more.length}, beta)`, "aria-expanded": "false", onclick: (e) => { const open = e.currentTarget.getAttribute("aria-expanded") !== "true"; e.currentTarget.setAttribute("aria-expanded", String(open)); e.currentTarget.textContent = open ? "Fewer formats" : `More formats (${more.length}, beta)`; for (const m of more) m.hidden = !open; } }) : null;
+  for (const m of more) m.hidden = true;
+  $("#format-chips").replaceChildren(...primary, toggle, ...more);
 
   $("#showcase-list").replaceChildren(...(presets.showcases ?? []).map((s) => el("button", { type: "button", class: "example", title: s.text, text: s.label, onclick: () => startShowcase(s) })));
 
@@ -781,7 +787,32 @@ const section = (title, ...children) => el("div", { class: "sect" }, h3(title), 
 
 // ---------- renderers, one per stage ----------
 
+/** The look card: style words with their lifts, labels, motifs, and Qloo's own style notes. */
+function lookCard(o, run) {
+  const liftChips = (list = [], cls = "") => chips(list.map((x) => el("span", { class: "chip-inner" }, q(x.name), typeof x.lift === "number" ? el("small", { class: "lift", text: ` ${x.lift > 0 ? "+" : ""}${x.lift}${x.cityShare !== undefined ? "pt" : ""}` }) : null)), cls);
+  if (o.kind === "fashion") {
+    return [
+      o.note ? note(o.note) : null,
+      o.aesthetics?.length ? section("Aesthetics this city leans to", liftChips(o.aesthetics)) : null,
+      o.personalStyles?.length ? section("Personal styles", liftChips(o.personalStyles)) : null,
+      o.materials?.over?.length || o.materials?.under?.length ? section("Materials", el("div", { class: "two-col" }, el("div", {}, el("span", { class: "sub small", text: `More than the country (n=${o.n?.city ?? 0} labels)` }), liftChips(o.materials.over)), el("div", {}, el("span", { class: "sub small", text: "Less than the country" }), liftChips(o.materials.under, "muted")))) : null,
+      o.ages?.over?.length ? section("Age groups the labels skew to", liftChips(o.ages.over)) : null,
+      o.segments?.over?.length ? section("Segments", liftChips(o.segments.over)) : null,
+      o.avoid?.length ? section("The country prefers instead", chips(o.avoid.map((x) => q(x.name)), "muted")) : null,
+      o.motifs?.length ? section("Motifs from the loves", chips(o.motifs.map((m) => el("span", { class: "chip-inner" }, q(m.name), el("small", { class: "sub", text: ` from ${m.from}` }))))) : null,
+      o.labels?.length ? section("Labels this city favours", el("div", { class: "label-strip" }, o.labels.map((l) => el("figure", { class: "label" }, l.image ? el("img", { src: l.image, alt: "", loading: "lazy", referrerpolicy: "no-referrer" }) : el("span", { class: "label-blank" }), el("figcaption", {}, q(l.name)))))) : null,
+    ];
+  }
+  return [
+    o.styles?.length ? section("Style this city leans to", liftChips(o.styles)) : el("p", { class: "muted", text: "No style lift could be read." }),
+    o.avoid?.length ? section("Cares less about", liftChips(o.avoid, "muted")) : null,
+    o.descriptions?.length ? section("Qloo's style notes on its own picks", list(o.descriptions.map((d) => el("span", {}, q(d.title), el("span", { class: "sub", text: ` · ${d.text}` }))))) : null,
+    o.n ? el("p", { class: "footnote", text: `Shares over ${o.n.city} city titles and ${o.n.country} country titles; two points is one title, so small lifts are noise.` }) : null,
+  ];
+}
+
 const RENDER = {
+  look: lookCard,
   resolve(o) {
     const city = o.city ?? {};
     return [
@@ -838,7 +869,7 @@ const RENDER = {
             { class: `lane ${i === 0 ? "lane-1" : ""}` },
             el("div", { class: "lane-head" }, el("strong", { class: "lane-name" }, i === 0 ? tag("Lane 1", "lane-tag") : tag(`Lane ${i + 1}`, "lane-tag muted"), " ", l.name), editable && i > 0 ? el("button", { type: "button", class: "linkish", text: "Make this lane 1 and rewrite", onclick: () => makeLaneFirst(i) }) : null),
             el("div", { class: "lane-bars", role: "img", "aria-label": `Gap ${pct(l.gap)}, demand ${pct(l.demand)}` }, el("span", { class: "bar demand", style: `width:${pct(l.demand)}%` }), el("span", { class: "bar gap", style: `width:${pct(l.gap)}%` })),
-            el("p", { class: "lane-meta" }, el("span", { text: `${city} #${l.cityRank ?? "–"}` }), " · ", el("span", { text: l.countryRank ? `${country} #${l.countryRank}` : `not in ${country}'s top 30` }), " · ", l.mode === "demand-only" ? el("span", { text: `demand ${pct(l.demand)}` }) : el("span", { text: `${l.supplyCount ?? 0} recent${(l.supplyTitles?.length ?? 0) > (l.supplyCount ?? 0) ? ` of ${l.supplyTitles.length} titles` : ` title${l.supplyCount === 1 ? "" : "s"}`} · gap ${pct(l.gap)}` })),
+            el("p", { class: "lane-meta" }, el("span", { text: `${city} #${l.cityRank ?? "–"}` }), " · ", el("span", { text: l.countryRank ? `${country} #${l.countryRank}` : `not in ${country}'s top 30` }), " · ", l.scope && l.scope !== "unknown" ? el("span", { class: `scope ${l.scope.replace(/\s+/g, "-")}`, title: typeof l.specific === "number" ? `Lift over the country ${l.rawLift ?? l.lift}; over the controls' median ${l.specific}` : "", text: l.scope === "this city" ? `specific to ${city} (+${l.specific} vs controls)` : l.scope === "leans here" ? `leans here (+${l.specific} vs controls)` : "shared by most cities" }) : null, l.scope && l.scope !== "unknown" ? " · " : null, l.mode === "demand-only" ? el("span", { text: `demand ${pct(l.demand)}` }) : (l.supplyTotal ?? 0) === 0 && (l.supplyCount ?? 0) === 0 ? el("span", { class: "open-lane", text: "no title in the catalogue carries it: an open lane" }) : el("span", { text: `${l.supplyCount ?? 0} recent${(l.supplyTitles?.length ?? 0) > (l.supplyCount ?? 0) ? ` of ${l.supplyTitles.length} titles` : ` title${l.supplyCount === 1 ? "" : "s"}`} · gap ${pct(l.gap)}` })),
             l.supplyTitles?.length ? el("div", { class: "lane-titles" }, el("span", { class: "k", text: "Titles in this lane" }), chips(l.supplyTitles.map((t) => `${t.name}${t.year ? ` (${t.year})` : ""}`), "small")) : null,
           ),
         ),

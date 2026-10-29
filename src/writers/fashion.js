@@ -15,7 +15,8 @@ Return JSON:
  "first_cities":["from the evidence: the home city, then cities that lean the same way"],
  "channels":["2-3 channels, e.g. Instagram + WhatsApp, own site, boutiques"],
  "avoid":["from the flavours the city cares less about"]}
-Give 3-5 styles with 1-2 hero, 3-5 palette colours. Every style needs non-empty from_tags.`,
+Give 3-5 styles with 1-2 hero, 3-5 palette colours. Every style needs non-empty from_tags.
+When the evidence has a "look": take cues (materials, surface, silhouette, mood) only from its aesthetics, personal styles, materials and motifs; avoid what it lists as the country's preference; respect its age groups; and if it carries a note, say in the positioning whose taste the read describes.`,
   evidence: digest,
   fallback(ev) {
     const tags = (ev.flavours_the_city_leans_to ?? []).slice(0, 4);

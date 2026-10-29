@@ -12,7 +12,7 @@ export const FORMATS = {
     audio: true,
     spots: false,
     travels: true,
-    plan: ["resolve", "read", "gap", "audio", "audience", "travels", "write", "check", "diff", "share"],
+    plan: ["resolve", "read", "gap", "look", "audio", "audience", "travels", "write", "check", "diff", "share"],
   },
   reel: {
     id: "reel",
@@ -34,7 +34,7 @@ export const FORMATS = {
     audio: true,
     spots: true,
     travels: true,
-    plan: ["resolve", "read", "gap", "audio", "spots", "audience", "travels", "write", "check", "produce", "diff", "share"],
+    plan: ["resolve", "read", "gap", "look", "audio", "spots", "audience", "travels", "write", "check", "produce", "diff", "share"],
   },
   podcast: {
     id: "podcast",
@@ -114,6 +114,7 @@ export const STAGE_LABELS = {
   resolve: { label: "Resolve", output: "City, theme and loves as Qloo knows them" },
   read: { label: "Read the city", output: "What this city loves vs the country" },
   gap: { label: "Find the gap", output: "Loved here, under-served" },
+  look: { label: "The look", output: "Style words this city leans to" },
   audio: { label: "Audio", output: "Artists this crowd favours" },
   spots: { label: "Spots", output: "Places this crowd goes" },
   audience: { label: "Audience", output: "Who shows up, in aggregate" },

@@ -6,6 +6,7 @@ import { config } from "../config.js";
 import { audience } from "../engine/audience.js";
 import { audio } from "../engine/audio.js";
 import { gap } from "../engine/gap.js";
+import { look } from "../engine/look.js";
 import { read } from "../engine/read.js";
 import { resolve } from "../engine/resolve.js";
 import { spots } from "../engine/spots.js";
@@ -20,7 +21,7 @@ import { share } from "./share.js";
 import { emitEvent, newId, saveRun } from "./store.js";
 import { write } from "./write.js";
 
-export const STAGE_RUNNERS = { resolve, read, gap, audio, spots, audience, travels, write, check, produce, diff, share };
+export const STAGE_RUNNERS = { resolve, read, gap, look, audio, spots, audience, travels, write, check, produce, diff, share };
 export const stageInfo = (id) => ({ id, ...(STAGE_LABELS[id] ?? { label: id, output: "" }) });
 export const planFor = (format) => (FORMATS[format] ?? FORMATS.film).plan;
 
