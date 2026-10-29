@@ -284,7 +284,8 @@ app.get("/run/:id", (_req, res) => res.sendFile(join(ROOT, "public", "index.html
 
 // ---------- the agent door ----------
 
-const publicUrl = (req) => (process.env.PUBLIC_URL || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
+// PUBLIC_URL if set; on Render its own RENDER_EXTERNAL_URL; else the request's host (behind the trusted proxy).
+const publicUrl = (req) => (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
 app.get("/.well-known/ayto.json", (req, res) => res.json(discovery(publicUrl(req))));
 app.post(
   "/mcp",

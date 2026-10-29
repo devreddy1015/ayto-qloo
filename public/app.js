@@ -1306,7 +1306,9 @@ const WRITE = {
               "ol",
               { class: "beats film-beats" },
               p.beats.map((b) =>
-                el(
+                typeof b === "string"
+                  ? el("li", {}, el("p", { text: b }))
+                  : el(
                   "li",
                   {},
                   el("strong", { text: b.title ?? "" }),
@@ -1324,6 +1326,7 @@ const WRITE = {
               "div",
               { class: "char-grid" },
               p.characters.map((c) => {
+                if (typeof c === "string") return el("div", { class: "char-card" }, el("p", { text: c }));
                 const cast = (p.cast_ideas ?? []).filter((x) => x.role && c.name && x.role.toLowerCase().includes(c.name.toLowerCase().split(" ")[0]));
                 return el(
                   "div",

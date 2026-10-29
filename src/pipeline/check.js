@@ -96,7 +96,7 @@ export const check = async (run) => {
   const { writeWith } = await import("./write.js");
   const second = await writeWith(run, { forbid: banned });
   if (second.fallback) return { ...first, rewrote: false, summary: `${first.summary} A rewrite was attempted but the model failed.` };
-  Object.assign(w, { plan: second.plan, rewrites: 1, banned, summary: `${second.summary} Rewritten once after the check.` });
+  Object.assign(w, { plan: second.plan, filled: second.filled ?? [], repaired: second.repaired ?? false, rewrites: 1, banned, summary: `${second.summary} Rewritten once after the check.` });
   emitEvent(run, { type: "stage", id: "write", status: "done", output: w, summary: w.summary, rewritten: true });
   const again = checkEvidence(run);
   return { ...again, rewrote: true, banned, firstPass: { checked: first.checked, grounded: first.grounded, removed: first.removed, items: first.items }, summary: `First pass: ${first.removed} of ${first.checked} names not in Qloo's evidence. Rewrote with them banned: now ${again.grounded} of ${again.checked} trace to Qloo, ${again.removed} removed.` };
