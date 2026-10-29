@@ -4,7 +4,7 @@ import { runAsk } from "./ask.js";
 import { config, ROOT } from "./config.js";
 import { checkCredential, credentialFrom, llmAvailable, llmStatus, probeServerLlm, providerList, redact } from "./llm.js";
 import { discovery, mcpHandler } from "./mcp.js";
-import { mosaic } from "./mosaic.js";
+import { mosaic, worldWall } from "./mosaic.js";
 import { gallery } from "./gallery.js";
 import { candidates, heuristicParse, parseInput } from "./parse.js";
 import { CANDIDATE_CITIES, closestKnownCity } from "./cities.js";
@@ -111,8 +111,10 @@ app.get("/api/gallery", async (_req, res) => {
 /** Images for the background: a run's own picks, or the showcases' when there is no run. */
 app.get("/api/mosaic", async (req, res) => {
   const runId = typeof req.query.run === "string" && /^[A-Za-z0-9_-]{3,40}$/.test(req.query.run) ? req.query.run : undefined;
-  res.set("cache-control", runId ? "private, max-age=60" : "public, max-age=300");
-  res.json(await mosaic({ runId }));
+  const out = await mosaic({ runId });
+  // The home wall is cached for five minutes only once its world titles are in; a half-ready wall is never cached.
+  res.set("cache-control", runId ? "private, max-age=60" : config.mode === "live" && !out.world ? "no-store" : "public, max-age=300");
+  res.json(out);
 });
 
 /** One tiny call with the user's key, so a bad key fails before a run. The key is not kept. */
@@ -331,6 +333,8 @@ const server = app.listen(config.port, async () => {
   const llm = await probeServerLlm();
   console.log(`AYTO on :${config.port} (mode=${config.mode}, llm=${llm.available ? `on (${llm.model})` : `off: ${llm.error ?? "no key"}`})`);
   if (process.env.PREWARM === "1" && config.mode !== "samples") setTimeout(prewarm, 3000);
+  // The home page's world wall resolves through Qloo search in the background, so the first visitor sees it.
+  if (config.mode === "live") setTimeout(() => worldWall().then((w) => console.log(`world wall: ${w.length} titles`)), 1500);
 });
 
 // Run the showcases once in the background so judges never wait on Qloo.
