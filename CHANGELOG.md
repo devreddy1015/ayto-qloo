@@ -3,6 +3,20 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: "Where should I make it?"
+
+- **A new question before the usual one.** "Let AYTO compare cities" (home page, and the confirm step when a city
+  can't be placed) reads one theme across a market's ten largest cities with one Qloo tag read each. Every city
+  is measured against the country and against the other cities (the 70th percentile of their lifts, so a
+  flavour three other cities share is never one city's lane). A map shows where the widest open lane is, each
+  city lists its own lanes, a line names what's crowded everywhere, and "Make it in <city>" hands the city to the
+  usual confirm and run. Qloo only, no model key; 22 requests, under a second once cached.
+- Live, crime films in India: Kolkata Crime Lord, Delhi Finance, Mumbai Gender Violence, Bengaluru Documentary;
+  Martial Arts, Travel and Biographical crowded in nearly every city. Street-food reels: Kolkata chowmein,
+  Bengaluru masala dosa, Ahmedabad mukhwas; pizza and dessert crowded everywhere.
+- **The MCP door gets a fourth tool**, `ayto_where_to_make`, so an agent can ask the same question.
+- "Adult" and other content ratings are never a lane.
+
 ## Unreleased: ready for a real model and a deploy
 
 - **Model replies that arrive broken still give a full page.** The writer reads the JSON after a thinking block,

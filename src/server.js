@@ -6,7 +6,10 @@ import { checkCredential, credentialFrom, llmAvailable, llmStatus, probeServerLl
 import { discovery, mcpHandler } from "./mcp.js";
 import { mosaic } from "./mosaic.js";
 import { gallery } from "./gallery.js";
-import { candidates, parseInput } from "./parse.js";
+import { candidates, heuristicParse, parseInput } from "./parse.js";
+import { CANDIDATE_CITIES, closestKnownCity } from "./cities.js";
+import { FORMAT_IDS } from "./formats.js";
+import { marketFrom, whereToMake } from "./engine/where.js";
 import { renderShareMarkdown, renderSharePage } from "./pipeline/page.js";
 import { createRun, editAndRerun, isRunning, regenerate, rerunFrom, startRun } from "./pipeline/runner.js";
 import { findRunBySlug, loadRun, publicRun, subscribe } from "./pipeline/store.js";
@@ -129,6 +132,29 @@ app.post("/api/parse", async (req, res) => {
     const input = await parseInput(req.body ?? {});
     const found = await candidates(input);
     res.json({ input, ...found });
+  } catch (error) {
+    res.status(400).json({ error: publicError(error) });
+  }
+});
+
+/**
+ * "Where should I make it?": one theme across a market's largest cities, each measured against the country and
+ * against the other cities. Qloo only (no model), so it works with no key. The market comes from the request, a
+ * country or city named in the sentence, else India.
+ */
+app.post("/api/where", async (req, res) => {
+  if (!allow(req.ip, { perHour: 20, bucket: "where" })) return res.status(429).json({ error: "You've compared a lot of cities this hour. Try again later." });
+  try {
+    const body = req.body ?? {};
+    const text = String(body.text ?? "").slice(0, 600);
+    const h = text ? heuristicParse(text) : { format: "film", theme: "", city: "" };
+    const format = FORMAT_IDS.includes(body.format) ? body.format : h.format;
+    const theme = String(body.theme || h.theme || "").trim().slice(0, 60);
+    if (!theme) return res.status(400).json({ error: "Say what it's about (crime, romance, nightlife) so AYTO knows what to compare." });
+    const cityText = String(body.city || h.city || "").split(",")[0].trim().toLowerCase();
+    const cityMarket = cityText ? Object.entries(CANDIDATE_CITIES).find(([, list]) => list.some((n) => n.toLowerCase() === cityText))?.[0] ?? closestKnownCity(cityText)?.market : undefined;
+    const market = (typeof body.market === "string" && CANDIDATE_CITIES[body.market] ? body.market : undefined) ?? marketFrom(`${text} ${body.city ?? ""}`) ?? cityMarket ?? "India";
+    res.json(await whereToMake({ format, theme, market, text }));
   } catch (error) {
     res.status(400).json({ error: publicError(error) });
   }

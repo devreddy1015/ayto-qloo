@@ -321,6 +321,7 @@ async function init() {
     event.preventDefault();
     parseSentence();
   });
+  $("#where-button").addEventListener("click", () => findWhere());
   $("#text-input").addEventListener("input", () => markConfirmStale());
   $("#city-input").addEventListener("input", () => markConfirmStale());
   $("#theme-input").addEventListener("input", () => markConfirmStale());
@@ -439,6 +440,102 @@ async function checkKey() {
   }
 }
 
+// ---------- where should I make it ----------
+
+/** One theme across the market's largest cities: which has the widest open lane. Qloo only, no key needed. */
+async function findWhere() {
+  const text = $("#text-input").value.trim();
+  const theme = $("#theme-input").value.trim();
+  const city = $("#city-input").value.trim();
+  const box = $("#where");
+  const button = $("#where-button");
+  if (!text && !theme) {
+    box.hidden = false;
+    box.replaceChildren(el("p", { class: "confirm-error", text: "Say what you're making and what it's about first, e.g. “a crime short film in India”." }));
+    return;
+  }
+  button.disabled = true;
+  box.hidden = false;
+  box.replaceChildren(el("p", { class: "confirm-wait", text: "Reading the theme across ten cities in Qloo…" }));
+  try {
+    const body = { text };
+    if (state.format) body.format = state.format;
+    if (theme) body.theme = theme;
+    if (city) body.city = city;
+    const out = await post("/api/where", body);
+    state.where = out;
+    renderWhere(out);
+    box.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "start" });
+  } catch (error) {
+    box.replaceChildren(el("p", { class: "confirm-error", text: error.message }));
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function renderWhere(out) {
+  const box = $("#where");
+  const read = out.cities.filter((c) => c.coverage !== "none");
+  const mapBox = el("div", { class: "map where-map", role: "img", "aria-label": `Map of ${out.market}'s cities by how wide their open lane is for ${out.theme}` });
+  setTimeout(() => drawWhereMap(mapBox, out), 0);
+  box.replaceChildren(
+    el(
+      "div",
+      { class: "where-inner" },
+      el("p", { class: "where-lead" }, el("strong", { text: out.summary })),
+      el("p", { class: "block-note", text: `${formatLabel(out.format)} · ${out.theme} · ${out.market}. One Qloo tag read per city on ${({ movie: "film", tv_show: "series", artist: "music", place: "place", brand: "brand", book: "book", podcast: "podcast", videogame: "game", person: "people" })[out.type] ?? out.type} tags; each city is measured against ${out.market} and against the other ${Math.max(0, read.length - 1)} cities, so a lane counts only where few others share it.` }),
+      mapBox,
+      el(
+        "ol",
+        { class: "where-list" },
+        out.cities.map((c, i) =>
+          el(
+            "li",
+            { class: `where-city ${i === 0 && c.lanes.length ? "first" : ""}` },
+            el("div", { class: "where-head" }, el("span", { class: "where-rank", text: `#${i + 1}` }), el("strong", { class: "where-name", text: c.name }), c.state ? el("span", { class: "sub", text: ` ${c.state}` }) : null),
+            c.lanes.length
+              ? el("ul", { class: "where-lanes" }, c.lanes.map((l) => el("li", {}, el("strong", { text: l.name }), el("span", { class: "sub", text: ` +${l.lift} vs ${out.market} · +${l.specific ?? "?"} vs the other cities` }))))
+              : el("p", { class: "muted small", text: c.coverage === "none" ? "Qloo returned no flavours for this city." : "Nothing here the other cities don't share." }),
+            el("button", { type: "button", class: i === 0 && c.lanes.length ? "primary small" : "secondary small", text: `Make it in ${c.name}`, onclick: () => makeItHere(c, out) }),
+          ),
+        ),
+      ),
+      out.shared?.length ? el("p", { class: "where-shared" }, el("strong", { text: "Crowded everywhere: " }), out.shared.map((s) => `${s.name} (${s.cities} of ${s.of} cities)`).join(", "), el("span", { class: "sub", text: ". Every big city already leans to these, so none of them is one city's gap." })) : null,
+      el("p", { class: "footnote", text: "The full run for a city reads deeper (recent supply, its own control cities, the look, the places), so its lanes can differ a little from this overview." }),
+      el("details", { class: "where-receipts" }, el("summary", { text: `${out.ledger.length} Qloo requests behind this` }), el("ul", {}, out.ledger.map((e) => el("li", {}, `${e.title} · ${e.count ?? 0} result${e.count === 1 ? "" : "s"} · ${e.ms ?? 0} ms`)))),
+    ),
+  );
+}
+
+function drawWhereMap(box, out) {
+  if (!window.L || !box.isConnected) return;
+  state.maps.get("where")?.remove();
+  const map = L.map(box, { scrollWheelZoom: false });
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 10, className: "tiles-dark" }).addTo(map);
+  const pts = out.cities.filter((c) => c.lat !== undefined && c.lon !== undefined);
+  const best = Math.max(1, ...pts.map((c) => c.lanes[0]?.strength ?? 0));
+  pts.forEach((c, i) => {
+    const s = c.lanes[0]?.strength ?? 0;
+    const color = i === 0 && s > 0 ? "#f2be22" : s > 0 ? "#dfe3ff" : "#5d6382";
+    const marker = L.circleMarker([c.lat, c.lon], { radius: 5 + (s / best) * 16, color, weight: 2, fillColor: color, fillOpacity: i === 0 ? 0.75 : 0.35 }).addTo(map);
+    const label = document.createElement("div");
+    label.append(el("strong", { text: `#${i + 1} ${c.name}` }), el("br"), c.lanes[0] ? `${c.lanes[0].name} · +${c.lanes[0].lift}` : "no open lane");
+    marker.bindPopup(label);
+  });
+  if (pts.length) map.fitBounds(L.latLngBounds(pts.map((c) => [c.lat, c.lon])).pad(0.15));
+  state.maps.set("where", map);
+}
+
+/** From the overview to the full run: the picked city goes into the brief and Qloo confirms it as usual. */
+function makeItHere(c, out) {
+  $("#city-input").value = `${c.name}, ${out.market}`;
+  if (!$("#theme-input").value.trim()) $("#theme-input").value = out.theme;
+  if (!$("#text-input").value.trim()) $("#text-input").value = `A ${out.format} in ${c.name} about ${out.theme}`;
+  if (out.format && state.format !== out.format) setFormat(out.format);
+  parseSentence();
+  $("#confirm").scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "start" });
+}
+
 // ---------- confirm ----------
 
 async function parseSentence() {
@@ -507,7 +604,7 @@ function renderConfirm(found) {
     "div",
     { class: "confirm-inner" },
     el("p", { class: "confirm-lead" }, el("strong", { text: "Qloo found → " }), found.cityFound ? el("strong", { class: "confirm-city", text: cities[0]?.name ?? input.city?.query }) : el("span", { class: "confirm-missing", text: input.city?.query || "no city" }), found.cityFound && cities[0]?.qlooName ? el("span", { class: "confirm-sub", text: ` (${cities[0].qlooName})` }) : null, (found.themes ?? []).length ? el("span", {}, " · Theme: ", (found.themes ?? []).map((t, i) => el("strong", { text: (i ? ", " : "") + (t.candidates[0]?.name ?? t.word) }))) : null, " · Format: ", el("strong", { text: formatLabel(input.format || "film") })),
-    !found.cityFound ? el("p", { class: "confirm-error", text: "Qloo couldn't place that city. Try its common English name with the country, e.g. “Hyderabad, India”." }) : null,
+    !found.cityFound ? el("p", { class: "confirm-error" }, "Qloo couldn't place that city. Try its common English name with the country, e.g. “Hyderabad, India”, or ", el("button", { type: "button", class: "linkish", text: "let AYTO pick the city", onclick: () => findWhere() }), ".") : null,
     found.corrected ? el("p", { class: "confirm-note", text: `Qloo has no “${found.corrected.from}”, so AYTO read it as ${found.corrected.to}. Pick another city below or change the sentence if that's wrong.` }) : null,
     el(
       "div",

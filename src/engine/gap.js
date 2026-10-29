@@ -28,10 +28,10 @@ export function yearOf(e) {
 }
 
 // Tag names that are placeholders in Qloo's graph, not flavours ("None" comes back as a theme for artists).
-const JUNK_TAGS = new Set(["none", "other", "others", "unknown", "misc", "miscellaneous", "general", "n/a", "na", "various"]);
+const JUNK_TAGS = new Set(["none", "other", "others", "unknown", "misc", "miscellaneous", "general", "n/a", "na", "various", "adult", "mature", "erotic", "explicit", "nsfw"]);
 // Words too broad to be a lane or a thing to avoid: every film is "Film", every gig is "Music".
 const GENERIC_TAGS = new Set(["music", "film", "films", "movie", "movies", "tv", "television", "book", "books", "podcast", "podcasts", "game", "games", "video games", "videogames", "entertainment", "media", "art", "arts", "fun", "life", "lifestyle"]);
-const isNoise = (name) => {
+export const isNoise = (name) => {
   const n = String(name ?? "").trim().toLowerCase();
   return JUNK_TAGS.has(n) || GENERIC_TAGS.has(n);
 };
