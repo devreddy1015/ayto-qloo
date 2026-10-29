@@ -101,37 +101,61 @@ export function renderSharePage(run) {
   const NOUN = { film: "A film", reel: "A reel", fashion: "A drop", podcast: "A podcast", game: "A game", cafe: "A café", event: "A night", book: "A book" };
   const kicker = `${NOUN[pg.format] ?? "An idea"} for ${pg.city}`;
   const fine = `Built with AYTO on Qloo taste signals (${pg.ledgerCount} requests)${pg.grounded ? `; ${pg.grounded.grounded} of ${pg.grounded.checked} names trace to Qloo` : ""}. Qloo describes aggregate taste, not individuals and not sales. ${pg.fallback ? "Written from the evidence template without a language model." : `Written with ${pg.llm?.provider ?? "a language model"}${pg.llm?.model ? ` (${pg.llm.model})` : ""}.`}${pg.usage?.calls ? ` Model tokens: ${pg.usage.input + pg.usage.output} over ${pg.usage.calls} call${pg.usage.calls === 1 ? "" : "s"}${pg.usage.byok ? ", on the maker's own key" : ""}.` : ""}`;
+  // Each section gets an index for its entrance delay; the title's words rise one by one.
+  const staged = body.split(/(?=<h2)/).filter(Boolean).map((part, i) => `<section class="s" style="--i:${i + 1}">${part}</section>`).join("");
+  const titleWords = String(pg.title).split(/\s+/).map((w, i) => `<span class="w" style="--i:${i}">${esc(w)}</span>`).join(" ");
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(pg.title)} · AYTO</title>
 <meta name="description" content="${esc(p.logline ?? p.hook ?? p.positioning ?? kicker)}">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data:;">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
 <style>
-:root{--ink:#19234d;--paper:#fafbfd;--tape:#f2be22;--soft:#4a557f;--line:#d5d9e6}
-@media(prefers-color-scheme:dark){:root{--ink:#e9ecf7;--paper:#111936;--soft:#a9b1d2;--line:#2c376a}}
-*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Archivo,system-ui,sans-serif;line-height:1.5}
-main{max-width:860px;margin:0 auto;padding:1.5rem 1rem 4rem}
-.k{display:inline-block;background:var(--tape);color:#19234d;font-weight:800;padding:.2rem .6rem;border-radius:4px;font-size:.85rem}
-h1{font-size:clamp(2.2rem,6.5vw,4.4rem);line-height:.98;letter-spacing:-.03em;margin:.6rem 0 .6rem;font-variation-settings:"wdth" 125;font-weight:850}
-h2{margin-top:2rem;font-size:1.3rem;font-variation-settings:"wdth" 125}
-p,li{max-width:66ch;font-size:1.05rem}ul,ol{padding-left:1.2rem}
-.chips{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.5rem}.chips span{border:1.5px solid var(--ink);border-radius:999px;padding:.3rem .8rem;font-weight:650}
-.meta{display:flex;flex-wrap:wrap;gap:.5rem;color:var(--soft);font-size:.95rem}
-.pal{display:flex;gap:.5rem;margin-top:1rem;flex-wrap:wrap}.pal span{width:64px;height:64px;border-radius:8px;border:1.5px solid var(--line);display:grid;align-items:end;font-size:.65rem;padding:.3rem;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+:root{--ink:#eef0f7;--paper:#0b0b0d;--tape:#f2be22;--soft:#aab0c4;--line:rgba(255,255,255,.12);--glow:rgba(242,190,34,.14);--rise:.9s;--ease:cubic-bezier(.2,.8,.2,1)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Instrument Sans",system-ui,sans-serif;line-height:1.55;font-size:17px;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:-20%;z-index:0;pointer-events:none;background:radial-gradient(60% 50% at 20% 10%,var(--glow),transparent 60%),radial-gradient(40% 40% at 85% 80%,rgba(120,140,255,.10),transparent 60%);animation:drift 28s ease-in-out infinite alternate}
+main{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:2.5rem 1.25rem 5rem}
+h1,h2,h3{font-family:Fraunces,"Instrument Sans",serif;font-variation-settings:"opsz" 144;letter-spacing:-.02em;text-wrap:balance}
+.k{display:inline-block;position:relative;color:#19234d;font-weight:700;padding:.3rem .7rem;border-radius:4px;font-size:.85rem;font-family:"Instrument Sans",sans-serif;letter-spacing:.02em;background:var(--tape);transform-origin:left center;animation:wipe .7s var(--ease) both}
+h1{font-size:clamp(2.8rem,8vw,5.6rem);line-height:.96;margin:.7rem 0 1rem;font-weight:600}
+h1 .w{display:inline-block;animation:rise var(--rise) var(--ease) both;animation-delay:calc(.15s + var(--i) * .07s)}
+h2{margin:2.4rem 0 .6rem;font-size:1.65rem;font-weight:500;font-style:italic}
+h2::before{content:"";display:inline-block;width:.55em;height:.55em;margin-right:.55rem;border-radius:999px;background:var(--tape);transform:translateY(-.1em)}
+p,li{max-width:66ch;font-size:1.05rem}p{margin:.4rem 0 .8rem}ul,ol{padding-left:1.2rem}li{margin:.25rem 0}
+.meta{display:flex;flex-wrap:wrap;gap:.5rem;color:var(--soft);font-size:.95rem;animation:fade var(--rise) var(--ease) .4s both}
+.meta span{border:1px solid var(--line);border-radius:999px;padding:.2rem .7rem}
+.tools{display:flex;gap:.6rem;margin-top:1.1rem;flex-wrap:wrap;animation:fade var(--rise) var(--ease) .55s both}
+.tools a{border:1.5px solid var(--ink);border-radius:8px;padding:.5rem .9rem;font-weight:600;text-decoration:none;color:var(--ink);transition:background .25s var(--ease),color .25s var(--ease),transform .25s var(--ease)}
+.tools a:hover{background:var(--ink);color:var(--paper);transform:translateY(-1px)}
+.s{animation:rise var(--rise) var(--ease) both;animation-delay:calc(.5s + var(--i) * .12s)}
+.chips{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.5rem}
+.chips span{border:1.5px solid var(--ink);border-radius:999px;padding:.35rem .85rem;font-weight:600;transition:transform .25s var(--ease),background .25s var(--ease),color .25s var(--ease)}
+.chips span:hover{transform:translateY(-2px);background:var(--ink);color:var(--paper)}
+.pal{display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap}.pal span{width:68px;height:68px;border-radius:10px;border:1.5px solid var(--line);display:grid;align-items:end;font-size:.65rem;padding:.3rem;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6);transition:transform .3s var(--ease)}.pal span:hover{transform:scale(1.06) rotate(-2deg)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;margin-top:1rem}
-.card{border:1.5px solid var(--line);border-radius:10px;padding:1rem}.card h3{margin:0 0 .3rem}.card p{margin:0;color:var(--soft);font-size:.9rem}.hero{outline:2px solid var(--tape)}
-.lanes{margin-top:1rem}.lane{display:flex;align-items:center;gap:.8rem;margin:.4rem 0}.lane b{min-width:10rem}.bar{height:10px;background:var(--tape);border-radius:5px}
-.fine{margin-top:3rem;font-size:.85rem;color:var(--soft);max-width:70ch;border-top:1.5px solid var(--line);padding-top:1rem}
-.tools{display:flex;gap:.6rem;margin-top:1rem}.tools a{border:1.5px solid var(--ink);border-radius:6px;padding:.4rem .8rem;font-weight:700;text-decoration:none;color:var(--ink)}
-@media print{:root{--ink:#111;--paper:#fff;--soft:#444;--line:#bbb}body{background:#fff;color:#111}main{max-width:none;padding:0}.tools{display:none}.chips span,.card{border-color:#999}h1{font-size:2.4rem}a{color:inherit}}
+.card{border:1.5px solid var(--line);border-radius:12px;padding:1rem;background:rgba(255,255,255,.03);transition:transform .3s var(--ease),border-color .3s var(--ease)}.card:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.3)}
+.card h3{margin:0 0 .3rem;font-size:1.2rem}.card p{margin:0;color:var(--soft);font-size:.95rem}.hero{outline:2px solid var(--tape)}
+.lanes{margin-top:1rem}.lane{display:grid;grid-template-columns:minmax(8rem,12rem) 1fr;align-items:center;gap:.8rem;margin:.5rem 0}.lane b{font-family:Fraunces,serif;font-style:italic;font-weight:500;font-size:1.15rem}
+.lane .bar{height:10px;border-radius:5px;background:linear-gradient(90deg,var(--tape),#ffd96a);transform-origin:left;animation:grow 1.1s var(--ease) 1s both}
+.lane span{display:block;color:var(--soft);font-size:.9rem}
+.fine{margin-top:3.5rem;font-size:.85rem;color:var(--soft);max-width:70ch;border-top:1px solid var(--line);padding-top:1rem}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes wipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes drift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(3%,2%,0) scale(1.06)}}
+@media (max-width:560px){.lane{grid-template-columns:1fr;gap:.3rem}.lane b{font-size:1.25rem}main{padding:1.5rem 1rem 4rem}h2{font-size:1.45rem}}
+@media (prefers-reduced-motion:reduce){h1 .w,.s,.meta,.tools,.k,.lane .bar{animation:fade .4s ease both}body::before{animation:none}.chips span,.card,.pal span,.tools a{transition:none}}
+@media print{:root{--ink:#111;--paper:#fff;--soft:#444;--line:#bbb}body{background:#fff;color:#111}body::before{display:none}main{max-width:none;padding:0}.tools{display:none}h1 .w,.s,.meta,.k,.lane .bar{animation:none;opacity:1;transform:none}.chips span,.card{border-color:#999}h1{font-size:2.4rem}a{color:inherit}}
 </style></head><body><main>
 <span class="k">${esc(kicker)}</span>
-<h1>${esc(pg.title)}</h1>
+<h1>${titleWords}</h1>
 <div class="meta">${[...(pg.theme ?? []), ...(pg.loves ?? [])].map((x) => `<span>${esc(x)}</span>`).join(" · ")}</div>
 <div class="tools"><a href="${esc(run.publish.url)}.md" download>Download as Markdown</a><a href="${esc(run.publish.url)}">Print or save as PDF: Ctrl+P</a></div>
-${pg.lanes?.length ? `<h2>The gap</h2><div class="lanes">${pg.lanes.map((l) => `<div class="lane"><b>${esc(l.name)}</b><div class="bar" style="width:${Math.round((l.gap ?? 0) * 220)}px"></div><span>${esc(pg.city)} #${esc(l.cityRank)} · ${esc(pg.country)} #${esc(l.countryRank ?? "–")}${l.supplyCount !== undefined ? ` · ${esc(l.supplyCount)} recent` : ""}</span></div>`).join("")}</div>` : ""}
-${body}
+${pg.lanes?.length ? `<section class="s" style="--i:0"><h2>The gap</h2><div class="lanes">${pg.lanes.map((l) => `<div class="lane"><b>${esc(l.name)}</b><div><div class="bar" style="width:${Math.max(8, Math.round((l.gap ?? 0) * 100))}%"></div><span>${esc(pg.city)} #${esc(l.cityRank)} · ${esc(pg.country)} #${esc(l.countryRank ?? "–")}${l.supplyCount !== undefined ? ` · ${esc(l.supplyCount)} recent` : ""}</span></div></div>`).join("")}</div></section>` : ""}
+${staged}
 <p class="fine">${esc(fine)}</p>
 </main></body></html>`;
 }
