@@ -4,7 +4,7 @@
 import { cleanPlaceName, haversineKm, heatPoints, liftPoints, snapCellsToPlaces } from "../analysis.js";
 import { subLocalities } from "../cities.js";
 import { evidenceFor, registerName } from "../pipeline/evidence.js";
-import { crowdIds, placeLabel } from "./common.js";
+import { crowdIds, placeLabel, themeTagsInFamily } from "./common.js";
 
 // Admin units Qloo lists among a city's localities: too big to shoot in, so never a neighbourhood.
 const ADMIN = /\b(zone|mandal|district|division|metropolitan|region|municipal corporation|taluk|taluka|tehsil|circle|urban agglomeration|ward|island|county|borough of)\b/i;
@@ -66,8 +66,24 @@ export async function spots(run) {
   const r = run.stages.resolve.output;
   const signals = crowdIds(run);
   const where = placeLabel(r.city);
+  // The theme decides the kind of place when it is a place kind of theme (street food, nightlife, coffee);
+  // otherwise the format's own categories; then any place this crowd goes.
+  const themePlaces = themeTagsInFamily(run, "place");
+  const venueTries = [
+    themePlaces.length ? [`${r.theme?.query ?? "Theme"} places this crowd goes in ${r.city.name}`, themePlaces] : undefined,
+    r.filters?.place?.length ? [`Places this crowd goes in ${r.city.name}`, r.filters.place.map((t) => t.id)] : undefined,
+    [`Places this crowd goes in ${r.city.name}`, []],
+  ].filter(Boolean);
+  const venueRead = async () => {
+    if (!signals.length) return undefined;
+    for (const [title, tags] of venueTries) {
+      const env = await q.tryTool(title, "qloo_recommend", { target_type: "place", signals, filter_location: where, limit: 15, ...(tags.length ? { include_tags: tags } : {}) });
+      if (env?.results?.length) return env;
+    }
+    return undefined;
+  };
   const [venueEnv, heatRaw, subEnv] = await Promise.all([
-    signals.length ? q.tryTool(`Places this crowd goes in ${r.city.name}`, "qloo_recommend", { target_type: "place", signals, filter_location: where, limit: 15, ...(r.filters?.place?.length ? { include_tags: r.filters.place.map((t) => t.id) } : {}) }) : Promise.resolve(undefined),
+    venueRead(),
     signals.length ? q.tryInsights(`Where inside ${r.city.name} this taste runs hottest`, { "filter.type": "urn:heatmap", "signal.interests.entities": signals, "filter.location.query": where, "output.heatmap.boundary": "urn:geohash" }) : Promise.resolve(undefined),
     q.trySearch(`Neighbourhoods of ${r.city.name} that Qloo knows`, { query: r.city.name, type: "locality", take: 20 }),
   ]);

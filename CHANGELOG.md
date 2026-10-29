@@ -3,7 +3,39 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: a new logo
+## Unreleased: every section fits the input
+
+A check of 13 live runs against what each one asked for found sections that ignored the theme. Fixed:
+
+- **Sections the theme can't filter.** When Qloo's theme tag filters nothing for a kind (people, podcasts,
+  games, some films), the read used to fall back to the city's general favourites. Now it tries the theme's
+  other tags for that kind first (for films, "cricket" as a media keyword returns '83, Jersey and Ghoomer).
+  Then it seeds the section: films, series, books, podcasts and games from Qloo's search for the theme
+  (startup podcasts: How I Built This, Masters of Scale), people from the picks of a section that is on theme.
+  Austin's horror cast is now Hunter Schafer, Maya Hawke and Florence Pugh, not a quarterback and a senator.
+  The startups podcast's guests are Guy Kawasaki, Seth Godin and Shradha Sharma, not film stars.
+  Each column says how it was read. Music keeps the city's own taste.
+- **Stray spaces in Qloo's names.** The hip hop music tag is named " Hip Hop", so it was missed and Chennai's
+  lineup lost the theme. Names now match loosely, and the tag whose id is the word itself wins
+  (only that one filters artists, verified live). The lineup is now Shan Vincent de Paul, Blaaze, Cartel Madras.
+- **Lanes from the theme's own kind.** A street-food or nightlife reel read its lanes from music tags, so its
+  hashtags were #Jumpstyle and #Hardstyle. Lanes now come from the first kind the theme belongs to: food for
+  street food, places for nightlife, films for love, music for hip hop.
+- **Shoot spots follow the theme** when it is a place kind of theme: the street-food reel shoots at Gokul Chat,
+  not a gym.
+- **Kidswear reads children's labels** (Catimini, Jacadi, Bob & Blossom) through Qloo's kidswear segment, not
+  watches and motorcycle gear.
+- **The music no longer changes run to run.** It was seeded in the order the reads happened to finish.
+- **Smaller.** A name with no stated kind takes the kind the format reads first (a reel's "Sid Sriram" is the
+  singer). "An indie game" no longer sets a budget. "Coffee and books" keeps "books" (a Library lane appeared).
+  Names in another script are looked up for an English alias, and ranked after readable names when there is none.
+  The reel template's references are titles, not artists.
+
+**Correction.** The PR #13 entry said people who have died never reach a cast list. It did not work on live
+data: recommendation results carry no date of death. The read now looks the top people up on /entities, and
+Dilip Kumar is out of the Mumbai cast. This entry is the fix.
+
+## PR #14 (29 Oct, 15:57): a new logo
 
 - **The mark.** A ring (what a city already loves) open at the upper right (the gap: loved here, under-served),
   with a tape-yellow dot in the opening: the maker, placed into it. It replaces the measuring tape left over from
@@ -28,7 +60,7 @@ kidswear drop; a podcast, an indie game, a café, a live night and a web novel; 
   "underground  rap" reads "Underground Rap".
 - **Places.** Adult venues, self-storage, petrol pumps and parking are dropped with the homes, clinics and consulates.
   Wards and islands are never a neighbourhood ("K/E Ward", "Salsette Island"). "Juhu Juhu" reads "Juhu".
-- **Cast.** People Qloo marks as having died stay in the read (they are part of the taste) but never reach a cast list.
+- **Cast.** Meant to keep people who have died out of cast lists. It did not work on live data; see the correction above.
 - **Names.** The check stage matches names whatever their spacing, not only their case.
 - **Background.** A finished run's page loaded its image mosaic two or three times; now once.
 - Small copy: "1 junk or private place dropped".

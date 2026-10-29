@@ -965,7 +965,7 @@ const RENDER = {
       return el(
         "div",
         { class: "readcol" },
-        el("div", { class: "readcol-head" }, h3(typeLabel(c.type)), el("span", { class: "block-note", text: `read by ${c.filter === "tags" ? "theme tags" : "the loves as signals"}${c.coverage && c.coverage !== "ok" ? ` · coverage ${c.coverage}` : ""}` })),
+        el("div", { class: "readcol-head" }, h3(typeLabel(c.type)), el("span", { class: "block-note", text: `read by ${readMode(c)}${c.coverage && c.coverage !== "ok" ? ` · coverage ${c.coverage}` : ""}` })),
         c.coverage === "none" || !rows.length
           ? note("Qloo has no picks of this type for the city with this theme.")
           : el(
@@ -1274,6 +1274,14 @@ async function recompute(event) {
     showError(error.message);
     button.disabled = false;
   }
+}
+
+/** How a read column was asked, in words: the honest label for each of the read stage's modes. */
+function readMode(c) {
+  if (c.filter === "seeded" && c.seed?.kind === "picks") return `the ${typeLabel(c.seed.from).toLowerCase()} this read found, as signals (the theme can't filter ${typeLabel(c.type).toLowerCase()})`;
+  if (c.filter === "seeded" && c.seed?.kind === "search") return `Qloo's search for “${c.seed.word}”: ${(c.seed.names ?? []).slice(0, 3).join(", ")}`;
+  const MODES = { "tags+signals": "theme tags, with your titles as signals", tags: "theme tags", signals: "your titles as signals", location: "the city alone (no theme tag fits this kind)", none: "nothing came back" };
+  return MODES[c.filter] ?? c.filter;
 }
 
 const WRITE = {
