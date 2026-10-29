@@ -1371,6 +1371,84 @@ button.linkish:disabled {
   white-space: pre-wrap;
   max-width: 60ch;
 }
+/* film treatment: beats, characters, camera, palette */
+.film-beats {
+  gap: 0.8rem;
+}
+.film-beats p {
+  margin: 0.15rem 0 0;
+  max-width: 68ch;
+}
+.char-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.8rem;
+}
+.char-card {
+  border-top: 2px solid var(--line-strong);
+  padding-top: 0.5rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.char-card p {
+  margin: 0.2rem 0 0;
+  font-size: var(--step--1);
+}
+.char-name {
+  font-size: var(--step-1);
+}
+.char-line .k,
+.k.borrow {
+  color: var(--fg-mute);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.camera-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.camera-grid ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.1rem;
+  font-size: var(--step--1);
+}
+.film-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.swatch-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.65rem 0.3rem 0.35rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--well);
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--step--1);
+  cursor: pointer;
+}
+.swatch-chip code {
+  color: var(--fg-mute);
+  font-size: 0.75rem;
+}
+.swatch-chip[data-copied] code::after {
+  content: " copied";
+  color: var(--tape);
+}
+.swatch-dot {
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+}
+.sub.block {
+  display: block;
+}
 .palette {
   display: flex;
   flex-wrap: wrap;
@@ -1857,6 +1935,7 @@ details.raw > summary {
   .row-key,
   .cols3,
   .acts,
+  .camera-grid,
   .diff,
   .panel-grid,
   .how-grid,

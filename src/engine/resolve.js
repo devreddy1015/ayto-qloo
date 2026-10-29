@@ -113,18 +113,110 @@ async function resolveTheme(q, run, input) {
   return { query, words, tags, byWord };
 }
 
-async function resolveLove(q, run, love) {
-  const args = { entity: love.name, ...(love.type ? { type: love.type } : {}) };
-  let env = await q.tryTool(`Find “${love.name}” in Qloo`, "qloo_describe", args);
-  if (env?.status === "needs_input") {
-    const candidate = env.resolution?.issues?.[0]?.candidates?.[0];
-    if (!candidate?.id) return undefined;
-    env = await q.tryTool(`Use the closest match for “${love.name}”`, "qloo_describe", { entity: candidate.id });
+// The languages a city's own screen culture works in, so a title that exists twice (an original and its
+// remake) resolves to the one this city watches. India's film industries follow the state; elsewhere the market.
+const LANG_BY_STATE = {
+  telangana: ["Telugu"], "andhra pradesh": ["Telugu"], "tamil nadu": ["Tamil"], puducherry: ["Tamil"], kerala: ["Malayalam"], karnataka: ["Kannada"],
+  maharashtra: ["Marathi", "Hindi"], "west bengal": ["Bengali"], punjab: ["Punjabi"], gujarat: ["Gujarati"], odisha: ["Odia"], assam: ["Assamese"],
+  delhi: ["Hindi"], "national capital territory of delhi": ["Hindi"], "uttar pradesh": ["Hindi"], bihar: ["Hindi", "Bhojpuri"], rajasthan: ["Hindi"], "madhya pradesh": ["Hindi"], haryana: ["Hindi"], uttarakhand: ["Hindi"], jharkhand: ["Hindi"], chhattisgarh: ["Hindi"], goa: ["Konkani", "Hindi"],
+};
+const LANG_BY_MARKET = {
+  "United States": ["English"], "United Kingdom": ["English"], Canada: ["English", "French"], Australia: ["English"], Ireland: ["English"], "New Zealand": ["English"],
+  France: ["French"], Spain: ["Spanish"], Mexico: ["Spanish"], Argentina: ["Spanish"], Colombia: ["Spanish"], Brazil: ["Portuguese"], Portugal: ["Portuguese"],
+  Germany: ["German"], Italy: ["Italian"], Japan: ["Japanese"], "South Korea": ["Korean"], Indonesia: ["Indonesian"], Turkey: ["Turkish"], Nigeria: ["English"],
+};
+export function cityLanguages(city) {
+  if (!city) return [];
+  return LANG_BY_STATE[lower(city.state)] ?? LANG_BY_MARKET[city.market] ?? (city.market === "India" ? ["Hindi"] : []);
+}
+
+const norm = (s) => lower(s).normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
+/** "HIT: The First Case (2020)" → { name, year }. */
+export function splitYear(text) {
+  const m = String(text ?? "").match(/^(.*?)[\s,]*\(?((?:19|20)\d\d)\)?\s*$/);
+  return m && m[1].trim() ? { name: m[1].trim(), year: Number(m[2]) } : { name: String(text ?? "").trim(), year: undefined };
+}
+const languageOf = (r) => String(r?.properties?.description ?? "").match(/\b([A-Z][a-z]+)-language\b/)?.[1];
+const isRemake = (r) => /\bremake of\b/i.test(String(r?.properties?.description ?? ""));
+const yearOfEntity = (r) => Number(r?.properties?.release_year ?? String(r?.properties?.release_date ?? "").slice(0, 4)) || undefined;
+
+/**
+ * Rank Qloo search hits for a title or name the user typed. A hit must carry the name, or have it as an
+ * alias (Qloo lists the Telugu original "HIT" with the alias "Hit: The First Case", the same name as its
+ * 2022 Hindi remake). Then: the year if the user gave one, the original over a remake, the city's own
+ * language, the exact name, popularity. Each option says why, so the confirm step can show it.
+ */
+export function rankTitleOptions(results = [], { name, year, languages = [] } = {}) {
+  const needle = norm(name);
+  const langs = languages.map(lower);
+  return results
+    .filter((r) => r?.entity_id && r?.name)
+    .map((r) => {
+      const own = norm(r.name) === needle;
+      const aka = (r.properties?.akas ?? []).some((a) => norm(a?.value ?? a) === needle);
+      const y = yearOfEntity(r);
+      const language = languageOf(r);
+      const remake = isRemake(r);
+      const score = (year && y === year ? 10 : 0) + (own ? 2 : aka ? 1 : 0) + (language && langs.includes(lower(language)) ? 2 : 0) - (remake ? 2 : 0);
+      return { r, own, aka, year: y, language, remake, score };
+    })
+    .filter((o) => o.own || o.aka || (year && o.year === year && norm(o.r.name).includes(needle)))
+    .sort((a, b) => b.score - a.score || (b.r.popularity ?? 0) - (a.r.popularity ?? 0))
+    .map((o) => ({ id: o.r.entity_id, name: o.r.name, type: String(o.r.subtype ?? o.r.types?.[0] ?? o.r.type ?? "").replace(/^urn:entity:/, "") || undefined, year: o.year, language: o.language, remake: o.remake, popularity: o.r.popularity, image: o.r.properties?.image?.url ?? o.r.properties?.image, raw: o.r }));
+}
+
+/** Search Qloo for one love and rank what comes back (used by the confirm step and by resolve). */
+export async function loveOptions(search, love, city) {
+  const { name, year } = splitYear(love.name);
+  const env = await search({ query: name, ...(love.type ? { type: love.type } : {}), take: 8 });
+  return rankTitleOptions(env?.results ?? [], { name, year, languages: cityLanguages(city) });
+}
+
+async function resolveLove(q, run, love, city) {
+  let r;
+  let alternatives = [];
+  if (love.id) {
+    // Picked in the confirm step: the same search (cached from that step) carries the full entity;
+    // describe it by id only if the search no longer lists it.
+    const options = await loveOptions((args) => q.trySearch(`Find “${love.name}” among Qloo's ${love.type ? love.type.replace("_", " ") + "s" : "entities"}`, args), love, city);
+    const picked = options.find((o) => o.id === love.id);
+    if (picked) {
+      r = picked.raw;
+      alternatives = options.filter((o) => o.id !== love.id).slice(0, 3).map(({ raw, ...o }) => o);
+    } else {
+      const env = await q.tryTool(`Use the “${love.name}” you picked`, "qloo_describe", { entity: love.id });
+      r = env?.results?.[0];
+    }
+  } else {
+    const options = await loveOptions((args) => q.trySearch(`Find “${love.name}” among Qloo's ${love.type ? love.type.replace("_", " ") + "s" : "entities"}`, args), love, city);
+    if (options.length) {
+      r = options[0].raw;
+      alternatives = options.slice(1, 4).map(({ raw, ...o }) => o);
+    } else {
+      const args = { entity: splitYear(love.name).name, ...(love.type ? { type: love.type } : {}) };
+      let env = await q.tryTool(`Find “${love.name}” in Qloo`, "qloo_describe", args);
+      if (env?.status === "needs_input") {
+        const candidate = env.resolution?.issues?.[0]?.candidates?.[0];
+        if (!candidate?.id) return undefined;
+        env = await q.tryTool(`Use the closest match for “${love.name}”`, "qloo_describe", { entity: candidate.id });
+      }
+      r = env?.results?.[0];
+    }
   }
-  const r = env?.results?.[0];
   if (!r?.entity_id) return undefined;
-  const entity = { input: love.name, id: r.entity_id, name: r.name, type: String(r.subtype ?? r.type ?? love.type ?? "").replace(/^urn:entity:/, ""), popularity: r.popularity, image: r.properties?.image?.url ?? r.properties?.image, year: r.properties?.release_year };
-  registerEntity(run, { ...entity, source: "describe" });
+  const entity = {
+    input: love.name,
+    id: r.entity_id,
+    name: r.name,
+    type: String(r.subtype ?? r.types?.[0] ?? r.type ?? love.type ?? "").replace(/^urn:entity:/, ""),
+    popularity: r.popularity,
+    image: r.properties?.image?.url ?? r.properties?.image,
+    year: yearOfEntity(r),
+    language: languageOf(r),
+    remake: isRemake(r) || undefined,
+    alternatives: alternatives.length ? alternatives : undefined,
+  };
+  registerEntity(run, { ...entity, source: love.id ? "describe" : "search" });
   registerName(run, entity.name, "love", { id: entity.id });
   return entity;
 }
@@ -157,7 +249,7 @@ export async function resolve(run) {
   const q = evidenceFor(run, "resolve");
   const input = run.input;
   const city = await resolveCity(q, run, input);
-  const [contrast, theme, filters, ...loves] = await Promise.all([resolveContrast(q, run, city), resolveTheme(q, run, input), formatFilters(q, input.format), ...(input.loves ?? []).slice(0, 3).map((l) => resolveLove(q, run, l))]);
+  const [contrast, theme, filters, ...loves] = await Promise.all([resolveContrast(q, run, city), resolveTheme(q, run, input), formatFilters(q, input.format), ...(input.loves ?? []).slice(0, 3).map((l) => resolveLove(q, run, l, city))]);
   const found = loves.filter(Boolean);
   if (!theme.tags.length && !found.length && (input.theme?.query || input.loves?.length)) {
     throw new Error("Qloo couldn't find that theme or those names. Try a genre word (crime, romance, nightlife) or an exact title.");

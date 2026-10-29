@@ -92,7 +92,9 @@ export async function fakeTool(name, args) {
     }
     case "qloo_recommend": {
       const seed = JSON.stringify([args.signal_location ?? args.filter_location ?? "", (args.include_tags ?? []).join("|"), (args.signals ?? []).join("|")]);
-      return envelope("recommend", ranked(args.target_type, seed, args.limit ?? 15).map(({ tags, ...r }) => r));
+      const city = String(args.filter_location ?? args.signal_location ?? "").split(",")[0].trim() || "Sample City";
+      const AREAS = ["Sample Old Town", "Sample Riverside", "Sample Old Town", "Sample Hill"];
+      return envelope("recommend", ranked(args.target_type, seed, args.limit ?? 15).map(({ tags, ...r }, i) => (args.target_type === "place" ? { ...r, properties: { ...r.properties, address: `${10 + i} Sample Road, ${AREAS[i % AREAS.length]} ${city}, Sample State`, short_description: `Synthetic place for sample mode (${r.name}).`, price_level: 1 + (i % 4) } } : r)));
     }
     case "qloo_audience_demographics":
       return envelope("audience_demographics", [{ entity_id: args.entity, query: { age: { "24_and_younger": 0.12, "25_to_29": 0.41, "30_to_34": 0.33, "35_to_44": -0.2, "45_to_54": -0.4, "55_and_older": -0.5 }, gender: { male: 0.18, female: -0.18 } } }]);
@@ -110,8 +112,10 @@ export async function fakeTool(name, args) {
 }
 
 /** Synthetic locality search: the sample cities, with their country as the parent. */
-export async function fakeSearch({ query, take = 10 }) {
+export async function fakeSearch({ query, type, take = 10 }) {
   await wait(80);
+  // Titles and names: one synthetic entity with the same id the describe tool gives it.
+  if (type && type !== "locality") return { results: [{ entity_id: idFor(`${type}:${query}`), name: query, types: [`urn:entity:${type}`], popularity: 0.9, properties: { release_year: 2024, description: `Synthetic description of ${query} for sample mode.` } }] };
   const needle = String(query).toLowerCase().split(",")[0].trim();
   const results = Object.entries(CITIES).flatMap(([market, list]) =>
     list

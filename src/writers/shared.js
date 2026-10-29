@@ -42,7 +42,9 @@ export function digest(run) {
     flavours_the_city_cares_less_about: (g?.avoid ?? []).map((x) => x.name),
     artists: (a?.shortlist ?? []).map((x) => ({ name: x.name, why: x.why })),
     places: (s?.venues ?? []).map((x) => x.name),
+    places_detail: (s?.venues ?? []).map((x) => ({ name: x.name, area: x.area, about: x.about, price_level: x.price ? `${x.price} of 4` : undefined })),
     neighbourhoods: (s?.neighbourhoods ?? []).map((x) => x.name),
+    shoot_base: s?.base ? { name: s.base.name, venues: s.base.venues, of: s.base.of, places: s.base.places } : undefined,
     audience: d?.skew ? { leans: d.leans, gender: d.gender } : undefined,
     cities_that_lean_the_same_way: (t?.cities ?? []).filter((c) => !c.home).slice(0, 5).map((c) => c.name),
   };
@@ -73,8 +75,12 @@ function lookDigest(l) {
 export const GROUND = {
   film: [
     ["plan.references[].title", "title"],
+    ["plan.beats[].after.title", "title"],
+    ["plan.beats[].where.name", "place"],
     ["plan.cast_ideas[].name", "person"],
     ["plan.soundtrack[].artist", "artist"],
+    ["plan.locations[].name", "place"],
+    ["plan.shoot_base.name", "neighbourhood"],
     ["plan.travels_next[]", "city"],
     ["plan.lane.flavour", "tag"],
   ],

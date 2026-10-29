@@ -126,7 +126,7 @@ export function tagPoints(raw) {
     .map((t) => ({ id: t.tag_id ?? t.id, name: t.name, type: t.subtype ?? t.type, affinity: num(t.query?.affinity) ?? num(t.affinity), popularity: num(t.popularity) }));
 }
 
-const haversineKm = (a, b) => {
+export const haversineKm = (a, b) => {
   const R = 6371;
   const rad = (d) => (d * Math.PI) / 180;
   const dLat = rad(b.lat - a.lat);

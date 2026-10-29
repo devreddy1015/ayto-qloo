@@ -1,15 +1,24 @@
 // Turning a sentence into a run input, and finding what Qloo makes of it
 // before anything runs. Two paths: the model when it is there, plain rules
 // when it is not. Both end at the same confirm step.
-import { pickCity, pickTags, toCity, marketFor } from "./engine/resolve.js";
+import { loveOptions, pickCity, pickTags, toCity, marketFor } from "./engine/resolve.js";
 import { FORMAT_HINTS, FORMAT_IDS } from "./formats.js";
 import { chatJson, llmAvailable } from "./llm.js";
 import { qlooSearch, qlooTool } from "./qloo.js";
 
+export const BUDGETS = ["shoestring", "indie", "premium"];
+/** "on a shoestring", "no budget", "big budget": the budget the sentence implies, if any. */
+export function budgetFrom(text) {
+  const t = String(text ?? "").toLowerCase();
+  if (/\b(shoestring|no[- ]budget|zero[- ]budget|low[- ]budget|micro[- ]budget|tiny budget|self[- ]funded)\b/.test(t)) return "shoestring";
+  if (/\b(premium|big[- ]budget|high[- ]budget|large budget|studio budget)\b/.test(t)) return "premium";
+  if (/\b(indie|mid[- ]budget|modest budget)\b/.test(t)) return "indie";
+  return undefined;
+}
 const ENTITY_TYPES = ["artist", "tv_show", "movie", "person", "brand", "videogame", "podcast", "book"];
 const GENRES = ["crime", "romance", "romantic", "comedy", "horror", "thriller", "drama", "action", "fantasy", "sci-fi", "science fiction", "documentary", "animation", "mystery", "nightlife", "food", "street food", "travel", "fitness", "dance", "music", "hip hop", "k-pop", "kpop", "anime", "gaming", "sports", "cricket", "football", "wedding", "festival", "family", "kids", "history", "mythology", "devotional", "political", "war", "heist", "gangster", "courtroom", "revenge", "superhero", "coming of age", "college", "office", "tech", "startup", "cars", "bikes", "nature", "wildlife", "beach", "monsoon", "comedy", "satire", "true crime", "biopic", "musical", "rom-com", "noir", "western", "spy", "survival", "zombie", "streetwear", "luxury", "vintage", "minimal"];
 const NOT_A_CITY = new Set(["cafe", "café", "cafes", "home", "office", "school", "college", "studio", "shop", "store", "mall", "city", "town", "village", "india", "bed", "car", "bus", "train", "street", "park", "club", "bar", "pub", "hotel", "room", "house", "kitchen", "garden", "beach", "mountains", "hills", "love", "life", "general", "public", "this", "that", "there", "here", "it", "them", "future", "past", "time", "night", "morning", "evening", "cinema", "theatre", "theater", "market", "gym", "hospital", "temple", "church", "mosque"]);
-const STOP = new Set(["for", "about", "with", "and", "the", "theme", "will", "would", "that", "which", "it", "is", "to", "a", "an", "my", "our", "on", "of", "be", "where", "there", "here", "city"]);
+const STOP = new Set(["for", "about", "with", "after", "inspired", "before", "during", "featuring", "starring", "like", "set", "by", "and", "the", "theme", "will", "would", "that", "which", "it", "is", "to", "a", "an", "my", "our", "on", "of", "be", "where", "there", "here", "city"]);
 
 const clean = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 const title = (s) => clean(s).replace(/\b\w/g, (c) => c.toUpperCase());
@@ -41,8 +50,18 @@ export function heuristicParse(text) {
     theme = hits.slice(0, 2).join(", ");
   }
   const loves = [];
+  const push = (name) => {
+    const n = clean(name).replace(/\b(is|are)\b.*$/i, "").replace(/^(the\s+)?(film|movie|show|series|song|album|artist|singer)\s+/i, "").trim();
+    if (n.length > 1 && !loves.some((x) => x.name.toLowerCase() === n.toLowerCase())) loves.push({ name: n });
+  };
   const l = t.match(/\b(?:love|loves|fans? of|into|obsessed with)\s+([^.!?]{2,80})/i);
-  if (l) for (const part of l[1].split(/\s*(?:,|\band\b|&)\s*/i)) if (clean(part)) loves.push({ name: title(part.replace(/\b(is|are)\b.*$/i, "")) });
+  if (l) for (const part of l[1].split(/\s*(?:,|\band\b|&)\s*/i)) if (clean(part)) push(title(part));
+  // "after HIT: The First Case", "inspired by Drishyam", "in the style of Wong Kar-wai": a reference title, kept as typed.
+  const after = t.match(/\b(?:after|inspired by|in the (?:style|vein|spirit) of|à la|a la)\s+([A-Z0-9][^,.!?;]{1,60})/);
+  if (after) push(after[1].replace(/\s+(?:on|with|for|in|set|about)\s+(?:a|an|the)\b.*$/i, ""));
+  // "for Sid Sriram fans"
+  const fans = t.match(/\b([A-Z][\w.'&-]*(?:\s+[A-Z][\w.'&-]*){0,3})\s+fans\b/);
+  if (fans && !/^(I|We|My|Our|The)$/.test(fans[1])) push(fans[1]);
   return { format, city, country: "", theme, loves: loves.slice(0, 3) };
 }
 
@@ -84,14 +103,17 @@ export async function parseInput(body) {
     format: FORMAT_IDS.includes(body.format) ? body.format : "",
     city: { query: clean(cityIn.query).slice(0, 80), id: typeof cityIn.id === "string" ? cityIn.id.slice(0, 60) : undefined },
     theme: { query: clean(themeIn.query).slice(0, 60), ids: Array.isArray(themeIn.ids) ? themeIn.ids.filter((x) => typeof x === "string").slice(0, 3) : undefined },
-    loves: (Array.isArray(body.loves) ? body.loves : []).slice(0, 3).map((w) => (typeof w === "string" ? { name: clean(w).slice(0, 80) } : { name: clean(w?.name).slice(0, 80), type: ENTITY_TYPES.includes(w?.type) ? w.type : undefined })).filter((w) => w.name),
+    loves: (Array.isArray(body.loves) ? body.loves : []).slice(0, 3).map((w) => (typeof w === "string" ? { name: clean(w).slice(0, 80) } : { name: clean(w?.name).slice(0, 80), type: ENTITY_TYPES.includes(w?.type) ? w.type : undefined, id: typeof w?.id === "string" && /^[A-Za-z0-9-]{8,60}$/.test(w.id) ? w.id : undefined })).filter((w) => w.name),
+    budget: BUDGETS.includes(body.budget) ? body.budget : budgetFrom(body.text),
   };
+  if (!input.budget) delete input.budget;
   if (text && (!input.format || !input.city.query)) {
     const x = await extract(text);
     input.format ||= x.format;
     if (!input.city.query) input.city.query = x.country && !x.city.includes(",") ? `${x.city}, ${x.country}` : x.city;
-    if (!input.theme.query && !input.loves.length) input.theme.query = x.theme;
-    if (!input.loves.length && !input.theme.query) input.loves = x.loves;
+    // A theme and a love can come together ("about crime, after HIT"): the theme filters, the love signals.
+    if (!input.theme.query) input.theme.query = x.theme;
+    if (!input.loves.length) input.loves = x.loves ?? [];
     input.parsedBy = x.by;
   }
   input.format ||= "film";
@@ -119,5 +141,13 @@ export async function candidates(input) {
     const env = await qlooTool("qloo_find_tags", { query: word, limit: 12 }).catch(() => undefined);
     themes.push({ word, candidates: pickTags(env?.results ?? [], { max: 4 }) });
   }
-  return { cities, themes, cityFound: Boolean(best) };
+  // Each love, as Qloo lists it: the pick first, then the other titles that carry the same name (an original
+  // and its remake share one), so the maker can choose before anything runs.
+  const city = best ? toCity(best, countryPart && marketFor(countryPart)) : undefined;
+  const loves = [];
+  for (const love of input.loves ?? []) {
+    const options = await loveOptions((args) => qlooSearch(args).catch(() => ({ results: [] })), love, city).catch(() => []);
+    loves.push({ name: love.name, type: love.type, options: options.slice(0, 4).map(({ raw, image, ...o }) => o) });
+  }
+  return { cities, themes, loves, cityFound: Boolean(best) };
 }

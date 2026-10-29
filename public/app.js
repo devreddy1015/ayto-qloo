@@ -488,6 +488,16 @@ function renderConfirm(found) {
     ),
   );
   const loves = input.loves ?? [];
+  // Each love as Qloo lists it. Titles can share a name (an original and its remake), so the maker picks.
+  const optionLabel = (o) => `${o.name}${o.year ? ` (${o.year}` : ""}${o.language ? `${o.year ? ", " : " ("}${o.language}` : ""}${o.year || o.language ? ")" : ""}${o.remake ? " · remake" : ""}`;
+  const loveOptions = new Map((found.loves ?? []).map((l) => [l.name, l.options ?? []]));
+  const loveItems = loves.map((l, i) => {
+    const options = loveOptions.get(l.name) ?? [];
+    if (options.length < 2) return el("div", { class: "confirm-item" }, el("span", { class: "confirm-key", text: i ? "Also loves" : "Loves" }), el("div", { class: "chips" }, el("span", { class: "swatch", text: options[0] ? optionLabel(options[0]) : l.name })));
+    return el("label", { class: "confirm-item" }, el("span", { class: "confirm-key", text: `“${l.name}”` }), el("select", { class: "confirm-love", "data-index": i, "aria-label": `Which ${l.name}` }, options.map((o, j) => el("option", { value: o.id, text: optionLabel(o), selected: j === 0 }))));
+  });
+  const fmt = input.format || "film";
+  const budgetSelect = ["film", "reel"].includes(fmt) ? el("label", { class: "confirm-item" }, el("span", { class: "confirm-key", text: "Budget" }), el("select", { id: "confirm-budget", "aria-label": "Budget" }, [["", "not stated (indie)"], ["shoestring", "Shoestring"], ["indie", "Indie"], ["premium", "Premium"]].map(([v, t]) => el("option", { value: v, text: t, selected: v === (input.budget ?? "") })))) : null;
   const runButton = el("button", { id: "confirm-run", type: "button", class: "primary run", text: "Run", disabled: !found.cityFound, onclick: runFromConfirm });
   box.replaceChildren(el(
     "div",
@@ -500,7 +510,8 @@ function renderConfirm(found) {
       found.cityFound ? el("label", { class: "confirm-item" }, el("span", { class: "confirm-key", text: "City" }), citySelect) : null,
       ...themeSelects,
       el("label", { class: "confirm-item" }, el("span", { class: "confirm-key", text: "Format" }), formatSelect),
-      loves.length ? el("div", { class: "confirm-item" }, el("span", { class: "confirm-key", text: "Loves" }), el("div", { class: "chips" }, loves.map((l) => el("span", { class: "swatch", text: l.name })))) : null,
+      ...loveItems,
+      budgetSelect,
     ),
     el("div", { class: "confirm-actions" }, runButton, el("span", { id: "confirm-stale", class: "confirm-note", hidden: true, text: "You changed the sentence. Check with Qloo again." }), el("span", { id: "confirm-status", class: "confirm-note" })),
   ));
@@ -519,8 +530,14 @@ async function runFromConfirm() {
     format: $("#confirm-format")?.value || input.format || "film",
     city: { query: city ? `${city.name}${city.country ? `, ${city.country}` : ""}` : input.city?.query, id: city?.id },
     theme: { query: themeWords.join(", ") || (ids.length ? input.theme?.query : "") || "", ids },
-    loves: input.loves ?? [],
+    loves: (input.loves ?? []).map((l, i) => {
+      const picked = document.querySelector(`.confirm-love[data-index="${i}"]`)?.value;
+      return picked ? { ...l, id: picked } : l;
+    }),
   };
+  const budgetBox = $("#confirm-budget");
+  const budget = budgetBox ? budgetBox.value : input.budget;
+  if (budget) body.budget = budget;
   const c = credential();
   if (c) body.llm = c;
   const status = $("#confirm-status");
@@ -915,7 +932,21 @@ const RENDER = {
         o.contrast ? el("div", {}, el("span", { class: "k", text: "Contrast city" }), el("strong", { class: "big", text: o.contrast.name }), el("span", { class: "sub", text: "the country's largest other city" })) : null,
       ),
       o.theme?.tags?.length ? section("Theme, as Qloo tags", chips(o.theme.tags.map((t) => t.name))) : o.theme?.query ? note(`Theme “${o.theme.query}”: no Qloo tag matched, so the read runs on the city alone.`) : null,
-      o.loves?.length ? section("Loves", chips(o.loves.map((l) => `${l.name}${l.year ? ` (${l.year})` : ""}`))) : null,
+      o.loves?.length
+        ? section(
+            "Loves",
+            list(
+              o.loves.map((l) =>
+                el(
+                  "span",
+                  {},
+                  el("strong", { text: `${l.name}${l.year ? ` (${l.year}${l.language ? `, ${l.language}` : ""})` : ""}` }),
+                  l.alternatives?.length ? el("span", { class: "sub", text: ` · picked over ${l.alternatives.map((a) => `${a.name}${a.year ? ` (${a.year}${a.language ? `, ${a.language}` : ""}${a.remake ? ", remake" : ""})` : ""}`).join(", ")}: same name; the original and the city's own language win. Change it in the confirm step.` }) : null,
+                ),
+              ),
+            ),
+          )
+        : null,
     ];
   },
 
@@ -969,6 +1000,7 @@ const RENDER = {
       el("p", { class: "legend" }, el("i", { class: "key-bar gap" }), " the gap (loved here, under-served) ", el("i", { class: "key-bar demand" }), " demand (how far above the country the city ranks it)"),
       o.mode === "demand-only" ? note("Supply isn't readable for this format, so the bars show demand only: lift of the flavour in the city over the country.") : null,
       o.avoid?.length ? section("The country leans to these more", chips(o.avoid.map((a) => `${a.name} ${signed(a.lift)}`), "muted")) : null,
+      o.avoidSkipped?.length ? el("p", { class: "footnote", text: `Not counted against you: ${o.avoidSkipped.map((a) => `${a.name} (${a.why})`).join(", ")}.` }) : null,
       o.flavours?.length ? section("Flavours the city leans to", chips(o.flavours.slice(0, 12).map((f) => `${f.name} ${signed(f.lift)}`), "small")) : null,
     ];
   },
@@ -995,10 +1027,12 @@ const RENDER = {
   spots(o) {
     const venues = o.venues ?? [];
     const hoods = o.neighbourhoods ?? [];
+    const price = (n) => (n ? `price ${n} of 4` : null);
     return [
-      venues.length ? section("Places", el("ul", { class: "venues" }, venues.map((v) => el("li", {}, el("strong", { text: v.name }), v.type && v.type !== "place" ? tag(v.type) : null, v.address ? el("span", { class: "sub", text: v.address }) : null)))) : note("No places came back for this crowd."),
-      hoods.length ? section("Neighbourhoods", chips(hoods.map((n) => `${n.name} ${signed(n.lift)}`))) : null,
-      o.skipped?.length ? el("p", { class: "footnote", text: `${o.skipped.length} junk name${o.skipped.length === 1 ? "" : "s"} dropped.` }) : null,
+      o.base ? el("p", { class: "lane-line" }, tag("Shoot base", "lane-tag"), " ", q(o.base.name), el("span", { class: "sub", text: ` ${o.base.venues} of the ${o.base.of} places this crowd goes are here (${o.base.places.join(", ")}).` })) : null,
+      venues.length ? section("Places", el("ul", { class: "venues" }, venues.map((v) => el("li", {}, el("strong", { text: v.name }), v.area ? el("span", { class: "sub", text: ` · ${v.area}` }) : null, v.price ? tag(price(v.price)) : null, v.about ? el("span", { class: "sub block", text: v.about }) : v.address ? el("span", { class: "sub block", text: v.address }) : null)))) : note("No places came back for this crowd."),
+      hoods.length ? section("Where the taste runs hottest", chips(hoods.map((n) => `${n.name} ${signed(n.lift)}`))) : null,
+      o.skipped?.length ? el("p", { class: "footnote", text: `${o.skipped.length} junk or private place${o.skipped.length === 1 ? "" : "s"} dropped (homes, clinics, consulates, broken names).` }) : null,
     ];
   },
 
@@ -1241,16 +1275,90 @@ async function recompute(event) {
 const WRITE = {
   film(p) {
     const titles = (p.titles ?? []).filter(Boolean);
+    const hex = (h) => (/^#[0-9a-f]{6}$/i.test(h ?? "") ? h : null);
+    const palette = (p.palette ?? []).filter((c) => hex(c?.hex));
+    const charLine = (k, v) => (v ? el("p", { class: "char-line" }, el("span", { class: "k", text: k }), " ", v) : null);
+    const lighting = p.camera?.lighting ?? [];
+    const shots = p.camera?.shots ?? [];
     return [
       titles.length ? el("div", { class: "titles" }, titles.map((t, i) => el("span", { class: `title-option ${i === 0 ? "first" : ""}`, text: t }))) : el("p", { class: "muted", text: "No titles yet." }),
       p.lane?.flavour ? el("p", { class: "lane-line" }, tag("Lane", "lane-tag"), " ", q(p.lane.flavour), p.lane.why ? el("span", { class: "sub", text: ` ${p.lane.why}` }) : null) : null,
       p.logline ? el("p", { class: "lead", text: p.logline }) : null,
       kv("Theme", p.theme),
+      kv("Look", p.look),
       p.synopsis && Object.values(p.synopsis).some(Boolean) ? el("div", { class: "acts" }, ["act1", "act2", "act3"].map((k, i) => el("div", { class: "act" }, el("span", { class: "k", text: `Act ${i + 1}` }), el("p", { text: p.synopsis[k] || "—" })))) : null,
-      p.characters?.length ? section("Characters", list(p.characters.map((c) => el("span", {}, el("strong", { text: c.role ?? "" }), c.note ? ` ${c.note}` : "")))) : null,
-      p.references?.length ? section("References", list(p.references.map((r) => el("span", {}, q(r.title), r.take ? ` · ${r.take}` : "")))) : null,
+      p.beats?.length
+        ? section(
+            "Beats",
+            el(
+              "ol",
+              { class: "beats film-beats" },
+              p.beats.map((b) =>
+                el(
+                  "li",
+                  {},
+                  el("strong", { text: b.title ?? "" }),
+                  b.what ? el("p", { text: b.what }) : null,
+                  el("p", { class: "sub" }, b.who?.length ? `With ${b.who.join(", ")}` : "", b.where?.name ? el("span", {}, b.who?.length ? " · at " : "At ", q(b.where.name)) : null, b.after?.title ? el("span", {}, " · after ", q(b.after.title)) : null),
+                ),
+              ),
+            ),
+          )
+        : null,
+      p.characters?.length
+        ? section(
+            "Characters",
+            el(
+              "div",
+              { class: "char-grid" },
+              p.characters.map((c) => {
+                const cast = (p.cast_ideas ?? []).filter((x) => x.role && c.name && x.role.toLowerCase().includes(c.name.toLowerCase().split(" ")[0]));
+                return el(
+                  "div",
+                  { class: "char-card" },
+                  el("strong", { class: "char-name", text: c.name ?? c.role ?? "" }),
+                  c.name && c.role ? el("p", { class: "sub", text: c.role }) : null,
+                  charLine("Wants", c.wants),
+                  charLine("Hides", c.hides),
+                  charLine("Look", c.look),
+                  charLine("Arc", c.arc),
+                  c.note ? el("p", { text: c.note }) : null,
+                  c.archetype ? el("p", { class: "sub" }, "Archetype ", q(c.archetype)) : null,
+                  cast.length ? el("p", { class: "sub" }, "Reference for the part: ", cast.map((x, i) => el("span", {}, i ? ", " : "", q(x.name)))) : null,
+                );
+              }),
+            ),
+          )
+        : null,
+      p.references?.length ? section("References", list(p.references.map((r) => el("span", {}, q(r.title), r.borrow || r.take ? el("span", {}, el("span", { class: "k borrow" }, " Borrow "), r.borrow || r.take) : null)))) : null,
       p.cast_ideas?.length ? section("Cast ideas", list(p.cast_ideas.map((c) => el("span", {}, q(c.name), c.role ? ` as ${c.role}` : "", c.why ? el("span", { class: "sub", text: ` · ${c.why}` }) : null)))) : null,
-      p.soundtrack?.length ? section("Soundtrack", list(p.soundtrack.map((s) => el("span", {}, q(s.artist), s.use ? tag(s.use) : null)))) : null,
+      p.shoot_base?.name ? el("p", { class: "lane-line" }, tag("Shoot base", "lane-tag"), " ", q(p.shoot_base.name), p.shoot_base.why ? el("span", { class: "sub", text: ` ${p.shoot_base.why}` }) : null) : null,
+      p.locations?.length ? section("Locations", list(p.locations.map((l) => el("span", {}, q(l.name), l.beat ? tag(`beat ${l.beat}`) : null, l.use ? el("span", { class: "sub", text: ` · ${l.use}` }) : null)))) : null,
+      lighting.length || shots.length
+        ? section(
+            "Camera and light",
+            el("div", { class: "camera-grid" }, lighting.length ? el("div", {}, el("span", { class: "k", text: "Lighting" }), el("ul", {}, lighting.map((x) => el("li", { text: x })))) : null, shots.length ? el("div", {}, el("span", { class: "k", text: "Shots" }), el("ul", {}, shots.map((x) => el("li", { text: x })))) : null),
+          )
+        : null,
+      palette.length
+        ? section(
+            "Palette",
+            el(
+              "div",
+              { class: "film-palette" },
+              palette.map((c) =>
+                el(
+                  "button",
+                  { type: "button", class: "swatch-chip", title: `Copy ${c.hex}`, onclick: (e) => { const b = e.currentTarget; navigator.clipboard?.writeText(c.hex).then(() => { b.dataset.copied = "1"; setTimeout(() => delete b.dataset.copied, 1200); }).catch(() => {}); } },
+                  el("span", { class: "swatch-dot", style: `background:${hex(c.hex)}` }),
+                  el("span", { text: c.name ?? "" }),
+                  el("code", { text: c.hex }),
+                ),
+              ),
+            ),
+          )
+        : null,
+      p.soundtrack?.length ? section("Soundtrack", list(p.soundtrack.map((s) => el("span", {}, q(s.artist), s.use ? tag(s.use) : null, s.beat ? el("span", { class: "sub", text: ` · beat ${s.beat}` }) : null)))) : null,
       p.audience?.who ? section("Audience", el("p", {}, el("strong", { text: p.audience.who }), p.audience.note ? ` ${p.audience.note}` : "")) : null,
       p.travels_next?.length ? section("Travels next", chips(p.travels_next.map((c) => q(c)))) : null,
       p.avoid?.length ? section("Avoid", chips(p.avoid.map((a) => q(a)), "muted")) : null,
@@ -1357,9 +1465,16 @@ function planText(o) {
     add("Logline", p.logline);
     add("Theme", p.theme);
     for (const [i, k] of ["act1", "act2", "act3"].entries()) add(`Act ${i + 1}`, p.synopsis?.[k]);
-    add("Characters", names(p.characters, (c) => `${c.role}${c.note ? ` (${c.note})` : ""}`));
-    add("References", names(p.references, (r) => `${r.title}${r.take ? ` (${r.take})` : ""}`));
-    add("Soundtrack", names(p.soundtrack, (s) => `${s.artist}${s.use ? ` (${s.use})` : ""}`));
+    (p.beats ?? []).forEach((b, i) => add(`Beat ${i + 1}`, [b.title, b.what, b.where?.name && `at ${b.where.name}`, b.after?.title && `after ${b.after.title}`].filter(Boolean).join(". ")));
+    for (const c of p.characters ?? []) add(c.name ?? c.role, [c.name && c.role, c.wants && `wants ${c.wants}`, c.hides && `hides ${c.hides}`, c.look && `look: ${c.look}`, c.arc && `arc: ${c.arc}`, c.note].filter(Boolean).join("; "));
+    add("References", names(p.references, (r) => `${r.title}${r.borrow || r.take ? ` (borrow: ${r.borrow || r.take})` : ""}`));
+    add("Cast ideas", names(p.cast_ideas, (c) => `${c.name}${c.role ? ` as ${c.role}` : ""}`));
+    add("Shoot base", p.shoot_base?.name && `${p.shoot_base.name}${p.shoot_base.why ? ` — ${p.shoot_base.why}` : ""}`);
+    add("Locations", names(p.locations, (l) => `${l.name}${l.beat ? ` (beat ${l.beat})` : ""}${l.use ? `: ${l.use}` : ""}`));
+    add("Lighting", (p.camera?.lighting ?? []).join(" | "));
+    add("Shots", (p.camera?.shots ?? []).join(" | "));
+    add("Palette", names(p.palette, (c) => `${c.name} ${c.hex}`));
+    add("Soundtrack", names(p.soundtrack, (s) => `${s.artist}${s.use ? ` (${s.use}${s.beat ? `, beat ${s.beat}` : ""})` : ""}`));
     add("Audience", p.audience?.who && `${p.audience.who}${p.audience.note ? ` — ${p.audience.note}` : ""}`);
     add("Travels next", names(p.travels_next));
     add("Avoid", names(p.avoid));

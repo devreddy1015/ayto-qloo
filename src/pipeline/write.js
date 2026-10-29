@@ -21,7 +21,7 @@ export async function writeWith(run, { forbid = [] } = {}) {
   if (canWrite) {
     emitEvent(run, { type: "thought", stage: "write", text: forbid.length ? `Writing again with ${forbid.length} name${forbid.length === 1 ? "" : "s"} banned…` : writer.thought });
     try {
-      const call = () => chatJson({ credential, system, user: JSON.stringify(evidence), temperature: 0.6, maxTokens: 2400 });
+      const call = () => chatJson({ credential, system, user: JSON.stringify(evidence), temperature: 0.6, maxTokens: writer.maxTokens ?? 2400 });
       // Server-key runs are cached by evidence so repeat visits are free; a user's own key always writes fresh.
       plan = credential ? await call() : await memo("llm", `write-${writer.id}-v1`, { system, evidence }, call);
     } catch (e) {
