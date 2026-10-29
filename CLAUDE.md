@@ -66,6 +66,12 @@ Research behind this: /home/dev/hackthons/culture-gap/research.txt (29 Oct 2026,
 - Tags are typed: genre:media:* filters no artists; genre:music:* / genre:qloo:* do. themeTagIdsFor(run, type) picks per type.
 - Empty answers (results [], needs_input) are cached in memory for 10 minutes only, never on disk (isEmptyAnswer in qloo.js).
 - Lane strength = min(lift over country, specific lift over controls); lanes rank on it.
+- Qloo names carry stray spaces (" Hip Hop" is genre:music:hip_hop). Of the 12 hip hop tags only genre:music:hip_hop,
+  genre:qloo:hip_hop and subgenre:qloo:hip_hop filter artists. For films "cricket" filters only as keyword:media.
+  The read tries up to five of the theme's tags per kind (themeTagOptions), then seeds the section (seedOffTheme in
+  read.js): search for content kinds, on-theme picks for people. Music is never seeded.
+- Recommendation results carry no akas and no date_of_death; /entities has both (latinNames, markDeaths in read.js).
+- Lanes are read on laneTypeFor(run, types): the first type whose families hold a tag with the theme's own name.
 - Titles share names across an original and its remake: Telugu "HIT" (2020) carries the alias "Hit: The First Case", the name of
   its 2022 Hindi remake, and qloo_describe picks the exact name (the remake). resolve searches and ranks hits (rankTitleOptions in
   src/engine/resolve.js): typed year, original over remake ("remake of" in the description), the city's language
@@ -83,7 +89,7 @@ PREWARM=1 runs them at boot. Scratch probes live outside the repo.
 ## Status (29 Oct 2026, 03:30 IST)
 Done and on GitHub main (devreddy1015/ayto-qloo, MIT detected): engine, eight formats (film, reel, fashion, podcast, game, cafe,
 event, book), writers with a rewrite-once loop, check, diff, share, produce stage (fashion), 3D garment viewer (public/garment3d.js),
-BYOK with 12 providers (Anthropic adapter carries tool calls), MCP door, fake mode, 69 tests, dark infinite-canvas UI. CHANGELOG.md lists every change by PR.
+BYOK with 12 providers (Anthropic adapter carries tool calls), MCP door, fake mode, 72 tests, dark infinite-canvas UI. CHANGELOG.md lists every change by PR.
 29 Oct 14:30 IST: after a side-by-side with itsgiving (a friend's Qloo film tool), the film writer returns a full treatment (beats,
 characters, borrow per reference, shoot base, locations, camera, palette; budget aware) and the film plan has the spots stage.
 Blocked on the user: an LLM key on this box (every attempt to add ANTHROPIC_API_KEY to the worktree .env left the file unchanged;

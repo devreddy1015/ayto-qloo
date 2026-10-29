@@ -4,7 +4,7 @@
 import { demandLift, laneGap, specificLift, tagPoints } from "../analysis.js";
 import { CANDIDATE_CITIES } from "../cities.js";
 import { evidenceFor, registerName } from "../pipeline/evidence.js";
-import { crowdIds, format, placeLabel, signalLocation, themeTagIdsFor, thisYear } from "./common.js";
+import { crowdIds, format, laneTypeFor, placeLabel, signalLocation, themeTagIdsFor, thisYear } from "./common.js";
 
 const TAKE = 30;
 const SUPPLY_FLAVOURS = 8; // flavours that get a supply count (×2 are tried; the lanes are the top 3)
@@ -52,7 +52,7 @@ const SIBLINGS = {
   startup: ["startups", "entrepreneurship", "entrepreneurial", "entrepreneur", "business", "founders", "technology", "tech"],
   tech: ["technology", "software", "startups", "gadgets"],
   food: ["cooking", "cuisine", "culinary", "foodie", "restaurants", "food and wine", "dining"],
-  "street food": ["food", "cooking", "cuisine", "snacks", "foodie"],
+  "street food": ["food", "cooking", "cuisine", "snacks", "foodie", "chaat", "pani puri", "vada pav", "kebab", "kebabs", "tacos", "hawker"],
   coffee: ["cafe", "café", "espresso", "latte", "cappuccino", "tea", "coffee shop"],
   comedy: ["humor", "humour", "funny", "sitcom", "satire", "romcom"],
   action: ["thriller", "martial arts", "adventure"],
@@ -122,7 +122,8 @@ export async function gap(run) {
   const q = evidenceFor(run, "gap");
   const f = format(run);
   const r = run.stages.resolve.output;
-  const type = f.types[0];
+  // Lanes are read on the type the theme belongs to: a street-food reel's lanes are food, not music genres.
+  const type = laneTypeFor(run, f.types);
   const themeIds = themeTagIdsFor(run, type);
   const entityIds = themeIds.length ? [] : crowdIds(run);
   const where = r.city;

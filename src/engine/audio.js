@@ -3,6 +3,7 @@
 import { threeColumns } from "../analysis.js";
 import { evidenceFor, registerEntity, registerName } from "../pipeline/evidence.js";
 import { crowdIds, placeLabel } from "./common.js";
+import { latinNames } from "./read.js";
 
 export async function audio(run) {
   const q = evidenceFor(run, "audio");
@@ -23,7 +24,11 @@ export async function audio(run) {
       registerEntity(run, { id: row.id, name: row.name, type: "artist", source: "recommend" });
       registerName(run, row.name, "artist", { id: row.id });
     }
+    await latinNames(q, run, { artist: { type: "artist", rows } });
   }
-  const shortlist = [...rows.filter((x) => x.onlyHere || x.hiddenGem), ...rows.filter((x) => !(x.onlyHere || x.hiddenGem))].slice(0, 6).map((x) => ({ id: x.id, name: x.name, why: x.hiddenGem ? "hidden gem: loved here, small everywhere" : x.onlyHere ? `favoured in ${r.city.name}, not nationally` : "favoured here and nationally", popularity: x.popularity, affinity: x.affinity, image: x.image }));
+  // Names a reader can't read (Qloo has no Latin alias for some) go after the readable ones.
+  const readable = (x) => !/[^\u0000-\u024F\u1E00-\u1EFF\s\d\p{P}\p{S}]/u.test(String(x.name ?? ""));
+  const ranked = [...rows.filter(readable), ...rows.filter((x) => !readable(x))];
+  const shortlist = [...ranked.filter((x) => x.onlyHere || x.hiddenGem), ...ranked.filter((x) => !(x.onlyHere || x.hiddenGem))].slice(0, 6).map((x) => ({ id: x.id, name: x.name, why: x.hiddenGem ? "hidden gem: loved here, small everywhere" : x.onlyHere ? `favoured in ${r.city.name}, not nationally` : "favoured here and nationally", popularity: x.popularity, affinity: x.affinity, image: x.image }));
   return { artists: rows.slice(0, 15), shortlist, summary: `${shortlist.length} artist${shortlist.length === 1 ? "" : "s"}, ${rows.filter((x) => x.hiddenGem).length} hidden gem${rows.filter((x) => x.hiddenGem).length === 1 ? "" : "s"}.` };
 }

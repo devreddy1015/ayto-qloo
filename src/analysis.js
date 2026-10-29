@@ -312,7 +312,10 @@ export function styleTags(tags = []) {
 /** Normalise a Qloo recommend result into { id, name, type, affinity, popularity, year, image }. */
 export function entityPoint(r) {
   // Prefer an English alias when Qloo's name is in another script (劉亦菲 → Liu Yifei).
-  const en = /[^\u0000-\u024F\u1E00-\u1EFF\s\d\p{P}\p{S}]/u.test(String(r.name ?? "")) ? (r.properties?.akas ?? []).find((a) => a?.language === "en" && a.value)?.value : undefined;
+  // An English alias first, else any alias in Latin script; the original name stays as qlooName.
+  const latin = (v) => v && !/[^\u0000-\u024F\u1E00-\u1EFF\s\d\p{P}\p{S}]/u.test(v);
+  const akas = r.properties?.akas ?? [];
+  const en = !latin(String(r.name ?? "")) ? akas.find((a) => a?.language === "en" && latin(a.value))?.value ?? akas.find((a) => latin(a?.value))?.value : undefined;
   return {
     id: r.entity_id ?? r.id,
     name: en ?? r.name,

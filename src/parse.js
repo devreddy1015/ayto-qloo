@@ -12,8 +12,9 @@ export const BUDGETS = ["shoestring", "indie", "premium"];
 export function budgetFrom(text) {
   const t = String(text ?? "").toLowerCase();
   if (/\b(shoestring|no[- ]budget|zero[- ]budget|low[- ]budget|micro[- ]budget|tiny budget|self[- ]funded)\b/.test(t)) return "shoestring";
-  if (/\b(premium|big[- ]budget|high[- ]budget|large budget|studio budget)\b/.test(t)) return "premium";
-  if (/\b(indie|mid[- ]budget|modest budget)\b/.test(t)) return "indie";
+  // Only a stated budget counts: "an indie game" or "a premium drop" names a kind of thing, not money.
+  if (/\b(big[- ]budget|high[- ]budget|large budget|studio budget|premium budget|premium production)\b/.test(t)) return "premium";
+  if (/\b(indie budget|mid[- ]budget|modest budget|small budget)\b/.test(t)) return "indie";
   return undefined;
 }
 const ENTITY_TYPES = ["artist", "tv_show", "movie", "person", "brand", "videogame", "podcast", "book"];
@@ -43,7 +44,7 @@ export function heuristicParse(text) {
     if (!word || GENRES.includes(word) || NOT_A_CITY.has(word) || FORMAT_HINTS.some(([, re]) => re.test(word))) city = "";
   }
   let theme = "";
-  const a = t.match(/\b(?:about|theme(?:d)?(?:\s+(?:is|will be|would be|of))?|genre(?:\s+is)?)\s+([a-z][\w' -]{2,40}?)(?=[,.;!?]|\s+(?:in|for|and|with|that|which|set)\b|$)/i);
+  const a = t.match(/\b(?:about|theme(?:d)?(?:\s+(?:is|will be|would be|of))?|genre(?:\s+is)?)\s+([a-z][\w' -]{2,40}?)(?=[,.;!?]|\s+(?:in|for|with|that|which|set|after|inspired|on)\b|$)/i);
   if (a) theme = clean(a[1]).toLowerCase();
   if (!theme) {
     const formatRe = FORMAT_HINTS.find(([id]) => id === format)?.[1];
@@ -157,7 +158,7 @@ export async function candidates(input) {
   const city = best ? toCity(best, countryPart && marketFor(countryPart)) : undefined;
   const loves = [];
   for (const love of input.loves ?? []) {
-    const options = await loveOptions((args) => qlooSearch(args).catch(() => ({ results: [] })), love, city).catch(() => []);
+    const options = await loveOptions((args) => qlooSearch(args).catch(() => ({ results: [] })), love, city, { format: input.format }).catch(() => []);
     loves.push({ name: love.name, type: love.type, options: options.slice(0, 4).map(({ raw, image, ...o }) => o) });
   }
   return { cities, themes, loves, cityFound: Boolean(best), corrected };

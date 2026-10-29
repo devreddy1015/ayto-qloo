@@ -2,7 +2,7 @@
 // with a city Qloo cannot place; a theme Qloo cannot tag is kept as plain
 // words and the read falls back to the loves.
 import { CANDIDATE_CITIES, COUNTRY_ALIASES, closestKnownCity, displayName, localityName, pickLocality } from "../cities.js";
-import { CATEGORY_FILTERS } from "../formats.js";
+import { CATEGORY_FILTERS, FORMATS } from "../formats.js";
 import { evidenceFor, registerEntity, registerName } from "../pipeline/evidence.js";
 
 const TAG_PREFERENCE = ["urn:tag:genre:qloo", "urn:tag:genre:media", "urn:tag:subgenre:qloo", "urn:tag:theme:qloo", "urn:tag:category:qloo", "urn:tag:category:place", "urn:tag:plot:qloo", "urn:tag:keyword:qloo", "urn:tag:keyword:media"];
@@ -156,7 +156,7 @@ const yearOfEntity = (r) => Number(r?.properties?.release_year ?? String(r?.prop
  * 2022 Hindi remake). Then: the year if the user gave one, the original over a remake, the city's own
  * language, the exact name, popularity. Each option says why, so the confirm step can show it.
  */
-export function rankTitleOptions(results = [], { name, year, languages = [] } = {}) {
+export function rankTitleOptions(results = [], { name, year, languages = [], kinds = [] } = {}) {
   const needle = norm(name);
   const langs = languages.map(lower);
   return results
@@ -167,7 +167,11 @@ export function rankTitleOptions(results = [], { name, year, languages = [] } = 
       const y = yearOfEntity(r);
       const language = languageOf(r);
       const remake = isRemake(r);
-      const score = (year && y === year ? 10 : 0) + (own ? 2 : aka ? 1 : 0) + (language && langs.includes(lower(language)) ? 2 : 0) - (remake ? 2 : 0);
+      // A name with no stated kind ("Sid Sriram") prefers the kind the format reads first: the singer for a reel.
+      const kind = String(r.subtype ?? r.types?.[0] ?? r.type ?? "").replace(/^urn:entity:/, "");
+      const k = kinds.indexOf(kind);
+      const kindBonus = k < 0 ? 0 : Math.max(0, 1.5 - 0.5 * k);
+      const score = (year && y === year ? 10 : 0) + (own ? 2 : aka ? 1 : 0) + (language && langs.includes(lower(language)) ? 2 : 0) - (remake ? 2 : 0) + kindBonus;
       return { r, own, aka, year: y, language, remake, score };
     })
     .filter((o) => o.own || o.aka || (year && o.year === year && norm(o.r.name).includes(needle)))
@@ -176,10 +180,10 @@ export function rankTitleOptions(results = [], { name, year, languages = [] } = 
 }
 
 /** Search Qloo for one love and rank what comes back (used by the confirm step and by resolve). */
-export async function loveOptions(search, love, city) {
+export async function loveOptions(search, love, city, { format } = {}) {
   const { name, year } = splitYear(love.name);
   const env = await search({ query: name, ...(love.type ? { type: love.type } : {}), take: 8 });
-  return rankTitleOptions(env?.results ?? [], { name, year, languages: cityLanguages(city) });
+  return rankTitleOptions(env?.results ?? [], { name, year, languages: cityLanguages(city), kinds: love.type ? [] : FORMATS[format]?.types ?? [] });
 }
 
 async function resolveLove(q, run, love, city) {
@@ -188,7 +192,7 @@ async function resolveLove(q, run, love, city) {
   if (love.id) {
     // Picked in the confirm step: the same search (cached from that step) carries the full entity;
     // describe it by id only if the search no longer lists it.
-    const options = await loveOptions((args) => q.trySearch(`Find “${love.name}” among Qloo's ${love.type ? love.type.replace("_", " ") + "s" : "entities"}`, args), love, city);
+    const options = await loveOptions((args) => q.trySearch(`Find “${love.name}” among Qloo's ${love.type ? love.type.replace("_", " ") + "s" : "entities"}`, args), love, city, { format: run.input.format });
     const picked = options.find((o) => o.id === love.id);
     if (picked) {
       r = picked.raw;
@@ -198,7 +202,7 @@ async function resolveLove(q, run, love, city) {
       r = env?.results?.[0];
     }
   } else {
-    const options = await loveOptions((args) => q.trySearch(`Find “${love.name}” among Qloo's ${love.type ? love.type.replace("_", " ") + "s" : "entities"}`, args), love, city);
+    const options = await loveOptions((args) => q.trySearch(`Find “${love.name}” among Qloo's ${love.type ? love.type.replace("_", " ") + "s" : "entities"}`, args), love, city, { format: run.input.format });
     if (options.length) {
       r = options[0].raw;
       alternatives = options.slice(1, 4).map(({ raw, ...o }) => o);
@@ -236,20 +240,25 @@ async function resolveLove(q, run, love, city) {
  * stays on labels and a place read on cafés. One receipt per query; only tags that look like
  * brand or place categories and match the format's pattern are kept.
  */
-async function categoryTags(q, type, { queries, match }) {
+async function categoryTags(q, type, { queries, match, kinds = /brand|category|place|cuisine|amenity|genre/i }) {
   const found = new Map();
   for (const query of queries) {
     const env = await q.tryTool(`Find Qloo's ${type} categories (“${query}”)`, "qloo_find_tags", { query, limit: 10 });
     for (const t of env?.results ?? []) {
       const kind = `${t.type ?? ""} ${t.id ?? ""}`;
-      if (t?.id && match.test(t.name ?? "") && /brand|category|place|cuisine|amenity|genre/i.test(kind)) found.set(t.id, { id: t.id, name: t.name, type: t.type });
+      if (t?.id && match.test(t.name ?? "") && kinds.test(kind)) found.set(t.id, { id: t.id, name: t.name, type: t.type });
     }
   }
   return [...found.values()].slice(0, 8);
 }
 
-async function formatFilters(q, format) {
-  const spec = CATEGORY_FILTERS[format] ?? {};
+// A drop for children reads children's labels: Qloo's kidswear segment, not every "fashion" brand (watches, bike gear).
+const KIDS = /\b(kids?|kidswear|children'?s?|childrenswear|child|baby|babies|babywear|toddlers?|infants?)\b/i;
+const KIDS_BRANDS = { queries: ["kidswear", "kids fashion", "baby clothing"], match: /kid|child|baby|toddler|infant/i, kinds: /fashion_segment|category|brand/i };
+
+async function formatFilters(q, format, input = {}) {
+  const spec = { ...(CATEGORY_FILTERS[format] ?? {}) };
+  if (format === "fashion" && KIDS.test(String(input.text ?? ""))) spec.brand = KIDS_BRANDS;
   const out = {};
   for (const [type, cfg] of Object.entries(spec)) out[type] = await categoryTags(q, type, cfg);
   return out;
@@ -259,7 +268,7 @@ export async function resolve(run) {
   const q = evidenceFor(run, "resolve");
   const input = run.input;
   const city = await resolveCity(q, run, input);
-  const [contrast, theme, filters, ...loves] = await Promise.all([resolveContrast(q, run, city), resolveTheme(q, run, input), formatFilters(q, input.format), ...(input.loves ?? []).slice(0, 3).map((l) => resolveLove(q, run, l, city))]);
+  const [contrast, theme, filters, ...loves] = await Promise.all([resolveContrast(q, run, city), resolveTheme(q, run, input), formatFilters(q, input.format, input), ...(input.loves ?? []).slice(0, 3).map((l) => resolveLove(q, run, l, city))]);
   const found = loves.filter(Boolean);
   if (!theme.tags.length && !found.length && (input.theme?.query || input.loves?.length)) {
     throw new Error("Qloo couldn't find that theme or those names. Try a genre word (crime, romance, nightlife) or an exact title.");

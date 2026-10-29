@@ -180,3 +180,43 @@ test("tag names are tidied, areas lose doubled words, and the dead never reach a
   assert.deepEqual(people.only_here, ["Ramya Krishnan"]);
   assert.deepEqual(people.also_strong, ["Hema Malini"]);
 });
+
+test("lanes are read on the kind the theme belongs to, and stray spaces in Qloo's names don't hide a tag", async () => {
+  const { laneTypeFor, themeTagsInFamily, themeTagIdsFor } = await import("../src/engine/common.js");
+  const runWith = (word, candidates) => ({ stages: { resolve: { output: { theme: { byWord: [{ word, chosen: candidates[0], candidates }] } } } } });
+  const streetFood = runWith("street food", [{ id: "urn:tag:cuisine:qloo:street_food", name: "Street Food" }, { id: "urn:tag:culinary_style:qloo:street_food", name: "Street Food" }]);
+  assert.equal(laneTypeFor(streetFood, ["artist", "movie", "tv_show", "place"]), "place");
+  const love = runWith("love", [{ id: "urn:tag:core_value:qloo:love", name: "Love" }, { id: "urn:tag:keyword:media:love", name: "love" }, { id: "urn:tag:theme:qloo:love", name: "Love" }]);
+  assert.equal(laneTypeFor(love, ["artist", "movie", "tv_show", "place"]), "movie", "a keyword tag never decides the kind");
+  const crime = runWith("crime", [{ id: "urn:tag:genre:qloo:crime", name: "Crime" }]);
+  assert.equal(laneTypeFor(crime, ["movie", "tv_show", "person"]), "movie");
+  const hipHop = runWith("hip hop", [{ id: "urn:tag:genre:media:hip_hop", name: "Hip Hop" }, { id: "urn:tag:genre:music:hiphop", name: "hiphop" }, { id: "urn:tag:genre:music:hip_hop", name: " Hip Hop" }]);
+  assert.deepEqual(themeTagIdsFor(hipHop, "artist"), ["urn:tag:genre:music:hip_hop"]);
+  assert.deepEqual(themeTagsInFamily(hipHop, "place"), []);
+  assert.equal(laneTypeFor({ stages: { resolve: { output: { theme: { byWord: [] } } } } }, ["brand", "artist"]), "brand");
+});
+
+test("an untyped name takes the kind the format reads first, and only a stated budget counts", async () => {
+  const sidPerson = { entity_id: "p1", name: "Sid Sriram", types: ["urn:entity:person"], popularity: 0.9 };
+  const sidArtist = { entity_id: "a1", name: "Sid Sriram", types: ["urn:entity:artist"], popularity: 0.8 };
+  assert.equal(rankTitleOptions([sidPerson, sidArtist], { name: "Sid Sriram", kinds: ["artist", "movie", "tv_show", "place"] })[0].id, "a1");
+  assert.equal(rankTitleOptions([sidPerson, sidArtist], { name: "Sid Sriram" })[0].id, "p1", "no format preference: popularity decides");
+  assert.equal(budgetFrom("An indie game in Pune about cricket"), undefined);
+  assert.equal(budgetFrom("a premium fashion drop"), undefined);
+  assert.equal(budgetFrom("a short on an indie budget"), "indie");
+});
+
+test("the read can try each of the theme's tags for a kind, keywords last", async () => {
+  const { themeTagOptions } = await import("../src/engine/common.js");
+  const candidates = [
+    { id: "urn:tag:hobby:qloo:cricket", name: "Cricket" },
+    { id: "urn:tag:genre:qloo:cricket", name: "Cricket" },
+    { id: "urn:tag:genre:media:cricket", name: "Cricket" },
+    { id: "urn:tag:subgenre:qloo:cricket", name: "Cricket" },
+    { id: "urn:tag:keyword:media:cricket", name: "cricket" },
+  ];
+  const run = { stages: { resolve: { output: { theme: { byWord: [{ word: "cricket", chosen: candidates[0], candidates }] } } } } };
+  const options = themeTagOptions(run, "movie");
+  assert.deepEqual(options.map((o) => o[0]), ["urn:tag:genre:qloo:cricket", "urn:tag:genre:media:cricket", "urn:tag:subgenre:qloo:cricket", "urn:tag:keyword:media:cricket"]);
+  assert.ok(!options.flat().includes("urn:tag:hobby:qloo:cricket"), "a tag of another kind is never tried on films");
+});
