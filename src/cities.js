@@ -132,3 +132,45 @@ export function subLocalities(results = [], { city, market }) {
     .filter((r) => !seen.has(head(r.name)) && seen.add(head(r.name)))
     .map((r) => toPlace(r, market));
 }
+
+// Common spellings a maker might type that differ from the list above by more than a typo.
+const SPELLINGS = { bangalore: "Bengaluru", bombay: "Mumbai", madras: "Chennai", calcutta: "Kolkata", mysore: "Mysuru", mangalore: "Mangaluru", trivandrum: "Thiruvananthapuram", calicut: "Kozhikode", cochin: "Kochi", vizag: "Visakhapatnam", gurgaon: "Gurugram", nyc: "New York", la: "Los Angeles", vegas: "Las Vegas", sf: "San Francisco" };
+
+function editDistance(a, b) {
+  const m = a.length;
+  const n = b.length;
+  const row = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i += 1) {
+    let prev = row[0];
+    row[0] = i;
+    for (let j = 1; j <= n; j += 1) {
+      const tmp = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = tmp;
+    }
+  }
+  return row[n];
+}
+
+/**
+ * The known city a mistyped name most likely means ("Hydrabad" → Hyderabad, "Bangalore" → Bengaluru),
+ * from the candidate lists: an old name, or within two edits (one for short names). Undefined when
+ * nothing is that close, so a real but unlisted town is never silently swapped for a big city.
+ */
+export function closestKnownCity(query, { market } = {}) {
+  const q = String(query ?? "").toLowerCase().normalize("NFKD").replace(/[^a-z ]/g, "").trim();
+  if (!q) return undefined;
+  if (SPELLINGS[q]) return { name: SPELLINGS[q], market: Object.entries(CANDIDATE_CITIES).find(([, l]) => l.includes(SPELLINGS[q]))?.[0] };
+  const limit = q.length <= 5 ? 1 : 2;
+  let best;
+  for (const [m, list] of Object.entries(CANDIDATE_CITIES)) {
+    if (market && m !== market) continue;
+    for (const name of list) {
+      const n = name.toLowerCase().normalize("NFKD").replace(/[^a-z ]/g, "");
+      if (n === q) return undefined; // spelt right; Qloo just didn't find it
+      const d = editDistance(q, n);
+      if (d <= limit && (!best || d < best.d)) best = { name, market: m, d };
+    }
+  }
+  return best ? { name: best.name, market: best.market } : undefined;
+}

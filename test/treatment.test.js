@@ -155,3 +155,28 @@ test("the rule parser reads reference titles and fan phrasings, and keeps a them
   assert.equal(input.loves[0].name, "HIT: The First Case");
   assert.equal(input.budget, "shoestring");
 });
+
+test("a mistyped or old city name finds the city it means, and a real unlisted town is left alone", async () => {
+  const { closestKnownCity } = await import("../src/cities.js");
+  assert.deepEqual(closestKnownCity("Hydrabad"), { name: "Hyderabad", market: "India" });
+  assert.deepEqual(closestKnownCity("Bangalore"), { name: "Bengaluru", market: "India" });
+  assert.deepEqual(closestKnownCity("Austn"), { name: "Austin", market: "United States" });
+  assert.equal(closestKnownCity("Pune"), undefined, "spelt right: no correction");
+  assert.equal(closestKnownCity("Zzyzx"), undefined);
+});
+
+test("tag names are tidied, areas lose doubled words, and the dead never reach a cast list", async () => {
+  const { tagName } = await import("../src/analysis.js");
+  const { digest } = await import("../src/writers/shared.js");
+  assert.equal(tagName("underground  rap"), "Underground Rap");
+  assert.equal(tagName("Hip Hop"), "Hip Hop");
+  assert.equal(areaOf({ properties: { address: "Juhu Tara Rd, Juhu Juhu, Mumbai, Maharashtra 400049" } }, "Mumbai"), "Juhu");
+  assert.equal(areaOf({ properties: { geocode: { name: "K/E Ward" } } }, "Mumbai"), undefined);
+  const run = {
+    input: { format: "film" },
+    stages: { read: { output: { columns: { person: { rows: [{ name: "Dilip Kumar", died: "2021-07-07" }, { name: "Hema Malini" }, { name: "Ramya Krishnan", onlyHere: true }] } } } } },
+  };
+  const people = digest(run).what_the_city_favours.person;
+  assert.deepEqual(people.only_here, ["Ramya Krishnan"]);
+  assert.deepEqual(people.also_strong, ["Hema Malini"]);
+});

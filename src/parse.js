@@ -2,6 +2,7 @@
 // before anything runs. Two paths: the model when it is there, plain rules
 // when it is not. Both end at the same confirm step.
 import { loveOptions, pickCity, pickTags, toCity, marketFor } from "./engine/resolve.js";
+import { closestKnownCity } from "./cities.js";
 import { FORMAT_HINTS, FORMAT_IDS } from "./formats.js";
 import { chatJson, llmAvailable } from "./llm.js";
 import { qlooSearch, qlooTool } from "./qloo.js";
@@ -125,7 +126,17 @@ export async function parseInput(body) {
 export async function candidates(input) {
   const [cityPart, countryPart] = input.city.query.split(",").map((s) => s.trim());
   const cityEnv = await qlooSearch({ query: cityPart, type: "locality", take: 8 }).catch(() => ({ results: [] }));
-  const best = pickCity(cityEnv.results ?? [], cityPart, { wantedId: input.city.id });
+  let best = pickCity(cityEnv.results ?? [], cityPart, { wantedId: input.city.id });
+  // A typo or an old name: offer the closest known city instead of a dead end.
+  let corrected;
+  if (!best) {
+    const guess = closestKnownCity(cityPart, { market: countryPart && marketFor(countryPart) });
+    if (guess) {
+      const env = await qlooSearch({ query: guess.name, type: "locality", take: 8 }).catch(() => ({ results: [] }));
+      best = pickCity(env.results ?? [], guess.name);
+      if (best) corrected = { from: cityPart, to: guess.name };
+    }
+  }
   // Only localities whose name (or an alias) carries what was typed are offered; a typo never turns into a random city.
   const needle = cityPart.toLowerCase();
   const matches = (r) => [r.name, ...(r.properties?.akas ?? []).map((a) => a?.value)].some((n) => String(n ?? "").toLowerCase().includes(needle));
@@ -149,5 +160,5 @@ export async function candidates(input) {
     const options = await loveOptions((args) => qlooSearch(args).catch(() => ({ results: [] })), love, city).catch(() => []);
     loves.push({ name: love.name, type: love.type, options: options.slice(0, 4).map(({ raw, image, ...o }) => o) });
   }
-  return { cities, themes, loves, cityFound: Boolean(best) };
+  return { cities, themes, loves, cityFound: Boolean(best), corrected };
 }

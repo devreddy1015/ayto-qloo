@@ -112,6 +112,10 @@ npm test
 
 `PORT` (default 8080), `PREWARM=1` runs the three showcases at boot, `MAX_RUNS_PER_DAY`, `MAX_LLM_RUNS_PER_DAY`, `SCANS_PER_IP_PER_HOUR`, `PUBLIC_URL` for the discovery document. The server's own model comes from the first key it finds: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, or `LLM_PROVIDER` + `LLM_API_KEY`. Docker: `docker build -t ayto . && docker run -p 8080:8080 --env-file .env ayto`. The app runs Qloo's official harness (`qloo mcp`) as a child process, so it needs a long-running container, not serverless: Render (`render.yaml` is a ready blueprint), Railway or Fly.io from the Dockerfile all work.
 
+## What changed
+
+Every change, with the bug or test that prompted it, is in [CHANGELOG.md](CHANGELOG.md).
+
 ## Ethics
 
 No personal data is sent to Qloo and none is inferred: the audience card is an aggregate skew of a city's own picks. The analyst prompt refuses to infer sensitive traits. Keys are never stored. Qloo response data is never committed.

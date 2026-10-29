@@ -123,7 +123,13 @@ export function tagPoints(raw) {
   const list = raw?.results?.tags ?? (Array.isArray(raw?.results) ? raw.results : []);
   return list
     .filter((t) => t?.name)
-    .map((t) => ({ id: t.tag_id ?? t.id, name: t.name, type: t.subtype ?? t.type, affinity: num(t.query?.affinity) ?? num(t.affinity), popularity: num(t.popularity) }));
+    .map((t) => ({ id: t.tag_id ?? t.id, name: tagName(t.name), type: t.subtype ?? t.type, affinity: num(t.query?.affinity) ?? num(t.affinity), popularity: num(t.popularity) }));
+}
+
+/** A tag's name for display: single spaces, and words capitalised when Qloo sent it all lower case ("underground  rap"). */
+export function tagName(name) {
+  const s = String(name ?? "").replace(/\s+/g, " ").trim();
+  return s && s === s.toLowerCase() ? s.replace(/(^|\s)([a-z])/g, (m, a, c) => a + c.toUpperCase()) : s;
 }
 
 export const haversineKm = (a, b) => {
@@ -316,6 +322,7 @@ export function entityPoint(r) {
     popularity: num(r.popularity),
     year: num(r.properties?.release_year),
     image: r.properties?.image?.url ?? r.properties?.image,
+    died: r.properties?.date_of_death || undefined,
   };
 }
 

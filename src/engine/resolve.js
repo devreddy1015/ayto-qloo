@@ -1,7 +1,7 @@
 // Stage 1: everything the user typed, as Qloo knows it. A run never goes on
 // with a city Qloo cannot place; a theme Qloo cannot tag is kept as plain
 // words and the read falls back to the loves.
-import { CANDIDATE_CITIES, COUNTRY_ALIASES, displayName, localityName, pickLocality } from "../cities.js";
+import { CANDIDATE_CITIES, COUNTRY_ALIASES, closestKnownCity, displayName, localityName, pickLocality } from "../cities.js";
 import { CATEGORY_FILTERS } from "../formats.js";
 import { evidenceFor, registerEntity, registerName } from "../pipeline/evidence.js";
 
@@ -57,9 +57,19 @@ async function resolveCity(q, run, input) {
   const [cityPart, countryPart] = query.split(",").map((s) => s.trim());
   const env = await q.trySearch(`Find “${cityPart}” among Qloo's localities`, { query: cityPart, type: "locality", take: 8 });
   const hits = env?.results ?? [];
-  const hit = (countryPart && marketFor(countryPart) && pickLocality(hits, { query: cityPart, market: marketFor(countryPart) })) || pickCity(hits, cityPart, { wantedId: input.city?.id });
+  let hit = (countryPart && marketFor(countryPart) && pickLocality(hits, { query: cityPart, market: marketFor(countryPart) })) || pickCity(hits, cityPart, { wantedId: input.city?.id });
+  // A typo or an old name ("Hydrabad", "Bangalore"): try the closest known city, and say so.
+  let correctedFrom;
+  if (!hit) {
+    const guess = closestKnownCity(cityPart, { market: countryPart && marketFor(countryPart) });
+    if (guess) {
+      const env2 = await q.trySearch(`“${cityPart}” isn't in Qloo; trying ${guess.name}`, { query: guess.name, type: "locality", take: 8 });
+      hit = pickLocality(env2?.results ?? [], { query: guess.name, market: guess.market }) || pickCity(env2?.results ?? [], guess.name);
+      if (hit) correctedFrom = cityPart;
+    }
+  }
   if (!hit) throw new Error(`Qloo couldn't place “${cityPart}”. Try the city's common English name, with the country.`);
-  const city = toCity(hit, countryPart && marketFor(countryPart));
+  const city = { ...toCity(hit, countryPart && marketFor(countryPart)), ...(correctedFrom ? { correctedFrom } : {}) };
   registerName(run, city.name, "city", { id: city.id, market: city.market });
   registerName(run, localityName(hit), "city", { id: city.id, market: city.market });
   return city;

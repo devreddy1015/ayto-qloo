@@ -50,10 +50,13 @@ export function registerEntity(run, entity) {
 export function registerName(run, name, kind, extra = {}) {
   run.names ??= {};
   if (!name) return;
-  run.names[String(name).toLowerCase()] = { name, kind, ...extra };
+  run.names[nameKey(name)] = { name, kind, ...extra };
 }
 
 /** Is this name something Qloo actually returned (entity, brand, tag, city)? */
 export function isKnownName(run, name) {
-  return Boolean(run.names?.[String(name ?? "").toLowerCase()]);
+  return Boolean(run.names?.[nameKey(name)]);
 }
+
+/** Names match whatever their case or spacing ("underground  rap" is "Underground Rap"). */
+const nameKey = (name) => String(name ?? "").toLowerCase().replace(/\s+/g, " ").trim();
