@@ -44,7 +44,7 @@ export async function diff(run) {
     a: list(pl.references).map((x) => x?.title ?? x),
     b: list(pl.soundtrack).map((x) => x?.artist ?? x),
     c: [...list(pl.travels_next), ...list(pl.first_cities)],
-    d: list(pl.spots).map((x) => x?.name ?? x),
+    d: [...list(pl.spots), ...list(pl.locations)].map((x) => x?.name ?? x),
     e: [...list(pl.brands_to_study), ...list(pl.brands_to_stock)],
     f: [pl.audio?.artist, pl.intro_music?.artist].filter(Boolean),
     g: [...list(pl.guests), ...list(pl.lineup), ...list(pl.playlist)].map((x) => x?.name ?? x?.artist ?? x),

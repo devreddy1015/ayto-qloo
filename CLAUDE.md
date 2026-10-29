@@ -66,6 +66,14 @@ Research behind this: /home/dev/hackthons/culture-gap/research.txt (29 Oct 2026,
 - Tags are typed: genre:media:* filters no artists; genre:music:* / genre:qloo:* do. themeTagIdsFor(run, type) picks per type.
 - Empty answers (results [], needs_input) are cached in memory for 10 minutes only, never on disk (isEmptyAnswer in qloo.js).
 - Lane strength = min(lift over country, specific lift over controls); lanes rank on it.
+- Titles share names across an original and its remake: Telugu "HIT" (2020) carries the alias "Hit: The First Case", the name of
+  its 2022 Hindi remake, and qloo_describe picks the exact name (the remake). resolve searches and ranks hits (rankTitleOptions in
+  src/engine/resolve.js): typed year, original over remake ("remake of" in the description), the city's language
+  ("<Language>-language" in the description, cityLanguages by state/market), then name. The confirm step lists the options.
+- Place recommendations carry no coordinates and no tags; address, geocode.name, short_description and price_level are there.
+  spots reads the area from the address (areaOf), the shoot base is the area with most venues, homes/clinics/consulates are dropped.
+- Avoid list (gap.js avoidFrom): never a flavour carried by >=20% of the themed catalogue, a sibling genre of the theme, or a word
+  the maker typed (a short film is never told to avoid "Short").
 
 ## Run
 npm install · npm start (live if QLOO_API_KEY) · CULTURE_GAP_MODE=fake npm start · npm test · PORT=8787 locally (8080 is taken on
@@ -75,7 +83,9 @@ PREWARM=1 runs them at boot. Scratch probes live outside the repo.
 ## Status (29 Oct 2026, 03:30 IST)
 Done and on GitHub main (devreddy1015/ayto-qloo, MIT detected): engine, eight formats (film, reel, fashion, podcast, game, cafe,
 event, book), writers with a rewrite-once loop, check, diff, share, produce stage (fashion), 3D garment viewer (public/garment3d.js),
-BYOK with 12 providers (Anthropic adapter carries tool calls), MCP door, fake mode, 49 tests, dark infinite-canvas UI.
+BYOK with 12 providers (Anthropic adapter carries tool calls), MCP door, fake mode, 67 tests, dark infinite-canvas UI.
+29 Oct 14:30 IST: after a side-by-side with itsgiving (a friend's Qloo film tool), the film writer returns a full treatment (beats,
+characters, borrow per reference, shoot base, locations, camera, palette; budget aware) and the film plan has the spots stage.
 Blocked on the user: an LLM key on this box (every attempt to add ANTHROPIC_API_KEY to the worktree .env left the file unchanged;
 the user's terminal and my tools are both on host voldmart, cause unknown) and the deploy (no host account yet; Render blueprint,
 Railway or Fly from the Dockerfile). The writers have never run against a real provider. Next: deploy with the key as a secret,

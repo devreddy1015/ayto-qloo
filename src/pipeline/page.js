@@ -7,17 +7,24 @@ const section = (title, body) => (body ? `<h2>${esc(title)}</h2>${body}` : "");
 const para = (s) => (s ? `<p>${esc(s)}</p>` : "");
 
 function filmBody(p) {
+  const li = (items) => (items.length ? `<ul>${items.join("")}</ul>` : "");
+  const palette = (p.palette ?? []).filter((c) => /^#[0-9a-f]{6}$/i.test(String(c?.hex)));
   return [
     section("Logline", para(p.logline)),
     section("Theme", para(p.theme)),
+    section("Look", para(p.look)),
     p.lane ? section("The lane", para(`${p.lane.flavour}. ${p.lane.why ?? ""}`)) : "",
-    p.synopsis ? section("Synopsis", ["act1", "act2", "act3"].map((k, i) => (p.synopsis[k] ? `<p><strong>Act ${i + 1}.</strong> ${esc(p.synopsis[k])}</p>` : "")).join("")) : "",
-    p.characters?.length ? section("Characters", `<ul>${p.characters.map((c) => `<li><strong>${esc(c.role)}</strong> ${esc(c.note)}</li>`).join("")}</ul>`) : "",
-    p.references?.length ? section("Study these", `<ul>${p.references.map((c) => `<li><strong>${esc(c.title)}</strong> ${esc(c.take)}</li>`).join("")}</ul>`) : "",
-    p.cast_ideas?.length ? section("Cast ideas", `<ul>${p.cast_ideas.map((c) => `<li><strong>${esc(c.name)}</strong>${c.role ? ` as ${esc(c.role)}` : ""}${c.why ? ` · ${esc(c.why)}` : ""}</li>`).join("")}</ul>`) : "",
-    p.soundtrack?.length ? section("Soundtrack", chips(p.soundtrack.map((s) => `${s.artist}${s.use ? ` · ${s.use}` : ""}`))) : "",
+    p.synopsis && Object.values(p.synopsis).some(Boolean) ? section("Synopsis", ["act1", "act2", "act3"].map((k, i) => (p.synopsis[k] ? `<p><strong>Act ${i + 1}.</strong> ${esc(p.synopsis[k])}</p>` : "")).join("")) : "",
+    p.beats?.length ? section("Beats", `<ol>${p.beats.map((b) => `<li><strong>${esc(b.title)}</strong> ${esc(b.what)}${b.where?.name || b.after?.title ? `<br><small>${[b.where?.name && `At ${esc(b.where.name)}`, b.after?.title && `after ${esc(b.after.title)}`].filter(Boolean).join(" · ")}</small>` : ""}</li>`).join("")}</ol>`) : "",
+    p.characters?.length ? section("Characters", li(p.characters.map((c) => `<li><strong>${esc(c.name ?? c.role)}</strong>${c.name && c.role ? ` ${esc(c.role)}` : ""}${[c.wants && `Wants: ${c.wants}`, c.hides && `Hides: ${c.hides}`, c.look && `Look: ${c.look}`, c.arc && `Arc: ${c.arc}`, c.note].filter(Boolean).map((x) => `<br><small>${esc(x)}</small>`).join("")}</li>`))) : "",
+    p.references?.length ? section("Study these", li(p.references.map((c) => `<li><strong>${esc(c.title)}</strong> ${esc(c.borrow ?? c.take)}</li>`))) : "",
+    p.cast_ideas?.length ? section("Cast ideas", li(p.cast_ideas.map((c) => `<li><strong>${esc(c.name)}</strong>${c.role ? ` as ${esc(c.role)}` : ""}${c.why ? ` · ${esc(c.why)}` : ""}</li>`))) : "",
+    p.shoot_base?.name || p.locations?.length ? section("Where to shoot", `${p.shoot_base?.name ? para(`Base: ${p.shoot_base.name}. ${p.shoot_base.why ?? ""}`) : ""}${li((p.locations ?? []).map((l) => `<li><strong>${esc(l.name)}</strong>${l.beat ? ` (beat ${esc(l.beat)})` : ""} ${esc(l.use)}</li>`))}`) : "",
+    p.camera?.lighting?.length || p.camera?.shots?.length ? section("Camera and light", `${li((p.camera.lighting ?? []).map((x) => `<li>${esc(x)}</li>`))}${li((p.camera.shots ?? []).map((x) => `<li>${esc(x)}</li>`))}`) : "",
+    palette.length ? section("Palette", `<div class="pal">${palette.slice(0, 6).map((c) => `<span style="background:${hex(c.hex)}">${esc(c.name)} ${esc(c.hex)}</span>`).join("")}</div>`) : "",
+    p.soundtrack?.length ? section("Soundtrack", chips(p.soundtrack.map((s) => `${s.artist}${s.use ? ` · ${s.use}` : ""}${s.beat ? ` · beat ${s.beat}` : ""}`))) : "",
     p.travels_next?.length ? section("Travels next", chips(p.travels_next)) : "",
-    p.avoid?.length ? section("Avoid", `<ul>${p.avoid.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>`) : "",
+    p.avoid?.length ? section("Avoid", li(p.avoid.map((a) => `<li>${esc(a)}</li>`))) : "",
   ].join("");
 }
 
@@ -78,7 +85,13 @@ export function renderShareMarkdown(run) {
   const label = (k) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
   const present = (vv) => vv !== undefined && vv !== null && vv !== "" && typeof vv !== "boolean" && !(Array.isArray(vv) && !vv.length) && !(typeof vv === "object" && !Array.isArray(vv) && !Object.values(vv).some((x) => x !== undefined && x !== ""));
   // Nested values flatten to text: lists join, objects become "key value" pairs, so nothing prints as [object Object].
-  const flat = (vv) => (Array.isArray(vv) ? vv.map(flat).join(", ") : vv && typeof vv === "object" ? Object.entries(vv).filter(([, x]) => present(x)).map(([k, x]) => `${k.replace(/_/g, " ")} ${flat(x)}`).join(", ") : String(vv));
+  const flat = (vv) => {
+    if (Array.isArray(vv)) return vv.map(flat).join(", ");
+    if (!vv || typeof vv !== "object") return String(vv);
+    const entries = Object.entries(vv).filter(([, x]) => present(x));
+    // A one-field object ({ title }, { name }) is just its value.
+    return entries.length === 1 ? flat(entries[0][1]) : entries.map(([k, x]) => `${k.replace(/_/g, " ")} ${flat(x)}`).join(", ");
+  };
   const skip = new Set(["titles", "names", "fallback", "title", "drop_name"]);
   for (const [k, v] of Object.entries(p)) {
     if (skip.has(k) || v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length)) continue;

@@ -27,6 +27,25 @@ export function yearOf(e) {
   return Number.isFinite(y) && y > 1800 ? y : undefined;
 }
 
+// Tag names that are placeholders in Qloo's graph, not flavours ("None" comes back as a theme for artists).
+const JUNK_TAGS = new Set(["none", "other", "others", "unknown", "misc", "miscellaneous", "general", "n/a", "na", "various"]);
+// Genres that travel with a theme: never tell a crime film to avoid thrillers, or a love story to avoid romance.
+const SIBLINGS = {
+  crime: ["thriller", "mystery", "detective", "police", "noir", "suspense", "heist", "gangster", "investigation", "procedural"],
+  thriller: ["crime", "mystery", "suspense", "action"],
+  mystery: ["crime", "thriller", "detective", "suspense"],
+  love: ["romance", "romantic", "relationship", "relationships", "heartbreak", "love song", "love songs"],
+  romance: ["love", "romantic", "relationship", "romcom", "rom com"],
+  romantic: ["love", "romance"],
+  horror: ["thriller", "supernatural", "slasher", "psychological"],
+  comedy: ["humor", "humour", "funny", "sitcom", "satire", "romcom"],
+  action: ["thriller", "martial arts", "adventure"],
+  family: ["kids", "children", "parenting"],
+  devotional: ["spiritual", "spirituality", "religious", "gospel", "bhakti"],
+  "hip hop": ["rap", "hip-hop", "trap"],
+  nightlife: ["club", "dance", "electronic", "party"],
+};
+
 /** Words to the same stem, so "Biographical" (an affinity tag) meets "biography" (an entity tag). */
 const stem = (name) => String(name ?? "").toLowerCase().replace(/[^a-z0-9]/g, "").replace(/(ical|ies|ing|ed|al|s|y)$/, "");
 
@@ -59,6 +78,30 @@ async function supplyRead(q, { type, themeIds, flavours, where }) {
   return { supply, sample: entities.length, recent: entities.filter(isRecent).length, minYear };
 }
 
+/**
+ * What the writer is told to steer away from: the country's flavours this city ranks lower, minus the ones
+ * that are part of the theme itself. A flavour is part of the theme when a fifth or more of the city's themed
+ * catalogue carries it (Thriller in a crime catalogue), when it is a known sibling genre of the theme word, or
+ * when the maker said it (a "short film" is never told to avoid Short).
+ */
+export function avoidFrom(pool, { read = {}, supply = {}, siblings = [], said = [] } = {}) {
+  const sib = new Set([...siblings].map(stem));
+  const asked = new Set([...said].map(stem));
+  const out = [];
+  for (const t of pool) {
+    const words = String(t.name).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(stem);
+    const share = read.sample ? (supply[t.id]?.total ?? 0) / read.sample : 0;
+    if (share >= 0.2) t.why = `${Math.round(share * 100)}% of the themed catalogue carries it`;
+    else if (words.some((w) => sib.has(w)) || sib.has(stem(t.name))) t.why = "part of the theme";
+    else if (words.some((w) => asked.has(w))) t.why = "you asked for it";
+    else {
+      out.push(t);
+      if (out.length === 4) break;
+    }
+  }
+  return out;
+}
+
 export async function gap(run) {
   const q = evidenceFor(run, "gap");
   const f = format(run);
@@ -73,7 +116,7 @@ export async function gap(run) {
     flavourRead(q, `Flavours ${r.city.name} leans to (${type.replace("_", " ")} tags)`, { type, tagIds: themeIds, entityIds, where }),
     flavourRead(q, `Same flavours for ${country}`, { type, tagIds: themeIds, entityIds, where: country }),
   ]);
-  const flavoursRaw = demandLift(cityTags, countryTags, { take: TAKE });
+  const flavoursRaw = demandLift(cityTags, countryTags, { take: TAKE }).filter((t) => !JUNK_TAGS.has(String(t.name ?? "").trim().toLowerCase()));
 
   // Control cities: the country baseline behaves like its largest city, so a lift over the country is
   // often shared by every other big city. Read the same flavours for up to three controls and keep
@@ -93,13 +136,29 @@ export async function gap(run) {
   });
   for (const t of flavours) registerName(run, t.name, "tag", { id: t.id });
 
+  const themeNames = new Set((r.theme?.tags ?? []).map((t) => t.name.toLowerCase()));
+  const notTheme = (t) => !themeIds.includes(t.id) && !themeNames.has(String(t.name).toLowerCase());
+  // What the country leans to that this city doesn't: country tags missing from the city's list, then city tags that rank well below.
+  const cityNames = new Set(cityTags.map((t) => String(t.name).toLowerCase()));
+  const seenAvoid = new Set();
+  const avoidPool = [
+    ...countryTags.filter((t) => t?.name && !cityNames.has(String(t.name).toLowerCase())).map((t, i) => ({ id: t.id, name: t.name, countryRank: countryTags.indexOf(t) + 1, cityRank: undefined, lift: -(TAKE - i) })),
+    ...flavours.filter((x) => x.lift <= -3).sort((a, b) => a.lift - b.lift),
+  ]
+    .filter(notTheme)
+    .filter((t) => !JUNK_TAGS.has(String(t.name).trim().toLowerCase()))
+    .filter((t) => !seenAvoid.has(String(t.name).toLowerCase()) && seenAvoid.add(String(t.name).toLowerCase()))
+    .slice(0, 10)
+    .map((t) => ({ ...t, name: String(t.name).trim() }));
+  const themeWords = [...(r.theme?.words ?? []), ...(r.theme?.tags ?? []).map((t) => t.name)].map((w) => String(w).toLowerCase());
+  const siblings = themeWords.flatMap((w) => SIBLINGS[w] ?? []);
+  const said = String(run.input.text ?? "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 4);
+
   const canCount = f.supply.includes(type) && themeIds.length > 0;
   // Supply is read for the flavours that can become lanes: the strongest, not merely the highest raw lift.
   const forSupply = [...flavours].filter((x) => x.strength > 0).sort((a, b) => b.strength - a.strength).slice(0, SUPPLY_FLAVOURS * 2);
-  const read = canCount ? await supplyRead(q, { type, themeIds, flavours: forSupply, where }) : { supply: {}, sample: 0 };
+  const read = canCount ? await supplyRead(q, { type, themeIds, flavours: [...forSupply, ...avoidPool.filter((a) => !forSupply.some((x) => x.id === a.id))], where }) : { supply: {}, sample: 0 };
   const supply = read.supply;
-  const themeNames = new Set((r.theme?.tags ?? []).map((t) => t.name.toLowerCase()));
-  const notTheme = (t) => !themeIds.includes(t.id) && !themeNames.has(String(t.name).toLowerCase());
   // A lane must exist in the theme's catalogue at least once; a flavour no title carries is a taste, not a lane.
   // A lane must exist in the theme's catalogue at least once, unless the flavour is strongly specific to this
   // city (control cities do not share it): then zero supply is the open lane itself, and the card says so.
@@ -111,16 +170,8 @@ export async function gap(run) {
   for (const lane of lanes) for (const t of lane.supplyTitles) registerName(run, t.name, type, {});
   // Demand-only when the catalogue read came back empty: say so rather than show zeros.
   if (canCount && !read.sample) for (const lane of lanes) Object.assign(lane, { supplyRead: false, supplyCount: undefined, fill: undefined, mode: "demand-only" });
-  // What the country leans to that this city doesn't: country tags missing from the city's list, then city tags that rank well below.
-  const cityNames = new Set(cityTags.map((t) => String(t.name).toLowerCase()));
-  const seenAvoid = new Set();
-  const avoid = [
-    ...countryTags.filter((t) => t?.name && !cityNames.has(String(t.name).toLowerCase())).map((t, i) => ({ id: t.id, name: t.name, countryRank: countryTags.indexOf(t) + 1, cityRank: undefined, lift: -(TAKE - i) })),
-    ...flavours.filter((x) => x.lift <= -3).sort((a, b) => a.lift - b.lift),
-  ]
-    .filter(notTheme)
-    .filter((t) => !seenAvoid.has(String(t.name).toLowerCase()) && seenAvoid.add(String(t.name).toLowerCase()))
-    .slice(0, 4);
+  const avoid = avoidFrom(avoidPool, { read, supply, siblings, said });
+  const avoidSkipped = avoidPool.filter((t) => t.why).slice(0, 4).map((t) => ({ name: t.name, why: t.why }));
 
   return {
     type,
@@ -131,6 +182,7 @@ export async function gap(run) {
     flavours: flavours.filter(notTheme).slice(0, 12),
     lanes,
     avoid,
+    avoidSkipped,
     coverage: cityTags.length === 0 ? "none" : cityTags.length < 10 ? "thin" : "ok",
     controls: controls.slice(0, controlLifts.length),
     summary: lanes.length ? `Lane 1: ${lanes[0].name} (${r.city.name} #${lanes[0].cityRank} vs ${country} #${lanes[0].countryRank ?? "–"}${typeof lanes[0].specific === "number" ? `, ${lanes[0].scope}` : ""}${lanes[0].supplyRead ? `, ${lanes[0].supplyCount} recent of ${supply[lanes[0].id]?.total ?? 0} titles` : ", demand only"}).` : `No flavour ranks higher in ${r.city.name} than in ${country}.`,

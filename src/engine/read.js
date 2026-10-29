@@ -102,5 +102,5 @@ export async function read(run) {
   );
   const only = Object.values(columns).reduce((n, c) => n + c.onlyHere.length, 0);
   const gems = Object.values(columns).reduce((n, c) => n + c.hiddenGems.length, 0);
-  return { columns, city: r.city.name, country: countryWhere, contrast: r.contrast?.name, summary: `${only} picks ${r.city.name} favours that the country doesn't, ${gems} hidden gems.` };
+  return { columns, city: r.city.name, country: countryWhere, contrast: r.contrast?.name, summary: `${only} pick${only === 1 ? "" : "s"} ${r.city.name} favours that the country doesn't, ${gems} hidden gem${gems === 1 ? "" : "s"}.` };
 }

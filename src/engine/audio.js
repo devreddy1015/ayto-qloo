@@ -25,5 +25,5 @@ export async function audio(run) {
     }
   }
   const shortlist = [...rows.filter((x) => x.onlyHere || x.hiddenGem), ...rows.filter((x) => !(x.onlyHere || x.hiddenGem))].slice(0, 6).map((x) => ({ id: x.id, name: x.name, why: x.hiddenGem ? "hidden gem: loved here, small everywhere" : x.onlyHere ? `favoured in ${r.city.name}, not nationally` : "favoured here and nationally", popularity: x.popularity, affinity: x.affinity, image: x.image }));
-  return { artists: rows.slice(0, 15), shortlist, summary: `${shortlist.length} artists, ${rows.filter((x) => x.hiddenGem).length} hidden gems.` };
+  return { artists: rows.slice(0, 15), shortlist, summary: `${shortlist.length} artist${shortlist.length === 1 ? "" : "s"}, ${rows.filter((x) => x.hiddenGem).length} hidden gem${rows.filter((x) => x.hiddenGem).length === 1 ? "" : "s"}.` };
 }
