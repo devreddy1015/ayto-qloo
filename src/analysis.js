@@ -407,3 +407,38 @@ export function cleanPlaceName(name) {
   if (/\b(ambulance|apartment|apartments|residency|pvt|ltd|llc|inc\.?|hospital|clinic|atm|bank)\b/i.test(s)) return false;
   return true;
 }
+
+/**
+ * Share lift of tag families between two tagged catalogues (the city's and the country's):
+ * for each tag of the wanted families, the share of titles carrying it on each side, and the
+ * difference in points. Two points ≈ one title at n = 50, so treat small lifts as noise.
+ */
+export function shareLift(cityEntities = [], countryEntities = [], { families = ["style"], minAbs = 4, top = 8 } = {}) {
+  const count = (list) => {
+    const out = {};
+    for (const e of list) for (const t of e.tags ?? []) {
+      const id = String(t.tag_id ?? t.id ?? "");
+      const fam = id.match(/^urn:tag:([a-z_]+):qloo:/)?.[1];
+      if (fam && families.includes(fam)) out[id] = { id, name: t.name, family: fam, n: (out[id]?.n ?? 0) + 1 };
+    }
+    return out;
+  };
+  const c = count(cityEntities);
+  const k = count(countryEntities);
+  const nc = cityEntities.length || 1;
+  const nk = countryEntities.length || 1;
+  const rows = [...new Set([...Object.keys(c), ...Object.keys(k)])].map((id) => {
+    const cityShare = Math.round(((c[id]?.n ?? 0) / nc) * 100);
+    const countryShare = Math.round(((k[id]?.n ?? 0) / nk) * 100);
+    return { id, name: (c[id] ?? k[id]).name, family: (c[id] ?? k[id]).family, cityShare, countryShare, lift: cityShare - countryShare };
+  });
+  const over = rows.filter((r) => r.lift >= minAbs).sort((a, b) => b.lift - a.lift || b.cityShare - a.cityShare).slice(0, top);
+  const under = rows.filter((r) => r.lift <= -minAbs).sort((a, b) => a.lift - b.lift).slice(0, top);
+  return { over, under, cityN: cityEntities.length, countryN: countryEntities.length };
+}
+
+/** Median of a list of numbers (0 for an empty list). */
+export const median = (xs) => {
+  const a = xs.filter((x) => typeof x === "number").sort((x, y) => x - y);
+  return a.length ? (a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2) : 0;
+};
