@@ -66,7 +66,7 @@ function lookDigest(l) {
       note: l.note,
     };
   }
-  return { style_this_city_leans_to: w(l.styles), style_it_cares_less_about: w(l.avoid, 4), style_notes_on_its_own_picks: (l.descriptions ?? []).map((d) => `${d.title}: ${d.text}`) };
+  return { style_this_city_leans_to: w(l.styles), style_it_cares_less_about: w(l.avoid, 4), character_archetypes_it_leans_to: w(l.archetypes, 5), themes_it_leans_to: w(l.themes, 5), style_notes_on_its_own_picks: (l.descriptions ?? []).map((d) => `${d.title}: ${d.text}`) };
 }
 
 /** Names that the check stage must find in the Qloo evidence, per writer. Paths walk the written plan. */

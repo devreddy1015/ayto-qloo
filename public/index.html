@@ -105,6 +105,7 @@
 
           <div id="confirm" class="confirm" hidden aria-live="polite"></div>
 
+          <p class="block-note">No sign-up. A run takes 10 to 40 seconds on live Qloo data.</p>
           <div class="examples">
             <span class="examples-label">Or watch a showcase run</span>
             <div id="showcase-list" class="example-list"></div>
@@ -145,6 +146,17 @@
           <p class="block-note">Every Qloo request behind this run. Open one to see the exact query.</p>
           <ol id="trace-list" class="trace-list"></ol>
         </aside>
+      </section>
+
+      <section id="watch" class="watch glass" aria-labelledby="watch-title" hidden>
+        <h2 id="watch-title">Watch it work</h2>
+        <p class="block-note" id="watch-sub">One real run, step by step.</p>
+        <ol id="watch-steps" class="watch-steps"></ol>
+      </section>
+
+      <section id="showing" class="showing" aria-labelledby="showing-title" hidden>
+        <div class="showing-head"><h2 id="showing-title">Now showing</h2><p class="block-note">Finished on this server, from live Qloo data. Each one opens at once.</p></div>
+        <div id="showing-cards" class="showing-cards"></div>
       </section>
 
       <section id="how" class="how glass" aria-labelledby="how-title">

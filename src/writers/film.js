@@ -13,7 +13,7 @@ Return JSON:
  "look":"one or two sentences on the visual style, using only the style words the evidence gives for this city",
  
  "synopsis":{"act1":"2-3 sentences","act2":"2-3 sentences","act3":"2-3 sentences"},
- "characters":[{"role":"","note":"one line"}],
+ "characters":[{"role":"","note":"one line; when the evidence lists character archetypes or themes this city leans to, draw on them and name which"}],
  "references":[{"title":"from the evidence","take":"what to borrow from it"}],
  "cast_ideas":[{"name":"a person from the evidence (people this city favours beyond the country)","role":"which character","why":"one line"}],
  "soundtrack":[{"artist":"from the evidence","use":"score|title track|montage|end credits"}],
