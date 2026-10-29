@@ -3,7 +3,16 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased (29 Oct, evening): fixes from a full live test
+## Unreleased: a new logo
+
+- **The mark.** A ring (what a city already loves) open at the upper right (the gap: loved here, under-served),
+  with a tape-yellow dot in the opening: the maker, placed into it. It replaces the measuring tape left over from
+  the fashion-only first build.
+- In the header the ring is the O of AYTO; the dot nudges toward the gap on hover (no motion when the system asks
+  for less). It is the tab icon (public/icon.svg), the home-screen icon (icon-180.png, icon-512.png), the top of
+  every share page, and the top of the README.
+
+## PR #13 (29 Oct, 15:40): fixes from a full live test
 
 A test of every format on live Qloo data (film in Hyderabad, Mumbai and Austin; the Las Vegas reel; the Tiruppur
 kidswear drop; a podcast, an indie game, a café, a live night and a web novel; a typo city) found these, now fixed:

@@ -1,3 +1,5 @@
+<img src="public/icon.svg" width="72" height="72" alt="The AYTO mark: a ring open at the top right, with a yellow dot in the opening">
+
 # AYTO — Are You The One
 
 **Tell AYTO what you're making and where. Qloo reads what that city's people love and finds the gap. Your own LLM writes the idea into it.**
