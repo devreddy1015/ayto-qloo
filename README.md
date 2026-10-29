@@ -112,7 +112,7 @@ CULTURE_GAP_MODE=fake npm start   # synthetic sample data, no keys
 npm test
 ```
 
-`PORT` (default 8080), `PREWARM=1` runs the three showcases at boot, `MAX_RUNS_PER_DAY`, `MAX_LLM_RUNS_PER_DAY`, `SCANS_PER_IP_PER_HOUR`, `PUBLIC_URL` for the discovery document. The server's own model comes from the first key it finds: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, or `LLM_PROVIDER` + `LLM_API_KEY`. Docker: `docker build -t ayto . && docker run -p 8080:8080 --env-file .env ayto`. The app runs Qloo's official harness (`qloo mcp`) as a child process, so it needs a long-running container, not serverless: Render (`render.yaml` is a ready blueprint), Railway or Fly.io from the Dockerfile all work.
+`PORT` (default 8080), `PREWARM=1` runs the three showcases at boot, `MAX_RUNS_PER_DAY`, `MAX_LLM_RUNS_PER_DAY`, `SCANS_PER_IP_PER_HOUR`, `PUBLIC_URL` for the discovery document. The server's own model comes from the first key it finds: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, or `LLM_PROVIDER` + `LLM_API_KEY` (for example `deepseek`). A local OpenAI-compatible model (Ollama, LM Studio) works for the server only: `LLM_PROVIDER=local LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=qwen2.5:7b`; it is never offered to visitors. Docker: `docker build -t ayto . && docker run -p 8080:8080 --env-file .env ayto`. The app runs Qloo's official harness (`qloo mcp`) as a child process, so it needs a long-running container, not serverless: Render (`render.yaml` is a ready blueprint on the free plan; switch to starter for an always-awake demo), Railway or Fly.io from the Dockerfile all work.
 
 ## What changed
 

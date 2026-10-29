@@ -3,7 +3,21 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: every section fits the input
+## Unreleased: ready for a real model and a deploy
+
+- **Model replies that arrive broken still give a full page.** The writer reads the JSON after a thinking block,
+  inside code fences or after a line of prose, and repairs a reply cut off by the token limit (the half-written
+  last item is dropped). Every field is coerced to the shape the page expects, and a section the model left
+  empty is filled from the Qloo evidence; the write card says which. Tested end to end against a fake model that
+  answers badly on purpose (test/llm-e2e.test.js).
+- **A local model for the server.** `LLM_PROVIDER=local` with `LLM_BASE_URL` points the server's writer at any
+  OpenAI-compatible endpoint (Ollama, LM Studio). Visitors are never offered it.
+- **Deploy.** The Render blueprint defaults to the free plan, takes a Groq, Anthropic or any provider's key, and
+  caps the server key at 60 model runs a day. The discovery document uses Render's own URL. The image was rebuilt
+  and boots.
+- **Devpost text and a click-by-click video script** for what the app does now.
+
+## PR #15 (29 Oct, 17:00): every section fits the input
 
 A check of 13 live runs against what each one asked for found sections that ignored the theme. Fixed:
 

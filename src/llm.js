@@ -23,10 +23,13 @@ export const PROVIDERS = {
   xai: { label: "xAI", baseUrl: "https://api.x.ai/v1", model: "grok-3-mini", keyHint: "xai-…", json: true },
   cerebras: { label: "Cerebras", baseUrl: "https://api.cerebras.ai/v1", model: "llama-3.3-70b", keyHint: "csk-…", json: true },
   sambanova: { label: "SambaNova", baseUrl: "https://api.sambanova.ai/v1", model: "Meta-Llama-3.3-70B-Instruct", keyHint: "…", json: true },
+  // Any OpenAI-compatible endpoint (Ollama, LM Studio, vLLM), for the server only: set LLM_PROVIDER=local and
+  // LLM_BASE_URL. Never offered to the browser, so a hosted server can't be pointed at an arbitrary address.
+  local: { label: "Local OpenAI-compatible", get baseUrl() { return String(process.env.LLM_BASE_URL ?? "").replace(/\/+$/, ""); }, model: "local-model", keyHint: "…", json: true, serverOnly: true },
 };
 
 /** Public view of the provider table (no secrets in it, but keep it explicit). */
-export const providerList = () => Object.entries(PROVIDERS).map(([id, p]) => ({ id, label: p.label, model: p.model, keyHint: p.keyHint }));
+export const providerList = () => Object.entries(PROVIDERS).filter(([, p]) => !p.serverOnly).map(([id, p]) => ({ id, label: p.label, model: p.model, keyHint: p.keyHint }));
 
 /** Strip anything that looks like an API key from text that may reach a log, an event or the browser. */
 export function redact(text) {
@@ -43,6 +46,7 @@ export function redact(text) {
 const SERVER_KEYS = [["anthropic", "ANTHROPIC_API_KEY"], ["openai", "OPENAI_API_KEY"], ["groq", "GROQ_API_KEY"], ["gemini", "GEMINI_API_KEY"], ["mistral", "MISTRAL_API_KEY"], ["openrouter", "OPENROUTER_API_KEY"]];
 export function serverCredential() {
   const explicit = String(process.env.LLM_PROVIDER ?? "").toLowerCase();
+  if (explicit === "local" && process.env.LLM_BASE_URL) return { provider: "local", key: process.env.LLM_API_KEY || "local", model: process.env.LLM_MODEL || "local-model", server: true };
   if (explicit && PROVIDERS[explicit] && process.env.LLM_API_KEY) return { provider: explicit, key: process.env.LLM_API_KEY, model: process.env.LLM_MODEL || undefined, server: true };
   for (const [provider, name] of SERVER_KEYS) {
     const key = String(process.env[name] ?? "").trim();
@@ -55,7 +59,7 @@ export function serverCredential() {
 export function credentialFrom(body) {
   if (!body || typeof body !== "object") return undefined;
   const provider = String(body.provider ?? "").toLowerCase();
-  if (!PROVIDERS[provider]) throw new LlmError(`Unknown LLM provider “${provider.slice(0, 20)}”.`);
+  if (!PROVIDERS[provider] || PROVIDERS[provider].serverOnly) throw new LlmError(`Unknown LLM provider “${provider.slice(0, 20)}”.`);
   const key = String(body.key ?? "").trim();
   if (key.length < 8 || key.length > 300 || /\s/.test(key)) throw new LlmError("That key doesn't look right.");
   const model = typeof body.model === "string" && body.model.trim() ? body.model.trim().slice(0, 120) : undefined;
@@ -159,14 +163,83 @@ export async function chat({ credential, messages, tools, json = false, temperat
 /** Ask for a JSON object and parse it. */
 export async function chatJson({ credential, system, user, temperature = 0.2, maxTokens = 2048 }) {
   const message = await chat({ credential, messages: [{ role: "system", content: system }, { role: "user", content: user }], json: true, temperature, maxTokens });
-  const raw = String(message.content ?? "").replace(/^```(?:json)?\s*|\s*```$/g, "");
-  try {
-    return JSON.parse(raw);
-  } catch {
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-    throw new LlmError("Model did not return JSON");
+  const parsed = parseModelJson(message.content);
+  if (!parsed) throw new LlmError("Model did not return JSON");
+  return parsed;
+}
+
+/**
+ * The JSON object in a model's reply, however it arrives: after a <think> block, inside code fences, after a
+ * sentence of prose, or cut off by the token limit (then the open strings and brackets are closed and the
+ * half-written last item dropped, and the object is marked _repaired). Undefined when there is no object at all.
+ */
+export function parseModelJson(content) {
+  let text = String(content ?? "").replace(/<think>[\s\S]*?(<\/think>|$)/gi, "").replace(/```(?:json)?/gi, "");
+  const start = text.indexOf("{");
+  if (start < 0) return undefined;
+  text = text.slice(start);
+  const end = text.lastIndexOf("}");
+  if (end >= 0) {
+    try {
+      return JSON.parse(text.slice(0, end + 1));
+    } catch {}
   }
+  const fixed = repairJson(text);
+  if (!fixed) return undefined;
+  try {
+    const value = JSON.parse(fixed);
+    return value && typeof value === "object" ? Object.assign(value, { _repaired: true }) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Close a JSON text that stopped mid-way: trim back to the last complete value, then close what is open. */
+export function repairJson(text) {
+  const stack = [];
+  let inString = false;
+  let escaped = false;
+  let lastSafe = -1; // index after the last complete value at any depth
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') {
+        inString = false;
+        lastSafe = i + 1;
+      }
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{" || ch === "[") stack.push(ch === "{" ? "}" : "]");
+    else if (ch === "}" || ch === "]") {
+      stack.pop();
+      lastSafe = i + 1;
+      if (!stack.length) return text.slice(0, i + 1);
+    } else if (/[0-9el]/.test(ch)) lastSafe = i + 1; // numbers, true, false, null
+  }
+  if (lastSafe < 0) return undefined;
+  // Cut back to the last complete value, then drop a dangling key, colon or comma.
+  let body = text.slice(0, lastSafe).replace(/,\s*"(?:[^"\\]|\\.)*"\s*$/, "").replace(/[,:]\s*$/, "");
+  // A key whose value never came ({"a": 1, "b") is dropped too.
+  body = body.replace(/,\s*"(?:[^"\\]|\\.)*"\s*$/, "").replace(/\{\s*"(?:[^"\\]|\\.)*"\s*$/, "{");
+  // Recount what is still open after the cut.
+  const open = [];
+  let str = false;
+  let esc = false;
+  for (const ch of body) {
+    if (str) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') str = false;
+      continue;
+    }
+    if (ch === '"') str = true;
+    else if (ch === "{" || ch === "[") open.push(ch === "{" ? "}" : "]");
+    else if (ch === "}" || ch === "]") open.pop();
+  }
+  return body + open.reverse().join("");
 }
 
 /** One tiny call to prove a credential works. Returns { ok, model, error }. */

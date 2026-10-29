@@ -13,8 +13,10 @@ test("redact never leaks a key-shaped token", () => {
 
 test("every provider has a base URL, a default model and a label", () => {
   for (const [id, p] of Object.entries(PROVIDERS)) {
-    assert.match(p.baseUrl, /^https:\/\//, id);
     assert.ok(p.model && p.label, id);
+    // Every provider a browser can pick is a public https endpoint; the server-only local one reads LLM_BASE_URL.
+    if (p.serverOnly) continue;
+    assert.match(p.baseUrl, /^https:\/\//, id);
   }
   assert.ok(Object.keys(PROVIDERS).length >= 12);
 });

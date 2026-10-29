@@ -1,16 +1,31 @@
 # Render blueprint: one long-running web service (the app runs Qloo's harness as a child process).
+# Plan: "free" works (512 MB is enough) but sleeps after 15 idle minutes, so the first visit after that waits about
+# a minute. Switch to "starter" in the Render dashboard for a demo that is always awake.
 services:
   - type: web
     name: ayto
     runtime: docker
-    plan: starter
+    plan: free
     healthCheckPath: /api/health
     envVars:
+      # Required.
       - key: QLOO_API_KEY
         sync: false
+      # The server's own writer. Set ONE of: GROQ_API_KEY (free at console.groq.com), ANTHROPIC_API_KEY,
+      # or LLM_PROVIDER (e.g. deepseek) with LLM_API_KEY. Visitors can still bring their own key.
       - key: GROQ_API_KEY
         sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      # Spend guards for the server's key, per day.
+      - key: MAX_LLM_RUNS_PER_DAY
+        value: "60"
+      - key: MAX_RUNS_PER_DAY
+        value: "150"
+      # Run the three showcases at boot so the home page and gallery are ready.
       - key: PREWARM
         value: "1"
-      - key: PUBLIC_URL
-        sync: false
