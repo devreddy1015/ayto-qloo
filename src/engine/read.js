@@ -4,7 +4,7 @@
 // tag instead lets the location swamp it (crime + Hyderabad gave Borat).
 import { threeColumns } from "../analysis.js";
 import { evidenceFor, registerEntity, registerName } from "../pipeline/evidence.js";
-import { format, lovesIds, placeLabel, themeTagIds } from "./common.js";
+import { format, lovesIds, placeLabel, themeTagIdsFor } from "./common.js";
 
 const TITLE = { movie: "films", tv_show: "series", artist: "artists", place: "places", brand: "brands", book: "books", podcast: "podcasts", videogame: "games", person: "people" };
 
@@ -33,7 +33,6 @@ export async function read(run) {
   const q = evidenceFor(run, "read");
   const f = format(run);
   const r = run.stages.resolve.output;
-  const themeIds = themeTagIds(run);
   const signals = lovesIds(run);
   const filterIds = Object.fromEntries(Object.entries(r.filters ?? {}).map(([type, tags]) => [type, tags.map((t) => t.id)]));
   const cityWhere = placeLabel(r.city);
@@ -46,7 +45,7 @@ export async function read(run) {
       // Places are local by nature, and Qloo's place index with category tags signalled at country scope is far too slow
       // (90 s timeouts for Spain). Read venues inside the city instead, with no country or contrast column.
       if (type === "place") {
-        const tagIds = filterIds.place?.length ? filterIds.place : themeIds;
+        const tagIds = filterIds.place?.length ? filterIds.place : themeTagIdsFor(run, "place");
         const base = { target_type: "place", limit: 20, filter_location: cityWhere };
         // Richest first: category tags with the loves as signals; then the city itself as the taste signal; then plain venues in the city.
         const attempts = [
@@ -73,7 +72,7 @@ export async function read(run) {
         return;
       }
       // A type with a category filter for this format (fashion brands, café places) uses it; everything else uses the theme tags.
-      const filterTags = filterIds[type]?.length ? filterIds[type] : themeIds;
+      const filterTags = filterIds[type]?.length ? filterIds[type] : themeTagIdsFor(run, type);
       // The country and contrast reads must use the same request shape as the city read so the lists are comparable.
       // They start at once with the richest shape; only if the city read had to fall back are they run again.
       const guess = filterTags.length && signals.length ? { include_tags: filterTags, signals } : filterTags.length ? { include_tags: filterTags } : signals.length ? { signals } : {};

@@ -6,14 +6,28 @@ import { join } from "node:path";
 import { config } from "../config.js";
 
 const DIR = join(config.cacheDir, "runs");
-const runs = new Map(); // runId -> run
+const runs = new Map(); // runId -> run (a bounded working set; the disk is the record)
 const listeners = new Map(); // runId -> Set<fn(event)>
+const slugs = new Map(); // share slug -> runId
+let slugsIndexed = false;
+const MAX_IN_MEMORY = 150;
+const QUIET_MS = 10 * 60 * 1000;
+
+/** Drop the least recently updated runs from memory once there are too many; never one touched in the last ten minutes. */
+function evict() {
+  if (runs.size <= MAX_IN_MEMORY) return;
+  const now = Date.now();
+  const old = [...runs.values()].filter((r) => r.status !== "running" && now - Date.parse(r.updatedAt ?? 0) > QUIET_MS).sort((a, b) => Date.parse(a.updatedAt ?? 0) - Date.parse(b.updatedAt ?? 0));
+  for (const r of old.slice(0, runs.size - MAX_IN_MEMORY)) runs.delete(r.id);
+}
 
 export const newId = (prefix = "r") => `${prefix}_${randomBytes(5).toString("base64url")}`;
 
 export async function saveRun(run) {
   run.updatedAt = new Date().toISOString();
   runs.set(run.id, run);
+  if (run.publish?.slug) slugs.set(run.publish.slug, run.id);
+  evict();
   await mkdir(DIR, { recursive: true });
   await writeFile(join(DIR, `${run.id}.json`), JSON.stringify(run)).catch(() => {});
   return run;
@@ -25,21 +39,31 @@ export async function loadRun(id) {
   try {
     const run = JSON.parse(await readFile(join(DIR, `${id}.json`), "utf8"));
     runs.set(id, run);
+    if (run.publish?.slug) slugs.set(run.publish.slug, run.id);
+    evict();
     return run;
   } catch {
     return undefined;
   }
 }
 
+/** A share slug to its run: from the index, built once from disk without holding every run in memory. */
 export async function findRunBySlug(slug) {
-  for (const run of runs.values()) if (run.publish?.slug === slug) return run;
-  try {
-    for (const file of await readdir(DIR)) {
-      const run = await loadRun(file.replace(/\.json$/, ""));
-      if (run?.publish?.slug === slug) return run;
-    }
-  } catch {}
-  return undefined;
+  if (!slugs.has(slug) && !slugsIndexed) {
+    slugsIndexed = true;
+    try {
+      for (const file of await readdir(DIR)) {
+        if (!file.endsWith(".json")) continue;
+        try {
+          const text = await readFile(join(DIR, file), "utf8");
+          const m = text.match(/"slug":"([a-z0-9-]{3,60})"/);
+          if (m && !slugs.has(m[1])) slugs.set(m[1], file.replace(/\.json$/, ""));
+        } catch {}
+      }
+    } catch {}
+  }
+  const id = slugs.get(slug);
+  return id ? loadRun(id) : undefined;
 }
 
 /** Append an event to the run's log and fan it out to live subscribers. */

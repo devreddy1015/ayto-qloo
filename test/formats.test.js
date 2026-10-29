@@ -52,7 +52,8 @@ test("recomputing the produce stage with new assumptions changes the numbers and
   await startRun(run, 0);
   const before = run.stages.produce.output;
   const writeBefore = run.stages.write.output.plan;
-  await rerunFrom(run, "produce", { assumptions: { moqPerStylePerColour: 50, heroQuantity: 100, otherQuantity: 60, tier: "premium", unitCost: { fabric: 200 } } });
+  const job = await rerunFrom(run, "produce", { assumptions: { moqPerStylePerColour: 50, heroQuantity: 100, otherQuantity: 60, tier: "premium", unitCost: { fabric: 200 } } });
+  await job.done;
   const after = run.stages.produce.output;
   assert.equal(run.status, "done");
   assert.notEqual(after.totalUnits, before.totalUnits);

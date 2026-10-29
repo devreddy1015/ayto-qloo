@@ -442,3 +442,17 @@ export const median = (xs) => {
   const a = xs.filter((x) => typeof x === "number").sort((x, y) => x - y);
   return a.length ? (a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2) : 0;
 };
+
+/**
+ * Specific lift of one flavour: the city's lift over the country minus the median of the same lift
+ * in control cities. A control that does not list the flavour in its top `take` ranks it below the
+ * list, so its lift is at most (country rank − (take + 1)); for a flavour the country does not list
+ * either, that is 0. (Counting such a control as −(take + 1) would inflate every result by ~take.)
+ */
+export function specificLift(flavour, controlLifts = [], { take = 30 } = {}) {
+  if (!controlLifts.length) return undefined;
+  const key = flavour.id ?? flavour.name;
+  const absent = (flavour.countryRank ?? take + 1) - (take + 1);
+  const lifts = controlLifts.map((m) => (m.has(key) ? m.get(key) : absent));
+  return Math.round(flavour.lift - median(lifts));
+}

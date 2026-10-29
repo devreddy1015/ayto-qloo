@@ -75,3 +75,15 @@ test("cleanPlaceName drops junk venue names", () => {
   assert.equal(cleanPlaceName("KL"), false);
   assert.equal(cleanPlaceName("SM Street"), true);
 });
+
+test("specificLift: a control that lacks a flavour counts as no lift, not as the worst possible", async () => {
+  const { specificLift } = await import("../src/analysis.js");
+  const finance = { id: "finance", name: "Finance", lift: 17, countryRank: undefined };
+  const controls = [new Map(), new Map([["finance", 7]]), new Map()];
+  assert.equal(specificLift(finance, controls), 17); // median(0, 7, 0) = 0
+  const shared = { id: "bio", name: "Biographical", lift: 22, countryRank: undefined };
+  assert.equal(specificLift(shared, [new Map([["bio", 22]]), new Map([["bio", 19]]), new Map([["bio", 19]])]), 3);
+  const countryHas = { id: "drama", name: "Drama", lift: 18, countryRank: 12 };
+  assert.equal(specificLift(countryHas, [new Map(), new Map(), new Map()]), 37); // controls: 12 − 31 = −19 each
+  assert.equal(specificLift(finance, []), undefined);
+});

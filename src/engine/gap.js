@@ -1,16 +1,16 @@
 // Stage 3: the gap. Demand = flavour tags the city ranks higher than the
 // country. Supply = recent titles that carry the theme AND that flavour, read
 // with the city as the signal. Lanes = high demand, low supply.
-import { demandLift, laneGap, median, tagPoints } from "../analysis.js";
+import { demandLift, laneGap, specificLift, tagPoints } from "../analysis.js";
 import { CANDIDATE_CITIES } from "../cities.js";
 import { evidenceFor, registerName } from "../pipeline/evidence.js";
-import { crowdIds, format, placeLabel, themeTagIds, thisYear } from "./common.js";
+import { crowdIds, format, placeLabel, signalLocation, themeTagIdsFor, thisYear } from "./common.js";
 
 const TAKE = 30;
 const SUPPLY_FLAVOURS = 8; // flavours that get a supply count (×2 are tried; the lanes are the top 3)
 
 async function flavourRead(q, title, { type, tagIds, entityIds, where }) {
-  const params = { "filter.type": "urn:tag", "signal.location.query": where, "filter.parents.types": `urn:entity:${type}`, take: TAKE };
+  const params = { "filter.type": "urn:tag", ...signalLocation(where), "filter.parents.types": `urn:entity:${type}`, take: TAKE };
   if (tagIds.length) params["signal.interests.tags"] = tagIds;
   else if (entityIds.length) params["signal.interests.entities"] = entityIds;
   const raw = await q.tryInsights(title, params);
@@ -39,10 +39,10 @@ const stem = (name) => String(name ?? "").toLowerCase().replace(/[^a-z0-9]/g, ""
 async function supplyRead(q, { type, themeIds, flavours, where }) {
   const minYear = thisYear() - 4;
   const NOUN = { movie: "films", tv_show: "series", podcast: "podcasts", videogame: "games", book: "books" };
-  const raw = await q.tryInsights(`The ${NOUN[type] ?? type} with the theme that ${where.split(",")[0]} favours, with their tags and years`, {
+  const raw = await q.tryInsights(`The ${NOUN[type] ?? type} with the theme that ${typeof where === "string" ? where.split(",")[0] : where.name} favours, with their tags and years`, {
     "filter.type": `urn:entity:${type}`,
     "filter.tags": themeIds[0],
-    "signal.location.query": where,
+    ...signalLocation(where),
     take: 50,
   });
   const entities = raw?.results?.entities ?? [];
@@ -64,9 +64,9 @@ export async function gap(run) {
   const f = format(run);
   const r = run.stages.resolve.output;
   const type = f.types[0];
-  const themeIds = themeTagIds(run);
+  const themeIds = themeTagIdsFor(run, type);
   const entityIds = themeIds.length ? [] : crowdIds(run);
-  const where = placeLabel(r.city);
+  const where = r.city;
   const country = r.city.market ?? r.city.country;
 
   const [cityTags, countryTags] = await Promise.all([
@@ -83,24 +83,29 @@ export async function gap(run) {
   const controlTags = await Promise.all(controls.map((name) => flavourRead(q, `Control city ${name}: the same flavours`, { type, tagIds: themeIds, entityIds, where: `${name}, ${country}` })));
   const controlLifts = controlTags.filter((t) => t.length).map((t) => new Map(demandLift(t, countryTags, { take: TAKE }).map((f) => [f.id ?? f.name, f.lift])));
   const flavours = flavoursRaw.map((f) => {
-    const lifts = controlLifts.map((m) => m.get(f.id ?? f.name) ?? -(TAKE + 1));
-    const specific = controlLifts.length ? Math.round(f.lift - median(lifts)) : undefined;
+    const specific = specificLift(f, controlLifts, { take: TAKE });
     const scope = specific === undefined ? "unknown" : specific >= 8 ? "this city" : specific >= 3 ? "leans here" : "most cities";
-    return { ...f, rawLift: f.lift, specific, scope, controls: controls.slice(0, controlLifts.length) };
+    // A lane's strength is the smaller of its two signals: how far above the country, and how far above
+    // comparable cities. Either one alone misleads (shared by every big city; or a country favourite the
+    // controls happen not to list while this city is barely above the country).
+    const strength = specific === undefined ? f.lift : Math.min(f.lift, specific);
+    return { ...f, rawLift: f.lift, specific, strength, scope, controls: controls.slice(0, controlLifts.length) };
   });
   for (const t of flavours) registerName(run, t.name, "tag", { id: t.id });
 
   const canCount = f.supply.includes(type) && themeIds.length > 0;
-  const read = canCount ? await supplyRead(q, { type, themeIds, flavours: flavours.filter((x) => x.lift > 0).slice(0, SUPPLY_FLAVOURS * 2), where }) : { supply: {}, sample: 0 };
+  // Supply is read for the flavours that can become lanes: the strongest, not merely the highest raw lift.
+  const forSupply = [...flavours].filter((x) => x.strength > 0).sort((a, b) => b.strength - a.strength).slice(0, SUPPLY_FLAVOURS * 2);
+  const read = canCount ? await supplyRead(q, { type, themeIds, flavours: forSupply, where }) : { supply: {}, sample: 0 };
   const supply = read.supply;
   const themeNames = new Set((r.theme?.tags ?? []).map((t) => t.name.toLowerCase()));
   const notTheme = (t) => !themeIds.includes(t.id) && !themeNames.has(String(t.name).toLowerCase());
   // A lane must exist in the theme's catalogue at least once; a flavour no title carries is a taste, not a lane.
   // A lane must exist in the theme's catalogue at least once, unless the flavour is strongly specific to this
   // city (control cities do not share it): then zero supply is the open lane itself, and the card says so.
-  const exists = (t) => !read.sample || (supply[t.id]?.total ?? 0) > 0 || (typeof t.specific === "number" && t.specific >= 20);
-  // Rank on the specific lift when controls were read; a city with no specific flavour falls back to the raw lift.
-  const specificOnes = flavours.filter(notTheme).filter(exists).filter((t) => typeof t.specific === "number" && t.specific >= 3).map((t) => ({ ...t, lift: t.specific }));
+  const exists = (t) => !read.sample || (supply[t.id]?.total ?? 0) > 0 || t.strength >= 10;
+  // Rank on strength when controls were read; a city with no strong flavour falls back to the raw lift.
+  const specificOnes = flavours.filter(notTheme).filter(exists).filter((t) => typeof t.specific === "number" && t.strength >= 3).map((t) => ({ ...t, lift: t.strength }));
   const candidates = specificOnes.length ? specificOnes : flavours.filter(notTheme).filter(exists);
   const lanes = laneGap(candidates.length ? candidates : flavours.filter(notTheme), supply, { n: TAKE }).slice(0, 3).map((l) => ({ ...l, lift: l.rawLift ?? l.lift }));
   for (const lane of lanes) for (const t of lane.supplyTitles) registerName(run, t.name, type, {});

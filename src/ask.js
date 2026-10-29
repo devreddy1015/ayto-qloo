@@ -23,7 +23,11 @@ function toolSpecs() {
     .then((tools) =>
       tools
         .filter((t) => ALLOWED.has(t.name))
-        .map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.inputSchema } })),
+        .map((t) => {
+          // Some providers reject JSON Schema meta keys inside a tool's parameters.
+          const { $schema, ...parameters } = t.inputSchema ?? { type: "object", properties: {} };
+          return { type: "function", function: { name: t.name, description: t.description, parameters } };
+        }),
     )
     .catch((error) => {
       toolSpecsPromise = undefined;
@@ -67,8 +71,8 @@ Never infer sensitive traits about people (health, religion, politics, ethnicity
 Context from the run the user is looking at:
 ${JSON.stringify(context).slice(0, 6000)}`;
 
-export async function runAsk({ question, context }, emit) {
-  if (!llmAvailable()) throw new Error("Follow-up questions need the language model, which isn't configured.");
+export async function runAsk({ question, context, credential }, emit) {
+  if (!credential && !llmAvailable()) throw new Error("Follow-up questions need a language model: add your key in the drawer.");
   const tools = await toolSpecs();
   const messages = [
     { role: "system", content: SYSTEM(context ?? {}) },
@@ -76,7 +80,7 @@ export async function runAsk({ question, context }, emit) {
   ];
 
   for (let step = 0; step < MAX_STEPS; step += 1) {
-    const message = await chat({ messages, tools, temperature: 0.2, maxTokens: 1200 });
+    const message = await chat({ credential, messages, tools, temperature: 0.2, maxTokens: 1200 });
     const calls = message.tool_calls ?? [];
     if (!calls.length) {
       emit({ type: "answer", text: message.content ?? "" });
@@ -112,7 +116,7 @@ export async function runAsk({ question, context }, emit) {
 
   // Out of steps: ask for an answer with what we have.
   messages.push({ role: "user", content: "Answer now with the evidence you have." });
-  const final = await chat({ messages, temperature: 0.2, maxTokens: 800 });
+  const final = await chat({ credential, messages, temperature: 0.2, maxTokens: 800 });
   emit({ type: "answer", text: final.content ?? "" });
   return final.content ?? "";
 }

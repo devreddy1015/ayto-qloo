@@ -790,12 +790,30 @@ function nameIndex(run) {
   for (const v of run?.stages?.spots?.output?.venues ?? []) put(v.name, { kind: "place" });
   for (const l of run?.stages?.gap?.output?.lanes ?? []) put(l.name, { kind: "flavour", cityRank: l.cityRank, countryRank: l.countryRank, specific: l.specific, scope: l.scope });
   for (const f of run?.stages?.gap?.output?.flavours ?? []) put(f.name, { kind: "flavour", cityRank: f.cityRank, countryRank: f.countryRank, specific: f.specific, scope: f.scope });
+  for (const f of run?.stages?.gap?.output?.avoid ?? []) put(f.name, { kind: "flavour", cityRank: f.cityRank, countryRank: f.countryRank });
+  // The look: style, archetype and theme tags with their share lift; fashion aesthetics with their rank lift.
+  const look = run?.stages?.look?.output;
+  const share = (x, label) => put(x.name, { kind: "share", label, lift: x.lift, cityShare: x.cityShare, countryShare: x.countryShare, n: look?.n });
+  for (const x of look?.styles ?? []) share(x, "style tag");
+  for (const x of look?.avoid ?? []) (typeof x.cityShare === "number" ? share(x, "style tag") : put(x.name, { kind: "tag", label: "the country prefers it" }));
+  for (const x of look?.archetypes ?? []) share(x, "archetype tag");
+  for (const x of look?.themes ?? []) share(x, "theme tag");
+  for (const fam of ["materials", "ages", "segments", "surface"]) for (const x of [...(look?.[fam]?.over ?? []), ...(look?.[fam]?.under ?? [])]) share(x, `${fam === "ages" ? "age group" : fam === "segments" ? "segment" : fam === "surface" ? "aesthetic" : "material"} tag`);
+  for (const x of [...(look?.aesthetics ?? []), ...(look?.personalStyles ?? [])]) put(x.name, { kind: "flavour", cityRank: x.cityRank, countryRank: x.countryRank });
+  for (const m of look?.motifs ?? []) put(m.name, { kind: "tag", label: `on ${m.from} in Qloo` });
+  for (const l of look?.labels ?? []) put(l.name, { kind: "tag", label: "fashion label this city favours" });
+  const r = run?.stages?.resolve?.output;
+  for (const t of r?.theme?.tags ?? []) put(t.name, { kind: "tag", label: `theme tag ${t.id}` });
+  if (r?.city) put(r.city.name, { kind: "tag", label: `locality ${r.city.qlooName ?? r.city.name}` });
+  for (const c of run?.stages?.travels?.output?.cities ?? []) put(c.name, { kind: "tag", label: `leans the same way: lift ${c.lift} (affinity percentile minus popularity percentile)` });
   return index;
 }
 const receiptLine = (info) => {
   if (!info) return "This name came from a Qloo request in this run";
   const city = state.run?.stages?.resolve?.output?.city?.name ?? "the city";
-  if (info.kind === "flavour") return `Qloo flavour tag · ${city} #${info.cityRank ?? "–"}${info.countryRank ? ` · country #${info.countryRank}` : " · not in the country's top 30"}${typeof info.specific === "number" ? ` · ${info.specific >= 0 ? "+" : ""}${info.specific} vs control cities` : ""}`;
+  if (info.kind === "flavour") return `Qloo tag · ${city} #${info.cityRank ?? "–"}${info.countryRank ? ` · country #${info.countryRank}` : " · not in the country's top 30"}${typeof info.specific === "number" ? ` · ${info.specific >= 0 ? "+" : ""}${info.specific} vs control cities` : ""}`;
+  if (info.kind === "share") return `Qloo ${info.label} · on ${info.cityShare ?? "?"}% of ${city}'s titles vs ${info.countryShare ?? "?"}% of the country's (${info.lift > 0 ? "+" : ""}${info.lift} points${info.n ? `, n=${info.n.city}/${info.n.country}` : ""})`;
+  if (info.kind === "tag") return `Qloo · ${info.label}`;
   const parts = [`Qloo ${String(info.kind).replace("_", " ")}`];
   if (info.rank) parts.push(`rank ${info.rank} of ${info.of} for ${city}`);
   if (typeof info.affinity === "number") parts.push(`affinity ${info.affinity.toFixed(2)}`);
@@ -1744,7 +1762,7 @@ async function ask(question) {
   const answer = el("div", { class: "qa-a" }, el("div", { class: "skeleton", style: "width:60%" }));
   $("#ask-thread").prepend(el("div", { class: "qa" }, el("p", { class: "qa-q", text: question }), steps, answer));
   try {
-    const response = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question, context: askContext() }) });
+    const response = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question, context: askContext(), ...(credential() ? { llm: credential() } : {}) }) });
     if (!response.ok || !response.body) throw new Error((await response.json().catch(() => ({}))).error ?? `Request failed (${response.status}).`);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();

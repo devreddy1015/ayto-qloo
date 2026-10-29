@@ -196,6 +196,21 @@ const rawInsights = (params) => rawGet("/v2/insights", params);
 
 // ---------- public, cached entry points ----------
 
+const EMPTY_TTL_MS = 10 * 60 * 1000;
+
+/** True when a Qloo answer carries nothing: an empty result list, empty Insights lists, or a needs_input envelope. */
+export function isEmptyAnswer(v) {
+  if (!v || typeof v !== "object") return true;
+  if (v.status === "needs_input" || v.status === "empty") return true;
+  const r = v.results;
+  if (Array.isArray(r)) return r.length === 0 && !(Array.isArray(v.series) && v.series.length);
+  if (r && typeof r === "object") {
+    const lists = ["entities", "tags", "heatmap"].map((k) => r[k]).filter(Array.isArray);
+    return lists.length > 0 && lists.every((l) => l.length === 0);
+  }
+  return false;
+}
+
 async function cached(kind, name, args, live) {
   const key = cacheKey(kind, name, args);
   if (memory.has(key)) return memory.get(key);
@@ -213,6 +228,12 @@ async function cached(kind, name, args, live) {
     if (disk) return disk.value;
 
     const value = await limiter.run(() => withRetry(live));
+    // An empty answer may be a passing hiccup or an ambiguous location: keep it in memory for ten
+    // minutes only, never on disk, so the next run asks again instead of inheriting the blank.
+    if (isEmptyAnswer(value)) {
+      setTimeout(() => memory.delete(key), EMPTY_TTL_MS).unref?.();
+      return value;
+    }
     const record = { kind, name, args, at: new Date().toISOString(), value };
     await writeJson(join(config.cacheDir, "qloo"), key, record).catch(() => {});
     if (process.env.RECORD_SAMPLES === "1") {
@@ -275,8 +296,18 @@ export async function qlooInsights(params) {
   return cached("api", "insights", params, () => rawInsights(params));
 }
 
+let statusCache = { at: 0, value: undefined };
+
+/** Qloo readiness for the health check. Cached for a minute: hosts poll health often and it should not hit Qloo each time. */
 export async function qlooStatus() {
   if (config.mode === "samples" || config.mode === "fake") return { mode: config.mode, ready: true };
+  if (statusCache.value && Date.now() - statusCache.at < 60000) return statusCache.value;
+  const value = await liveStatus();
+  statusCache = { at: Date.now(), value };
+  return value;
+}
+
+async function liveStatus() {
   try {
     const client = await mcpClient();
     const cap = await client.callTool({ name: "qloo_capabilities", arguments: {} });

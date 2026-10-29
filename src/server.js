@@ -17,7 +17,16 @@ const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", true);
 app.use(express.json({ limit: "64kb" }));
-app.use(express.static(join(ROOT, "public"), { maxAge: "5m" }));
+// Pages, scripts and styles revalidate on every load (an ETag makes that a cheap 304), so a deploy is never
+// half old and half new in someone's browser; images and data may be cached for five minutes.
+app.use(
+  express.static(join(ROOT, "public"), {
+    maxAge: "5m",
+    setHeaders(res, path) {
+      if (/\.(html|js|css)$/.test(path)) res.setHeader("Cache-Control", "no-cache");
+    },
+  }),
+);
 
 // ---------- abuse / quota protection ----------
 
@@ -182,7 +191,8 @@ app.post("/api/runs/:id/edit", async (req, res) => {
   const credential = credentialOf(req.body, res);
   if (credential === null) return;
   try {
-    await editAndRerun(run, stage, edits, credential).catch(() => {});
+    const job = await editAndRerun(run, stage, edits, credential);
+    job.done.catch(() => {});
     res.json({ ok: true });
   } catch (error) {
     res.status(400).json({ error: publicError(error) });
@@ -206,7 +216,8 @@ app.post("/api/runs/:id/assumptions", async (req, res) => {
     for (const k of ["fabric", "cmt", "print", "trimsAndPacking"]) if (num(a.unitCost[k], 0, 1e5) !== undefined) clean.unitCost[k] = Math.round(a.unitCost[k]);
   }
   try {
-    await rerunFrom(run, "produce", { assumptions: clean });
+    const job = await rerunFrom(run, "produce", { assumptions: clean });
+    job.done.catch(() => {});
     res.json({ ok: true, assumptions: run.input.assumptions });
   } catch (error) {
     res.status(400).json({ error: publicError(error) });
@@ -223,7 +234,8 @@ app.post("/api/runs/:id/regenerate", async (req, res) => {
   if (!credential && !llmAvailable()) return res.status(400).json({ error: "Add a key to write again." });
   if (!credential && !allowGlobal({ llm: true })) return res.status(503).json({ error: "The demo has hit today's budget. Bring your own key to write." });
   try {
-    regenerate(run, credential).catch(() => {});
+    const job = await regenerate(run, credential);
+    job.done.catch(() => {});
     res.json({ ok: true, llm: run.llm });
   } catch (error) {
     res.status(400).json({ error: publicError(error) });
@@ -233,10 +245,13 @@ app.post("/api/runs/:id/regenerate", async (req, res) => {
 app.post("/api/ask", async (req, res) => {
   const { question, context } = req.body ?? {};
   if (typeof question !== "string" || !question.trim()) return res.status(400).json({ error: "Ask a question." });
-  if (!allow(req.ip)) return res.status(429).json({ error: "You've asked a lot this hour. Try again later." });
+  if (!allow(req.ip, { perHour: 20, bucket: "ask" })) return res.status(429).json({ error: "You've asked a lot this hour. Try again later." });
+  const credential = credentialOf(req.body, res);
+  if (credential === null) return;
+  if (!credential && !llmAvailable()) return res.status(400).json({ error: "The analyst needs a language model. Add your key in the drawer." });
   const emit = sse(res);
   try {
-    await runAsk({ question, context }, emit);
+    await runAsk({ question, context, credential }, emit);
   } catch (error) {
     emit({ type: "error", message: publicError(error) });
   } finally {
@@ -271,7 +286,17 @@ app.get("/run/:id", (_req, res) => res.sendFile(join(ROOT, "public", "index.html
 
 const publicUrl = (req) => (process.env.PUBLIC_URL || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
 app.get("/.well-known/ayto.json", (req, res) => res.json(discovery(publicUrl(req))));
-app.post("/mcp", (req, res, next) => (allow(req.ip, { perHour: 30, bucket: "mcp" }) ? next() : res.status(429).json({ jsonrpc: "2.0", error: { code: -32000, message: "Too many MCP calls this hour." }, id: null })), mcpHandler());
+app.post(
+  "/mcp",
+  (req, res, next) => {
+    const id = req.body?.id ?? null;
+    if (!allow(req.ip, { perHour: 30, bucket: "mcp" })) return res.status(429).json({ jsonrpc: "2.0", error: { code: -32000, message: "Too many MCP calls this hour." }, id });
+    // A tool call runs the engine against Qloo: it counts against the same daily budget as a web run.
+    if (req.body?.method === "tools/call" && !allowGlobal()) return res.status(503).json({ jsonrpc: "2.0", error: { code: -32000, message: "The demo has hit today's Qloo budget." }, id });
+    next();
+  },
+  mcpHandler(),
+);
 app.get("/mcp", (_req, res) => res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "AYTO's MCP server is stateless: POST JSON-RPC here. Discovery at /.well-known/ayto.json" }, id: null }));
 app.delete("/mcp", (_req, res) => res.status(405).end());
 
