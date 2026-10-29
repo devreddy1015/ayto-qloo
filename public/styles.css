@@ -239,20 +239,49 @@ main,
   gap: 0.55rem;
   text-decoration: none;
   font-weight: 800;
-  font-size: 1.15rem;
+  font-size: 1.45rem;
   font-variation-settings: var(--wide);
   letter-spacing: 0.06em;
 }
-.wordmark-tape {
-  width: 40px;
-  height: 20px;
+/* The O of the wordmark is the mark. Sized to the cap height and stroked to the letters' weight. */
+.wordmark {
+  align-items: baseline;
+  gap: 0;
+  color: var(--fg);
 }
-.wordmark-tape rect {
-  fill: rgba(255, 255, 255, 0.92);
+.wordmark-o {
+  width: 0.8em;
+  height: 0.8em;
+  margin-left: -0.01em;
+  overflow: visible;
+  transform: translateY(0.035em);
 }
-.wordmark-tape path {
-  stroke: var(--bg);
-  stroke-width: 1.6;
+.wordmark-o .ring {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 5.2;
+  stroke-linecap: round;
+}
+/* The dot is always drawn; motion only ever nudges it, so a paused or throttled page still shows the mark. */
+.wordmark-o .dot {
+  fill: var(--tape);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.wordmark:hover .dot,
+.wordmark:focus-visible .dot {
+  animation: dot-nudge 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes dot-nudge {
+  40% {
+    transform: translate(35%, -35%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wordmark:hover .dot,
+  .wordmark:focus-visible .dot {
+    animation: none;
+  }
 }
 .site nav {
   display: flex;

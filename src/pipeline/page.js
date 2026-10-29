@@ -1,5 +1,8 @@
 // Server-rendered share page for a finished run. All text is escaped and the
 // page carries no scripts, so published content can't run code.
+// The AYTO mark (public/icon.svg) as a data URI, so the share page needs no request outside its own CSP.
+const ICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0b0b0d"/><path d="M25.487 15.503A9.5 9.5 0 1 1 16.497 6.513" fill="none" stroke="#f5f5f7" stroke-width="4.4" stroke-linecap="round"/><circle cx="22.718" cy="9.282" r="2.7" fill="#f2be22"/></svg>')}`;
+const BRAND = '<a class="brand" href="/" aria-label="AYTO home"><span aria-hidden="true">AYT</span><svg viewBox="4 4 24 24" aria-hidden="true"><path d="M25.487 15.503A9.5 9.5 0 1 1 16.497 6.513"/><circle cx="22.718" cy="9.282" r="2.7"/></svg></a>';
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const hex = (h) => (/^#[0-9a-f]{6}$/i.test(String(h)) ? h : "#3b4a8c");
 const chips = (list = []) => (list.length ? `<div class="chips">${list.map((x) => `<span>${esc(x)}</span>`).join("")}</div>` : "");
@@ -120,6 +123,7 @@ export function renderSharePage(run) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(pg.title)} · AYTO</title>
+<link rel="icon" href="${ICON}" type="image/svg+xml"><meta name="theme-color" content="#0b0b0d">
 <meta name="description" content="${esc(p.logline ?? p.hook ?? p.positioning ?? kicker)}">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data:;">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -131,6 +135,7 @@ body{margin:0;background:var(--paper);color:var(--ink);font-family:"Instrument S
 body::before{content:"";position:fixed;inset:-20%;z-index:0;pointer-events:none;background:radial-gradient(60% 50% at 20% 10%,var(--glow),transparent 60%),radial-gradient(40% 40% at 85% 80%,rgba(120,140,255,.10),transparent 60%);animation:drift 28s ease-in-out infinite alternate}
 main{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:2.5rem 1.25rem 5rem}
 h1,h2,h3{font-family:Fraunces,"Instrument Sans",serif;font-variation-settings:"opsz" 144;letter-spacing:-.02em;text-wrap:balance}
+.brand{display:inline-flex;align-items:baseline;margin-bottom:1.6rem;color:var(--ink);text-decoration:none;font-weight:700;font-size:1rem;letter-spacing:.1em;animation:fade var(--rise) var(--ease) both}.brand svg{width:.8em;height:.8em;margin-left:0;overflow:visible;transform:translateY(.03em)}.brand path{fill:none;stroke:currentColor;stroke-width:4.8;stroke-linecap:round}.brand circle{fill:var(--tape)}.brand:hover{color:var(--tape)}
 .k{display:inline-block;position:relative;color:#19234d;font-weight:700;padding:.3rem .7rem;border-radius:4px;font-size:.85rem;font-family:"Instrument Sans",sans-serif;letter-spacing:.02em;background:var(--tape);transform-origin:left center;animation:wipe .7s var(--ease) both}
 h1{font-size:clamp(2.8rem,8vw,5.6rem);line-height:.96;margin:.7rem 0 1rem;font-weight:600}
 h1 .w{display:inline-block;animation:rise var(--rise) var(--ease) both;animation-delay:calc(.15s + var(--i) * .07s)}
@@ -161,8 +166,9 @@ p,li{max-width:66ch;font-size:1.05rem}p{margin:.4rem 0 .8rem}ul,ol{padding-left:
 @keyframes drift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(3%,2%,0) scale(1.06)}}
 @media (max-width:560px){.lane{grid-template-columns:1fr;gap:.3rem}.lane b{font-size:1.25rem}main{padding:1.5rem 1rem 4rem}h2{font-size:1.45rem}}
 @media (prefers-reduced-motion:reduce){h1 .w,.s,.meta,.tools,.k,.lane .bar{animation:fade .4s ease both}body::before{animation:none}.chips span,.card,.pal span,.tools a{transition:none}}
-@media print{:root{--ink:#111;--paper:#fff;--soft:#444;--line:#bbb}body{background:#fff;color:#111}body::before{display:none}main{max-width:none;padding:0}.tools{display:none}h1 .w,.s,.meta,.k,.lane .bar{animation:none;opacity:1;transform:none}.chips span,.card{border-color:#999}h1{font-size:2.4rem}a{color:inherit}}
+@media print{:root{--ink:#111;--paper:#fff;--soft:#444;--line:#bbb}.brand{animation:none}body{background:#fff;color:#111}body::before{display:none}main{max-width:none;padding:0}.tools{display:none}h1 .w,.s,.meta,.k,.lane .bar{animation:none;opacity:1;transform:none}.chips span,.card{border-color:#999}h1{font-size:2.4rem}a{color:inherit}}
 </style></head><body><main>
+${BRAND}<br>
 <span class="k">${esc(kicker)}</span>
 <h1>${titleWords}</h1>
 <div class="meta">${[...(pg.theme ?? []), ...(pg.loves ?? [])].map((x) => `<span>${esc(x)}</span>`).join(" · ")}</div>
