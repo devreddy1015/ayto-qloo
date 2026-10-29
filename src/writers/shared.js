@@ -28,9 +28,10 @@ export function digest(run) {
       Object.entries(read).map(([type, c]) => [
         type,
         {
-          only_here: names(c.rows.filter((x) => x.onlyHere)),
-          hidden_gems: names(c.rows.filter((x) => x.hiddenGem), 4),
-          also_strong: names(c.rows.filter((x) => !x.onlyHere && !x.hiddenGem), 5),
+          // People who have died stay in the read (they are part of the taste) but never reach a cast list.
+          only_here: names(c.rows.filter((x) => x.onlyHere && !x.died)),
+          hidden_gems: names(c.rows.filter((x) => x.hiddenGem && !x.died), 4),
+          also_strong: names(c.rows.filter((x) => !x.onlyHere && !x.hiddenGem && !x.died), 5),
           the_country_prefers_instead: (c.countryNames ?? []).filter((n) => !c.rows.some((x) => x.name === n)).slice(0, 5),
           contrast_city_prefers_instead: (c.contrastNames ?? []).filter((n) => !c.rows.some((x) => x.name === n)).slice(0, 5),
         },

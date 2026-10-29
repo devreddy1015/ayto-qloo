@@ -278,9 +278,13 @@ async function loadMosaic(runId) {
     if (response.ok) json = await response.json();
   } catch {}
   if (state.mosaicRun !== key) return;
+  state.mosaicImages = json.images ?? [];
+  canvas.setImages(state.mosaicImages, mosaicWords(runId));
+}
+
+function mosaicWords(runId) {
   const flavours = runId ? (state.run?.stages?.gap?.output?.flavours ?? []).map((f) => f.name) : [];
-  const words = flavours.length ? flavours : runId ? [state.run?.stages?.resolve?.output?.city?.name].filter(Boolean) : (state.presets.showcases ?? []).map((s) => s.label.split(" · ")[1] ?? s.label);
-  canvas.setImages(json.images ?? [], words);
+  return flavours.length ? flavours : runId ? [state.run?.stages?.resolve?.output?.city?.name].filter(Boolean) : (state.presets.showcases ?? []).map((s) => s.label.split(" · ")[1] ?? s.label);
 }
 
 // ---------- setup ----------
@@ -504,6 +508,7 @@ function renderConfirm(found) {
     { class: "confirm-inner" },
     el("p", { class: "confirm-lead" }, el("strong", { text: "Qloo found → " }), found.cityFound ? el("strong", { class: "confirm-city", text: cities[0]?.name ?? input.city?.query }) : el("span", { class: "confirm-missing", text: input.city?.query || "no city" }), found.cityFound && cities[0]?.qlooName ? el("span", { class: "confirm-sub", text: ` (${cities[0].qlooName})` }) : null, (found.themes ?? []).length ? el("span", {}, " · Theme: ", (found.themes ?? []).map((t, i) => el("strong", { text: (i ? ", " : "") + (t.candidates[0]?.name ?? t.word) }))) : null, " · Format: ", el("strong", { text: formatLabel(input.format || "film") })),
     !found.cityFound ? el("p", { class: "confirm-error", text: "Qloo couldn't place that city. Try its common English name with the country, e.g. “Hyderabad, India”." }) : null,
+    found.corrected ? el("p", { class: "confirm-note", text: `Qloo has no “${found.corrected.from}”, so AYTO read it as ${found.corrected.to}. Pick another city below or change the sentence if that's wrong.` }) : null,
     el(
       "div",
       { class: "confirm-grid" },
@@ -689,10 +694,9 @@ function onEvent(event) {
       renderStage(event.id, state.run.stages[event.id]);
       if (event.status === "running" && state.live) document.getElementById(`stage-${event.id}`)?.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "nearest" });
       if (event.id === "read" && event.status === "done") loadMosaic(state.run.id);
-      if (event.id === "gap" && event.status === "done" && state.mosaicRun === state.run.id) {
-        // Flavour names arrive after the read; refresh the words on abstract tiles (same images are left alone).
-        state.mosaicRun = null;
-        loadMosaic(state.run.id);
+      if (event.id === "gap" && event.status === "done" && state.mosaicRun === state.run.id && state.mosaicImages) {
+        // Flavour names arrive after the read: refresh the words on abstract tiles with the images already loaded.
+        canvas.setImages(state.mosaicImages, mosaicWords(state.run.id));
       }
       break;
     }
@@ -928,7 +932,7 @@ const RENDER = {
       el(
         "div",
         { class: "resolve-grid" },
-        el("div", {}, el("span", { class: "k", text: "City" }), el("strong", { class: "big", text: city.name ?? "?" }), el("span", { class: "sub", text: city.qlooName ?? city.country ?? "" })),
+        el("div", {}, el("span", { class: "k", text: "City" }), el("strong", { class: "big", text: city.name ?? "?" }), el("span", { class: "sub", text: city.qlooName ?? city.country ?? "" }), city.correctedFrom ? el("span", { class: "sub block", text: `Read from “${city.correctedFrom}”, which Qloo doesn't list.` }) : null),
         o.contrast ? el("div", {}, el("span", { class: "k", text: "Contrast city" }), el("strong", { class: "big", text: o.contrast.name }), el("span", { class: "sub", text: "the country's largest other city" })) : null,
       ),
       o.theme?.tags?.length ? section("Theme, as Qloo tags", chips(o.theme.tags.map((t) => t.name))) : o.theme?.query ? note(`Theme “${o.theme.query}”: no Qloo tag matched, so the read runs on the city alone.`) : null,

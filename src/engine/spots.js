@@ -7,10 +7,12 @@ import { evidenceFor, registerName } from "../pipeline/evidence.js";
 import { crowdIds, placeLabel } from "./common.js";
 
 // Admin units Qloo lists among a city's localities: too big to shoot in, so never a neighbourhood.
-const ADMIN = /\b(zone|mandal|district|division|metropolitan|region|municipal corporation|taluk|taluka|tehsil|circle|urban agglomeration)\b/i;
+const ADMIN = /\b(zone|mandal|district|division|metropolitan|region|municipal corporation|taluk|taluka|tehsil|circle|urban agglomeration|ward|island|county|borough of)\b/i;
 // Places Qloo lists that nobody can shoot in or visit as a crowd: homes, clinics, banks, missions.
-const NOT_PUBLIC = /\b(apartment building|apartment complex|apartments|residential (building|complex|society)|housing society|gated community|hospital|clinic|pharmacy|bank branch|atm|consulate|embassy|office building|office space|coworking)\b/i;
-const tidy = (name) => String(name ?? "").replace(/^ward\s*(no\.?\s*)?\d+\s*/i, "").replace(/\s+/g, " ").trim();
+const NOT_PUBLIC = /\b(apartment building|apartment complex|apartments|residential (building|complex|society)|housing society|gated community|hospital|clinic|pharmacy|bank branch|atm|consulate|embassy|office building|office space|coworking|self[- ]storage|storage facility|storage units?|gas station|petrol pump|parking (lot|garage))\b/i;
+// Adult venues stay out of a public showcase: nobody shoots a short film or a reel for all ages there.
+const ADULT = /\b(gentlemen'?s club|strip club|showgirls|adult (entertainment|club|store)|sex shop|erotic|cabaret club)\b/i;
+const tidy = (name) => String(name ?? "").replace(/^ward\s*(no\.?\s*)?\d+\s*/i, "").replace(/\s+/g, " ").replace(/\b(\w+)( \1\b)+/gi, "$1").trim();
 const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** The area a venue sits in: the last "<area> <City>" segment of its address, else Qloo's geocode name. */
@@ -19,7 +21,7 @@ export function areaOf(v, city) {
   const matches = [...addr.matchAll(new RegExp(`,\\s*([^,]+?),?\\s+${escapeRe(city)}\\b`, "gi"))];
   let area = matches.at(-1)?.[1]?.trim();
   if (area && (/\d/.test(area) || area.split(/\s+/).length > 4 || /\b(road|rd|floor|street|st|lane|plot|no)\b\.?$/i.test(area))) area = undefined;
-  area ||= tidy(v?.properties?.geocode?.name);
+  area = area ? tidy(area) : tidy(v?.properties?.geocode?.name);
   return area && area.toLowerCase() !== String(city).toLowerCase() && !ADMIN.test(area) ? area : undefined;
 }
 
@@ -43,7 +45,7 @@ export function shootBase(venues = []) {
  * every large area tie at the top.
  */
 export function hotNeighbourhoods(cells = [], places = [], { take = 4, radiusKm = 3 } = {}) {
-  const small = places.filter((p) => p.lat !== undefined && !ADMIN.test(p.qlooName ?? p.name));
+  const small = places.filter((p) => p.lat !== undefined && !ADMIN.test(tidy(p.qlooName ?? p.name)));
   if (!small.length) return [];
   const real = liftPoints(cells.filter((c) => c.lat !== undefined && (c.popularity ?? 0) > 0));
   const groups = new Map();
@@ -73,7 +75,7 @@ export async function spots(run) {
   const venues = (venueEnv?.results ?? [])
     .filter((x) => x.name)
     .filter((x) => (cleanPlaceName(x.name) && !(/\b(hotel|hostel|lodge|resort|inn|suites)\b/i.test(x.name) && !/\b(bar|club|lounge|casino|rooftop|pub)\b/i.test(x.name))) || (skipped.push(x.name), false))
-    .filter((x) => !NOT_PUBLIC.test(String(x.properties?.short_description ?? x.properties?.description ?? "")) || (skipped.push(x.name), false))
+    .filter((x) => (!NOT_PUBLIC.test(String(x.properties?.short_description ?? x.properties?.description ?? "")) && !ADULT.test(`${x.name} ${x.properties?.short_description ?? ""}`)) || (skipped.push(x.name), false))
     .slice(0, 8)
     .map((x) => {
       const p = x.properties ?? {};
@@ -110,7 +112,7 @@ export async function spots(run) {
     neighbourhoods = hotNeighbourhoods(cells, places);
     if (!neighbourhoods.length) {
       // Too few small localities to name cells: the old read, admin zones left out.
-      const ranked = liftPoints(snapCellsToPlaces(cells, places.filter((p) => !ADMIN.test(p.qlooName ?? p.name)), { radiusKm: 4 })).filter((p) => p.name && p.name.toLowerCase() !== r.city.name.toLowerCase()).sort((a, b) => b.lift - a.lift);
+      const ranked = liftPoints(snapCellsToPlaces(cells, places.filter((p) => !ADMIN.test(tidy(p.qlooName ?? p.name))), { radiusKm: 4 })).filter((p) => p.name && p.name.toLowerCase() !== r.city.name.toLowerCase()).sort((a, b) => b.lift - a.lift);
       neighbourhoods = (ranked.filter((p) => p.lift > 0).length ? ranked.filter((p) => p.lift > 0) : ranked).slice(0, 4).map((p) => ({ name: tidy(p.name), lift: p.lift, lat: p.lat, lon: p.lon }));
     }
   }
@@ -123,6 +125,6 @@ export async function spots(run) {
     skipped: skipped.slice(0, 8),
     cells: cells.length,
     coverage: !venues.length && !neighbourhoods.length ? "none" : venues.length + neighbourhoods.length < 4 ? "thin" : "ok",
-    summary: `${venues.length} places, ${neighbourhoods.length} neighbourhoods${base ? `; shoot base ${base.name} (${base.venues} of ${base.of} places)` : ""}${skipped.length ? `, ${skipped.length} junk or private places dropped` : ""}.`,
+    summary: `${venues.length} places, ${neighbourhoods.length} neighbourhoods${base ? `; shoot base ${base.name} (${base.venues} of ${base.of} places)` : ""}${skipped.length ? `, ${skipped.length} junk or private place${skipped.length === 1 ? "" : "s"} dropped` : ""}.`,
   };
 }

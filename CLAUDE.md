@@ -83,7 +83,7 @@ PREWARM=1 runs them at boot. Scratch probes live outside the repo.
 ## Status (29 Oct 2026, 03:30 IST)
 Done and on GitHub main (devreddy1015/ayto-qloo, MIT detected): engine, eight formats (film, reel, fashion, podcast, game, cafe,
 event, book), writers with a rewrite-once loop, check, diff, share, produce stage (fashion), 3D garment viewer (public/garment3d.js),
-BYOK with 12 providers (Anthropic adapter carries tool calls), MCP door, fake mode, 67 tests, dark infinite-canvas UI.
+BYOK with 12 providers (Anthropic adapter carries tool calls), MCP door, fake mode, 69 tests, dark infinite-canvas UI. CHANGELOG.md lists every change by PR.
 29 Oct 14:30 IST: after a side-by-side with itsgiving (a friend's Qloo film tool), the film writer returns a full treatment (beats,
 characters, borrow per reference, shoot base, locations, camera, palette; budget aware) and the film plan has the spots stage.
 Blocked on the user: an LLM key on this box (every attempt to add ANTHROPIC_API_KEY to the worktree .env left the file unchanged;

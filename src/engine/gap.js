@@ -29,6 +29,12 @@ export function yearOf(e) {
 
 // Tag names that are placeholders in Qloo's graph, not flavours ("None" comes back as a theme for artists).
 const JUNK_TAGS = new Set(["none", "other", "others", "unknown", "misc", "miscellaneous", "general", "n/a", "na", "various"]);
+// Words too broad to be a lane or a thing to avoid: every film is "Film", every gig is "Music".
+const GENERIC_TAGS = new Set(["music", "film", "films", "movie", "movies", "tv", "television", "book", "books", "podcast", "podcasts", "game", "games", "video games", "videogames", "entertainment", "media", "art", "arts", "fun", "life", "lifestyle"]);
+const isNoise = (name) => {
+  const n = String(name ?? "").trim().toLowerCase();
+  return JUNK_TAGS.has(n) || GENERIC_TAGS.has(n);
+};
 // Genres that travel with a theme: never tell a crime film to avoid thrillers, or a love story to avoid romance.
 const SIBLINGS = {
   crime: ["thriller", "mystery", "detective", "police", "noir", "suspense", "heist", "gangster", "investigation", "procedural"],
@@ -37,13 +43,23 @@ const SIBLINGS = {
   love: ["romance", "romantic", "relationship", "relationships", "heartbreak", "love song", "love songs"],
   romance: ["love", "romantic", "relationship", "romcom", "rom com"],
   romantic: ["love", "romance"],
-  horror: ["thriller", "supernatural", "slasher", "psychological"],
+  horror: ["thriller", "supernatural", "slasher", "psychological", "darkness", "dark", "occult", "haunted", "ghost", "ghosts", "creepy", "gore", "scary", "paranormal"],
+  cricket: ["sport", "sports", "ipl", "batting", "bowling"],
+  football: ["sport", "sports", "soccer"],
+  soccer: ["sport", "sports", "football"],
+  sports: ["sport", "fitness", "athletics"],
+  startups: ["startup", "entrepreneurship", "entrepreneurial", "entrepreneur", "entrepreneurial spirit", "business", "founders", "venture", "technology", "tech"],
+  startup: ["startups", "entrepreneurship", "entrepreneurial", "entrepreneur", "business", "founders", "technology", "tech"],
+  tech: ["technology", "software", "startups", "gadgets"],
+  food: ["cooking", "cuisine", "culinary", "foodie", "restaurants", "food and wine", "dining"],
+  "street food": ["food", "cooking", "cuisine", "snacks", "foodie"],
+  coffee: ["cafe", "café", "espresso", "latte", "cappuccino", "tea", "coffee shop"],
   comedy: ["humor", "humour", "funny", "sitcom", "satire", "romcom"],
   action: ["thriller", "martial arts", "adventure"],
   family: ["kids", "children", "parenting"],
   devotional: ["spiritual", "spirituality", "religious", "gospel", "bhakti"],
   "hip hop": ["rap", "hip-hop", "trap"],
-  nightlife: ["club", "dance", "electronic", "party"],
+  nightlife: ["club", "clubs", "clubbing", "dance", "electronic", "party", "parties", "bar", "bars", "dj"],
 };
 
 /** Words to the same stem, so "Biographical" (an affinity tag) meets "biography" (an entity tag). */
@@ -116,7 +132,7 @@ export async function gap(run) {
     flavourRead(q, `Flavours ${r.city.name} leans to (${type.replace("_", " ")} tags)`, { type, tagIds: themeIds, entityIds, where }),
     flavourRead(q, `Same flavours for ${country}`, { type, tagIds: themeIds, entityIds, where: country }),
   ]);
-  const flavoursRaw = demandLift(cityTags, countryTags, { take: TAKE }).filter((t) => !JUNK_TAGS.has(String(t.name ?? "").trim().toLowerCase()));
+  const flavoursRaw = demandLift(cityTags, countryTags, { take: TAKE }).filter((t) => !isNoise(t.name));
 
   // Control cities: the country baseline behaves like its largest city, so a lift over the country is
   // often shared by every other big city. Read the same flavours for up to three controls and keep
@@ -146,8 +162,9 @@ export async function gap(run) {
     ...flavours.filter((x) => x.lift <= -3).sort((a, b) => a.lift - b.lift),
   ]
     .filter(notTheme)
-    .filter((t) => !JUNK_TAGS.has(String(t.name).trim().toLowerCase()))
-    .filter((t) => !seenAvoid.has(String(t.name).toLowerCase()) && seenAvoid.add(String(t.name).toLowerCase()))
+    .filter((t) => !isNoise(t.name))
+    // "Sports" and "Sport" are one thing to avoid, not two.
+    .filter((t) => !seenAvoid.has(stem(t.name)) && seenAvoid.add(stem(t.name)))
     .slice(0, 10)
     .map((t) => ({ ...t, name: String(t.name).trim() }));
   const themeWords = [...(r.theme?.words ?? []), ...(r.theme?.tags ?? []).map((t) => t.name)].map((w) => String(w).toLowerCase());
@@ -165,7 +182,10 @@ export async function gap(run) {
   const exists = (t) => !read.sample || (supply[t.id]?.total ?? 0) > 0 || t.strength >= 10;
   // Rank on strength when controls were read; a city with no strong flavour falls back to the raw lift.
   const specificOnes = flavours.filter(notTheme).filter(exists).filter((t) => typeof t.specific === "number" && t.strength >= 3).map((t) => ({ ...t, lift: t.strength }));
-  const candidates = specificOnes.length ? specificOnes : flavours.filter(notTheme).filter(exists);
+  // Qloo can list two tags with one name (two "Survival" tags of different families): one lane each name.
+  const seenLane = new Set();
+  const oneEach = (list) => list.filter((t) => !seenLane.has(stem(t.name)) && seenLane.add(stem(t.name)));
+  const candidates = oneEach(specificOnes.length ? specificOnes : flavours.filter(notTheme).filter(exists));
   const lanes = laneGap(candidates.length ? candidates : flavours.filter(notTheme), supply, { n: TAKE }).slice(0, 3).map((l) => ({ ...l, lift: l.rawLift ?? l.lift }));
   for (const lane of lanes) for (const t of lane.supplyTitles) registerName(run, t.name, type, {});
   // Demand-only when the catalogue read came back empty: say so rather than show zeros.
