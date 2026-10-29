@@ -5,6 +5,7 @@ import { config, ROOT } from "./config.js";
 import { checkCredential, credentialFrom, llmAvailable, llmStatus, probeServerLlm, providerList, redact } from "./llm.js";
 import { discovery, mcpHandler } from "./mcp.js";
 import { mosaic } from "./mosaic.js";
+import { gallery } from "./gallery.js";
 import { candidates, parseInput } from "./parse.js";
 import { renderShareMarkdown, renderSharePage } from "./pipeline/page.js";
 import { createRun, editAndRerun, isRunning, regenerate, rerunFrom, startRun } from "./pipeline/runner.js";
@@ -88,6 +89,12 @@ app.get("/api/presets", (_req, res) => {
 });
 
 app.get("/api/llm/providers", (_req, res) => res.json({ providers: providerList() }));
+
+/** Finished runs for the home page: one card per showcase, then recent runs, plus the walkthrough source. */
+app.get("/api/gallery", async (_req, res) => {
+  res.set("cache-control", "public, max-age=60");
+  res.json(await gallery());
+});
 
 /** Images for the background: a run's own picks, or the showcases' when there is no run. */
 app.get("/api/mosaic", async (req, res) => {

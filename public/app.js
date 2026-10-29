@@ -341,6 +341,7 @@ function route() {
 }
 
 function showHome() {
+  loadGallery();
   state.source?.close();
   state.source = null;
   $("#results").hidden = true;
@@ -612,6 +613,7 @@ async function attach(runId) {
 }
 
 function applySnapshot(run) {
+  state.index = nameIndex(run);
   const first = !state.run || state.run.id !== run.id;
   state.run = run;
   state.live = run.status === "running";
@@ -666,6 +668,7 @@ function onEvent(event) {
       if (!state.run) break;
       const prev = state.run.stages[event.id] ?? {};
       state.run.stages[event.id] = { ...prev, status: event.status, output: event.output ?? (event.status === "done" ? prev.output : undefined), error: event.error };
+      if (event.output) state.index = nameIndex(state.run);
       renderStage(event.id, state.run.stages[event.id]);
       if (event.status === "running" && state.live) document.getElementById(`stage-${event.id}`)?.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "nearest" });
       if (event.id === "read" && event.status === "done") loadMosaic(state.run.id);
@@ -778,7 +781,76 @@ const note = (text) => el("p", { class: "block-note", text });
 const list = (items, cls = "plain-list") => el("ul", { class: cls }, (items ?? []).map((t) => el("li", {}, t)));
 const chips = (items, cls = "") => el("div", { class: `swatches ${cls}` }, (items ?? []).map((t) => (t instanceof Node ? t : el("span", { class: "swatch", text: t }))));
 /** A name that came from a Qloo request. */
-const q = (name, extra) => el("span", { class: "q" }, name, extra ? el("span", { class: "q-extra", text: extra }) : null, el("i", { text: "Qloo", title: "This name came from a Qloo request in this run" }));
+/** Where each name came from in this run: rank, affinity and popularity from the read, so a chip can carry its receipt line. */
+function nameIndex(run) {
+  const index = new Map();
+  const put = (name, info) => { if (name && !index.has(String(name).toLowerCase())) index.set(String(name).toLowerCase(), info); };
+  for (const [type, c] of Object.entries(run?.stages?.read?.output?.columns ?? {})) for (const r of c.rows ?? []) put(r.name, { kind: type, rank: r.rank, of: c.rows.length, affinity: r.affinity, popularity: r.popularity, onlyHere: r.onlyHere, hiddenGem: r.hiddenGem });
+  for (const a of run?.stages?.audio?.output?.shortlist ?? []) put(a.name, { kind: "artist", affinity: a.affinity, popularity: a.popularity, why: a.why });
+  for (const v of run?.stages?.spots?.output?.venues ?? []) put(v.name, { kind: "place" });
+  for (const l of run?.stages?.gap?.output?.lanes ?? []) put(l.name, { kind: "flavour", cityRank: l.cityRank, countryRank: l.countryRank, specific: l.specific, scope: l.scope });
+  for (const f of run?.stages?.gap?.output?.flavours ?? []) put(f.name, { kind: "flavour", cityRank: f.cityRank, countryRank: f.countryRank, specific: f.specific, scope: f.scope });
+  return index;
+}
+const receiptLine = (info) => {
+  if (!info) return "This name came from a Qloo request in this run";
+  const city = state.run?.stages?.resolve?.output?.city?.name ?? "the city";
+  if (info.kind === "flavour") return `Qloo flavour tag · ${city} #${info.cityRank ?? "–"}${info.countryRank ? ` · country #${info.countryRank}` : " · not in the country's top 30"}${typeof info.specific === "number" ? ` · ${info.specific >= 0 ? "+" : ""}${info.specific} vs control cities` : ""}`;
+  const parts = [`Qloo ${String(info.kind).replace("_", " ")}`];
+  if (info.rank) parts.push(`rank ${info.rank} of ${info.of} for ${city}`);
+  if (typeof info.affinity === "number") parts.push(`affinity ${info.affinity.toFixed(2)}`);
+  if (typeof info.popularity === "number") parts.push(`popularity ${info.popularity.toFixed(2)}`);
+  if (info.onlyHere) parts.push("only here, not in the country's list");
+  if (info.hiddenGem) parts.push("hidden gem");
+  if (info.why) parts.push(info.why);
+  return parts.join(" · ");
+};
+const q = (name, extra) => {
+  const info = state.index?.get(String(name ?? "").toLowerCase());
+  return el("span", { class: "q", title: receiptLine(info) }, name, extra ? el("span", { class: "q-extra", text: extra }) : null, info?.rank ? el("b", { class: "q-rank", text: `#${info.rank}` }) : null, el("i", { text: "Qloo", title: receiptLine(info) }));
+};
+
+// ---------- home page: Watch it work and Now showing, from finished runs on this server ----------
+
+async function loadGallery() {
+  let data;
+  try {
+    data = await (await fetch("/api/gallery")).json();
+  } catch {
+    return;
+  }
+  const w = data?.walkthrough;
+  const steps = $("#watch-steps");
+  if (steps && w && (w.onlyHere?.length || w.lanes?.length)) {
+    $("#watch-sub").textContent = `One real run, step by step: ${w.kicker.toLowerCase()}${w.theme?.length ? `, ${w.theme.join(", ").toLowerCase()}` : ""}. ${w.calls} Qloo calls${w.tokens ? `, ${w.tokens.toLocaleString()} model tokens` : ""}.`;
+    const step = (n, title, body, note) => el("li", { class: "watch-step" }, el("span", { class: "step-n", text: `Step ${n} of 4` }), el("h3", { text: title }), note ? el("p", { class: "block-note", text: note }) : null, body);
+    const lane = (l) => el("span", { class: "chip-inner" }, el("strong", { text: l.name }), el("small", { class: "sub", text: ` ${w.city} #${l.cityRank ?? "–"} · ${l.countryRank ? `${w.country} #${l.countryRank}` : `not in ${w.country}'s top 30`}${typeof l.specific === "number" ? ` · +${l.specific} vs control cities` : ""}${l.supplyTotal === 0 ? " · open lane" : ""}` }));
+    steps.replaceChildren(
+      step(1, `Read ${w.city}`, chips([...w.onlyHere.map((n) => el("span", { class: "chip-inner" }, el("strong", { text: n }))), ...w.hiddenGems.map((n) => el("span", { class: "chip-inner" }, el("strong", { text: n }), el("small", { class: "sub", text: " hidden gem" })))]), `Qloo lists what ${w.city} favours that ${w.country} doesn't, with a contrast city as a second check. Aggregate taste, never one person.`),
+      step(2, "Find the gap", chips(w.lanes.map(lane)), "A flavour the city ranks far above the country and above three control cities, weighed by how few recent titles carry it."),
+      step(3, "Read the look", chips(w.look.map((x) => el("span", { class: "chip-inner" }, el("strong", { text: x.name }), typeof x.lift === "number" ? el("small", { class: "lift", text: ` +${x.lift}` }) : null))), "Style words from Qloo's own tags on what the city favours; a model never invents them."),
+      step(4, "Write into it", el("div", { class: "watch-write" }, el("p", { class: "title-option first", text: w.title }), w.line ? el("p", { class: "lead", text: w.line }) : el("p", { class: "muted", text: w.written ? "" : "Written from the evidence template; add a key for the model's version." }), w.cast?.length ? el("p", { class: "sub", text: `Cast ideas: ${w.cast.join(", ")}` }) : null, w.url ? el("a", { class: "secondary-link", href: w.url, target: "_blank", rel: "noopener", text: "Read the whole piece" }) : null, w.grounded ? el("p", { class: "footnote", text: `${w.grounded.grounded} of ${w.grounded.checked} names trace to Qloo.` }) : null), w.llm?.byok ? "Written with the maker's own key." : w.written ? "Written with the server's model." : undefined),
+    );
+    $("#watch").hidden = false;
+  }
+  const cards = $("#showing-cards");
+  if (cards && data?.cards?.length) {
+    cards.replaceChildren(
+      ...data.cards.map((c) =>
+        el("a", { class: "showing-card", href: `/run/${c.id}`, onclick: (e) => { e.preventDefault(); history.pushState({}, "", `/run/${c.id}`); attach(c.id); } },
+          el("span", { class: "kicker", text: c.kicker }),
+          el("strong", { class: "showing-title", text: c.title }),
+          c.line ? el("p", { class: "sub", text: c.line.length > 120 ? `${c.line.slice(0, 117)}…` : c.line }) : null,
+          c.lanes?.[0] ? el("p", { class: "small", text: `Lane: ${c.lanes[0].name}${typeof c.lanes[0].specific === "number" ? ` (+${c.lanes[0].specific} vs controls)` : ""}` }) : null,
+          c.palette?.length ? el("div", { class: "palette-strip" }, c.palette.map((p) => el("span", { style: `background:${/^#[0-9a-f]{6}$/i.test(p.hex ?? "") ? p.hex : "#555"}`, title: p.name ?? "" }))) : el("div", { class: "palette-strip ghost" }),
+          el("span", { class: "footnote", text: `${c.calls} Qloo calls${c.grounded ? ` · ${c.grounded.grounded}/${c.grounded.checked} names traced` : ""}${c.written ? "" : " · template"}` }),
+        ),
+      ),
+      el("div", { class: "showing-card yours" }, el("span", { class: "kicker", text: "yours" }), el("strong", { class: "showing-title", text: "Your city, your format" }), el("p", { class: "sub", text: "Type a sentence above. No sign-up." })),
+    );
+    $("#showing").hidden = false;
+  }
+}
 const tag = (text, cls = "") => el("span", { class: `tag ${cls}`, text });
 const typeLabel = (t) => ({ tv_show: "TV shows", movie: "Films", artist: "Music artists", person: "People", videogame: "Video games", podcast: "Podcasts", book: "Books", brand: "Brands", place: "Places" })[t] ?? t;
 const pct = (v) => `${Math.round((v ?? 0) * 100)}`;
@@ -806,6 +878,8 @@ function lookCard(o, run) {
   return [
     o.styles?.length ? section("Style this city leans to", liftChips(o.styles)) : el("p", { class: "muted", text: "No style lift could be read." }),
     o.avoid?.length ? section("Cares less about", liftChips(o.avoid, "muted")) : null,
+    o.archetypes?.length ? section("Character archetypes it leans to", liftChips(o.archetypes)) : null,
+    o.themes?.length ? section("Themes it leans to", liftChips(o.themes)) : null,
     o.descriptions?.length ? section("Qloo's style notes on its own picks", list(o.descriptions.map((d) => el("span", {}, q(d.title), el("span", { class: "sub", text: ` · ${d.text}` }))))) : null,
     o.n ? el("p", { class: "footnote", text: `Shares over ${o.n.city} city titles and ${o.n.country} country titles; two points is one title, so small lifts are noise.` }) : null,
   ];

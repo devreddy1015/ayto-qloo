@@ -81,7 +81,10 @@ async function screenLook(q, run, where, country) {
   const cityEnts = city?.results?.entities ?? [];
   const countryEnts = nation?.results?.entities ?? [];
   const styles = shareLift(cityEnts, countryEnts, { families: ["style"], minAbs: 4, top: 8 });
-  for (const x of [...styles.over, ...styles.under]) registerName(run, x.name, "tag", { id: x.id });
+  const people = shareLift(cityEnts, countryEnts, { families: ["archetype", "theme"], minAbs: 4, top: 10 });
+  const archetypes = people.over.filter((x) => x.family === "archetype").slice(0, 5);
+  const themes = people.over.filter((x) => x.family === "theme").slice(0, 5);
+  for (const x of [...styles.over, ...styles.under, ...archetypes, ...themes]) registerName(run, x.name, "tag", { id: x.id });
   const onlyHere = new Set((run.stages.read?.output?.columns?.[type]?.onlyHere ?? []).map((n) => n.toLowerCase()));
   const described = cityEnts.filter((e) => e.properties?.style_description);
   const picks = [...described.filter((e) => onlyHere.has(String(e.name).toLowerCase())), ...described].slice(0, 3);
@@ -90,6 +93,8 @@ async function screenLook(q, run, where, country) {
     kind: "screen",
     styles: styles.over,
     avoid: styles.under,
+    archetypes,
+    themes,
     descriptions,
     n: { city: cityEnts.length, country: countryEnts.length },
     coverage: cityEnts.length ? "ok" : "none",
