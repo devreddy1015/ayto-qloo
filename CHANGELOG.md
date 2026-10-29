@@ -3,7 +3,19 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: "Where should I make it?"
+## Unreleased: an international home wall
+
+- **The home background now speaks to an international jury.** A wall of 39 titles known worldwide across
+  AYTO's themes, among them Oppenheimer, Parasite, Squid Game, Money Heist, Narcos, The Bear, Taylor Swift, BTS,
+  Bad Bunny and Burna Boy. Each one is found through Qloo's search, with Qloo's image, and only titles above the
+  popularity bar go on the wall. Runway photos stay woven in. The wall resolves in the background at boot and
+  is refreshed daily.
+- **India is about one tile in ten** on the home page (RRR, A.R. Rahman and a few of the Hyderabad showcase's
+  picks), and never in the first screenful. A city's own run page still shows that city's own picks.
+- A home wall without its world titles is never cached, so the first visitor after a restart isn't stuck with
+  it for five minutes.
+
+## PR #17 (29 Oct, 17:50): "Where should I make it?"
 
 - **A new question before the usual one.** "Let AYTO compare cities" (home page, and the confirm step when a city
   can't be placed) reads one theme across a market's ten largest cities with one Qloo tag read each. Every city
@@ -17,7 +29,7 @@ What changed in AYTO (Are You The One), newest first. Times are IST. Each entry 
 - **The MCP door gets a fourth tool**, `ayto_where_to_make`, so an agent can ask the same question.
 - "Adult" and other content ratings are never a lane.
 
-## Unreleased: ready for a real model and a deploy
+## PR #16 (29 Oct, 17:18): ready for a real model and a deploy
 
 - **Model replies that arrive broken still give a full page.** The writer reads the JSON after a thinking block,
   inside code fences or after a line of prose, and repairs a reply cut off by the token limit (the half-written
