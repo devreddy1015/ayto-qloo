@@ -102,7 +102,7 @@ export function pickTags(results = [], { max = 2, query } = {}) {
     .map((t) => ({ id: t.id, name: t.name, type: t.type }));
 }
 
-async function resolveTheme(q, run, input) {
+export async function resolveTheme(q, run, input) {
   const query = String(input.theme?.query ?? input.theme ?? "").trim();
   if (!query) return { query: "", tags: [] };
   const words = query.split(/\s*(?:,|\band\b|\/|\+)\s*/i).map((w) => w.trim()).filter(Boolean).slice(0, 3);

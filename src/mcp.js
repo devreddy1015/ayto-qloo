@@ -1,5 +1,5 @@
-// The agent door: AYTO as an MCP server over stateless Streamable HTTP. Three
-// tools that call the same engine stages the web app runs. A user credential
+// The agent door: AYTO as an MCP server over stateless Streamable HTTP. Four
+// tools that call the same engine the web app runs. A user credential
 // passed to ayto_write is used once and never stored.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -8,6 +8,8 @@ import { FORMAT_IDS } from "./formats.js";
 import { credentialFrom } from "./llm.js";
 import { parseInput } from "./parse.js";
 import { createRun, startRun } from "./pipeline/runner.js";
+import { whereToMake } from "./engine/where.js";
+import { CANDIDATE_CITIES } from "./cities.js";
 
 const formatSchema = z.enum(FORMAT_IDS).describe("film, reel or fashion");
 const cityDesc = "City with its country, e.g. 'Hyderabad, India'";
@@ -53,6 +55,15 @@ export function buildMcpServer() {
     return text(digest(run));
   });
 
+  server.registerTool(
+    "ayto_where_to_make",
+    { title: "Where should I make it?", description: "One theme across a market's ten largest cities: each city's open lanes, measured against the country and against the other cities, ranked by the widest gap, plus the flavours every city shares (crowded, not a gap). Qloo only, no model key needed.", inputSchema: { theme: z.string().describe("Genre or subject words, e.g. 'crime' or 'street food'"), format: formatSchema.default("film"), market: z.enum(Object.keys(CANDIDATE_CITIES)).default("India").describe("Country whose cities are compared") } },
+    async ({ theme, format, market }) => {
+      const out = await whereToMake({ format, theme, market });
+      const { ledger, ...rest } = out;
+      return text({ ...rest, receipts: ledger.length, note: "Aggregate Qloo taste affinity, not sales. Run ayto_find_gap or ayto_write for the city you pick." });
+    },
+  );
   server.registerTool("ayto_write", { title: "Write into the gap", description: "The full run: read, gap, and the written film, reel or drop, checked so every name traces to Qloo. Pass your own LLM provider and key; it is used for this call only and never stored.", inputSchema: { city: z.string().describe(cityDesc), theme: z.string().optional(), format: formatSchema.default("film"), loves: z.array(z.string()).optional(), provider: z.string().optional().describe("groq, openai, anthropic, gemini, mistral, openrouter, together, fireworks, deepseek, xai, cerebras, sambanova"), key: z.string().optional().describe("Your API key for that provider"), model: z.string().optional() } }, async ({ city, theme, format, loves, provider, key, model }) => {
     const credential = provider && key ? credentialFrom({ provider, key, model }) : undefined;
     const run = await runUntil(await parseInput({ text: "", format, city, theme: theme ?? "", loves: loves ?? [] }), undefined, credential);
@@ -84,7 +95,7 @@ export const discovery = (publicUrl) => ({
   name: "AYTO",
   version: "0.2.0",
   description: "Tell AYTO what you're making and where. Qloo reads what that city's people love and finds the gap; your own LLM writes the idea into it.",
-  mcp: { endpoint: `${publicUrl}/mcp`, transport: "streamable-http", stateless: true, tools: ["ayto_read_city", "ayto_find_gap", "ayto_write"] },
+  mcp: { endpoint: `${publicUrl}/mcp`, transport: "streamable-http", stateless: true, tools: ["ayto_where_to_make", "ayto_read_city", "ayto_find_gap", "ayto_write"] },
   http: { parse: `${publicUrl}/api/parse`, runs: `${publicUrl}/api/runs`, events: `${publicUrl}/api/runs/{id}/events` },
   data: { source: "Qloo taste graph (hackathon API)", nature: "aggregate taste affinity across large groups", personalData: "none sent, none inferred", sales: "not sales data, not a prediction of success" },
   llm: { byok: true, stored: false, providers: 12 },

@@ -9,6 +9,7 @@ Live demo: _coming before submission_ · Source: [github.com/devreddy1015/ayto-q
 **Who it's for.** The filmmaker in Hyderabad, and the production house behind them, deciding what to make next. Everything else is the same engine in another format.
 
 - Making a **crime short film in Hyderabad**? You get the lanes the city loves and isn't getting (Folk, Finance, Revenge and Justice: Hyderabad ranks each 15 to 17 places higher than India does and than the median of Bengaluru, Chennai and Kolkata, and not one recent crime film carries them), the look its crime crowd leans to (Cinematic, Moody, Atmospheric, Gritty; not Observational or Clinical), three titles, a logline, three acts, five or six beats, characters (what each wants and hides, their look, their arc), the films to study with the shot to borrow from each, the actors Hyderabad favours beyond India, a shoot base and locations from the places this crowd goes, camera and light notes for your budget, a palette, a composer shortlist, and the cities that lean the same way.
+- Not sure **where** yet? Say "a crime short film in India" and click **Let AYTO compare cities**. AYTO reads the theme across the country's ten largest cities, measures each city against the country and against the other nine, and maps where the widest open lane is: Kolkata's is Crime Lord, Delhi's Finance, Mumbai's Gender Violence, while Martial Arts and Biographical are crowded in nearly every city. One click runs the full treatment for the city you pick.
 - Same engine, seven other formats: a **reel** (hook, beats, song, spots, caption), a **fashion drop** (styles you can turn in 3D, a palette, brands to study, a first production run with costing), a **podcast**, an **indie game**, a **café menu and playlist**, a **live event night**, a **book or web novel**. Say which, or let AYTO read it from the sentence.
 
 Every name on the page comes from a Qloo request you can open. It never says "hit"; it says "built on what this city already loves".
@@ -68,7 +69,7 @@ Twelve providers, eleven on the same OpenAI-compatible wire format plus an Anthr
 
 ## The agent door
 
-`POST /mcp` is a stateless Model Context Protocol server (Streamable HTTP) with three tools that call the same engine: `ayto_read_city`, `ayto_find_gap`, `ayto_write`. Discovery at `/.well-known/ayto.json`. A key passed to `ayto_write` is used for that call only.
+`POST /mcp` is a stateless Model Context Protocol server (Streamable HTTP) with four tools that call the same engine: `ayto_where_to_make` (rank a market's cities for a theme), `ayto_read_city`, `ayto_find_gap`, `ayto_write`. Discovery at `/.well-known/ayto.json`. A key passed to `ayto_write` is used for that call only.
 
 ---
 

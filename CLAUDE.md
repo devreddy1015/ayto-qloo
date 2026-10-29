@@ -24,7 +24,8 @@ server default is Groq. MCP door in src/mcp.js. Hackathon host: https://hackatho
 ## Code map
 - src/formats.js: formats (film, reel, fashion, podcast, game, cafe, event, book), their entity types and stage plans, stage labels, parse hints.
 - src/parse.js: sentence → input (model or rules) + Qloo candidates for the confirm step.
-- src/engine/: resolve, read (three columns), gap (demand lift + supply from a tagged catalogue read), audio, spots, audience, travels.
+- src/engine/: resolve, read (three columns), gap (demand lift + supply from a tagged catalogue read), audio, spots, audience, travels;
+  where.js ("Where should I make it?": one theme across a market's 10 largest cities, peerLift = lift − 70th pct of the others; POST /api/where, MCP ayto_where_to_make).
 - src/writers/: one prompt per format + evidence digest + grounding paths (shared.js). src/pipeline/produce.js: fashion production path.
 - src/pipeline/: runner (per-run plan, edit-and-rerun, regenerate), store, evidence (ledger), write, check, diff, share, page.
 - src/llm.js (providers, redactor, boot probe), src/keys.js (per-run credentials, memory only), src/mcp.js, src/server.js.
@@ -89,7 +90,7 @@ PREWARM=1 runs them at boot. Scratch probes live outside the repo.
 ## Status (29 Oct 2026, 03:30 IST)
 Done and on GitHub main (devreddy1015/ayto-qloo, MIT detected): engine, eight formats (film, reel, fashion, podcast, game, cafe,
 event, book), writers with a rewrite-once loop, check, diff, share, produce stage (fashion), 3D garment viewer (public/garment3d.js),
-BYOK with 12 providers (Anthropic adapter carries tool calls), MCP door, fake mode, 74 tests, dark infinite-canvas UI. Writers survive broken model replies (parseModelJson, normalizePlan; test/llm-e2e.test.js). LLM_PROVIDER=local + LLM_BASE_URL for a server-side local model. CHANGELOG.md lists every change by PR.
+BYOK with 12 providers (Anthropic adapter carries tool calls), MCP door, fake mode, 77 tests, dark infinite-canvas UI. Writers survive broken model replies (parseModelJson, normalizePlan; test/llm-e2e.test.js). LLM_PROVIDER=local + LLM_BASE_URL for a server-side local model. CHANGELOG.md lists every change by PR.
 29 Oct 14:30 IST: after a side-by-side with itsgiving (a friend's Qloo film tool), the film writer returns a full treatment (beats,
 characters, borrow per reference, shoot base, locations, camera, palette; budget aware) and the film plan has the spots stage.
 Blocked on the user: an LLM key on this box (every attempt to add ANTHROPIC_API_KEY to the worktree .env left the file unchanged;
