@@ -8,14 +8,16 @@
 import { demandLift, shareLift, tagPoints } from "../analysis.js";
 import { evidenceFor, registerName } from "../pipeline/evidence.js";
 import { qlooEntities } from "../qloo.js";
-import { crowdIds, format, lovesIds, placeLabel, themeTagIds } from "./common.js";
+import { crowdIds, format, lovesIds, signalLocation, themeTagIdsFor } from "./common.js";
+
+const nameOf = (where) => (typeof where === "string" ? nameOf(where) : where?.name ?? "");
 
 const TAKE = 30;
 const FASHION_TAG = "urn:tag:genre:brand:fashion";
 
 async function typedLift(q, run, { family, where, country, label }) {
-  const read = (place, title) => q.tryInsights(title, { "filter.type": "urn:tag", "filter.tag.types": `urn:tag:${family}:qloo`, "filter.parents.types": "urn:entity:brand", "signal.location.query": place, take: TAKE });
-  const [city, nation] = await Promise.all([read(where, `${label} ${where.split(",")[0]} leans to`), read(country, `Same ${label.toLowerCase()} for ${country}`)]);
+  const read = (place, title) => q.tryInsights(title, { "filter.type": "urn:tag", "filter.tag.types": `urn:tag:${family}:qloo`, "filter.parents.types": "urn:entity:brand", ...signalLocation(place), take: TAKE });
+  const [city, nation] = await Promise.all([read(where, `${label} ${nameOf(where)} leans to`), read(country, `Same ${label.toLowerCase()} for ${country}`)]);
   const cityTags = tagPoints(city ?? {});
   const countryTags = tagPoints(nation ?? {});
   const lift = demandLift(cityTags, countryTags, { take: TAKE });
@@ -30,8 +32,8 @@ async function fashionLook(q, run, where, country) {
   const [aesthetics, styles, cityCat, countryCat, loves] = await Promise.all([
     typedLift(q, run, { family: "aesthetic_property", where, country, label: "Aesthetics" }),
     typedLift(q, run, { family: "personal_style", where, country, label: "Personal styles" }),
-    q.tryInsights(`Fashion labels ${where.split(",")[0]} favours, with their materials and ages`, { "filter.type": "urn:entity:brand", "filter.tags": FASHION_TAG, "signal.location.query": where, take: 50 }),
-    q.tryInsights(`Same labels for ${country}`, { "filter.type": "urn:entity:brand", "filter.tags": FASHION_TAG, "signal.location.query": country, take: 50 }),
+    q.tryInsights(`Fashion labels ${nameOf(where)} favours, with their materials and ages`, { "filter.type": "urn:entity:brand", "filter.tags": FASHION_TAG, ...signalLocation(where), take: 50 }),
+    q.tryInsights(`Same labels for ${country}`, { "filter.type": "urn:entity:brand", "filter.tags": FASHION_TAG, ...signalLocation(country), take: 50 }),
     lovesIds(run).length ? q.tryStep("The loves' own style and theme tags", "qloo api entities", { ids: lovesIds(run) }, async () => ({ results: (await qlooEntities(lovesIds(run))).results ?? [], provenance: { source: "Qloo API", endpoint: "/entities", requests: [{ method: "GET", path: "/entities", query: { entity_ids: lovesIds(run) } }] } })) : Promise.resolve(undefined),
   ]);
   const cityEnts = cityCat?.results?.entities ?? [];
@@ -49,7 +51,7 @@ async function fashionLook(q, run, where, country) {
   const motifs = (loves?.results ?? []).flatMap((e) => (e.tags ?? []).filter((t) => /^urn:tag:(style|theme|aesthetic_property|design_inspiration|motif):qloo:/.test(String(t.tag_id ?? t.id ?? ""))).slice(0, 8).map((t) => ({ id: t.tag_id ?? t.id, name: t.name, from: resolvedLoves.find((l) => l.id === e.entity_id)?.name ?? e.name })));
   for (const m of motifs) registerName(run, m.name, "tag", { id: m.id });
   const kids = /kid|child|boys|girls|toddler|baby/i.test(`${run.input.text} ${run.input.theme?.query ?? ""}`);
-  const note = kids ? `Qloo has no children's age tag on fashion labels, so this is the taste of the adults who buy in ${where.split(",")[0]} (the parents), not of the children.` : undefined;
+  const note = kids ? `Qloo has no children's age tag on fashion labels, so this is the taste of the adults who buy in ${nameOf(where)} (the parents), not of the children.` : undefined;
   const headline = [...aesthetics.over.slice(0, 3).map((t) => t.name), ...materials.over.slice(0, 2).map((t) => t.name)];
   return {
     kind: "fashion",
@@ -65,18 +67,18 @@ async function fashionLook(q, run, where, country) {
     note,
     n: { city: cityEnts.length, country: countryEnts.length },
     coverage: aesthetics.coverage === "none" && !cityEnts.length ? "none" : "ok",
-    summary: headline.length ? `${where.split(",")[0]} leans ${headline.join(", ")}${ages.over[0] ? `; skews ${ages.over[0].name}` : ""}${materials.under[0] ? `; below ${country} on ${materials.under.map((m) => m.name).join(", ")}` : ""}.` : "No fashion look could be read for this city.",
+    summary: headline.length ? `${nameOf(where)} leans ${headline.join(", ")}${ages.over[0] ? `; skews ${ages.over[0].name}` : ""}${materials.under[0] ? `; below ${country} on ${materials.under.map((m) => m.name).join(", ")}` : ""}.` : "No fashion look could be read for this city.",
   };
 }
 
 async function screenLook(q, run, where, country) {
   const f = format(run);
   const type = f.types[0];
-  const themeIds = themeTagIds(run);
+  const themeIds = themeTagIdsFor(run, type);
   const base = themeIds.length ? { "filter.tags": themeIds[0] } : { "signal.interests.entities": crowdIds(run) };
   const [city, nation] = await Promise.all([
-    q.tryInsights(`The ${type === "tv_show" ? "series" : "films"} ${where.split(",")[0]} favours, with their style tags`, { "filter.type": `urn:entity:${type}`, ...base, "signal.location.query": where, take: 50 }),
-    q.tryInsights(`Same catalogue for ${country}, with style tags`, { "filter.type": `urn:entity:${type}`, ...base, "signal.location.query": country, take: 50 }),
+    q.tryInsights(`The ${type === "tv_show" ? "series" : "films"} ${nameOf(where)} favours, with their style tags`, { "filter.type": `urn:entity:${type}`, ...base, ...signalLocation(where), take: 50 }),
+    q.tryInsights(`Same catalogue for ${country}, with style tags`, { "filter.type": `urn:entity:${type}`, ...base, ...signalLocation(country), take: 50 }),
   ]);
   const cityEnts = city?.results?.entities ?? [];
   const countryEnts = nation?.results?.entities ?? [];
@@ -98,14 +100,14 @@ async function screenLook(q, run, where, country) {
     descriptions,
     n: { city: cityEnts.length, country: countryEnts.length },
     coverage: cityEnts.length ? "ok" : "none",
-    summary: styles.over.length ? `The look ${where.split(",")[0]} leans to: ${styles.over.slice(0, 4).map((s) => `${s.name} +${s.lift}`).join(", ")}${styles.under.length ? `; less ${styles.under.slice(0, 2).map((s) => s.name).join(", ")}` : ""}.` : "No style lift could be read.",
+    summary: styles.over.length ? `The look ${nameOf(where)} leans to: ${styles.over.slice(0, 4).map((s) => `${s.name} +${s.lift}`).join(", ")}${styles.under.length ? `; less ${styles.under.slice(0, 2).map((s) => s.name).join(", ")}` : ""}.` : "No style lift could be read.",
   };
 }
 
 export async function look(run) {
   const q = evidenceFor(run, "look");
   const r = run.stages.resolve.output;
-  const where = placeLabel(r.city);
+  const where = r.city;
   const country = r.city.market ?? r.city.country;
   return format(run).id === "fashion" ? fashionLook(q, run, where, country) : screenLook(q, run, where, country);
 }

@@ -20,9 +20,15 @@ function countryOf(hit) {
   return a?.name ?? lower(hit?.disambiguation).split(",").at(-1)?.trim();
 }
 
+/** The state or province in a locality's parent chain (admin level 4), for an unambiguous location label. */
+function stateOf(hit) {
+  const a = (hit?.properties?.ancestors ?? []).find((x) => x?.place === "state" || x?.admin_level === 4);
+  return a?.name && lower(a.name) !== lower(localityName(hit)) ? a.name : undefined;
+}
+
 export const toCity = (hit, countryHint) => {
   const country = countryOf(hit) ?? countryHint;
-  return { id: hit.entity_id, name: displayName(localityName(hit)), lat: hit.location?.lat, lon: hit.location?.lon, country, market: marketFor(country) ?? countryHint, level: hit.properties?.admin_level, popularity: hit.popularity, qlooName: hit.disambiguation ?? hit.name };
+  return { id: hit.entity_id, name: displayName(localityName(hit)), state: stateOf(hit), lat: hit.location?.lat, lon: hit.location?.lon, country, market: marketFor(country) ?? countryHint, level: hit.properties?.admin_level, popularity: hit.popularity, qlooName: hit.disambiguation ?? hit.name };
 };
 
 /** Rank locality hits for a free query: exact name, city-sized, popular. */
@@ -91,13 +97,20 @@ async function resolveTheme(q, run, input) {
   if (!query) return { query: "", tags: [] };
   const words = query.split(/\s*(?:,|\band\b|\/|\+)\s*/i).map((w) => w.trim()).filter(Boolean).slice(0, 3);
   const tags = [];
+  // Every word keeps its candidates: Qloo's tags are typed (a film genre tag filters no artist), so each
+  // entity type later picks the candidate of its own family (themeTagIdsFor in common.js).
+  const byWord = [];
   for (const word of words) {
     const env = await q.tryTool(`Find Qloo's tag for “${word}”`, "qloo_find_tags", { query: word, limit: 12 });
-    const picked = input.theme?.ids?.length ? (env?.results ?? []).filter((t) => input.theme.ids.includes(t.id)).map((t) => ({ id: t.id, name: t.name, type: t.type })) : [];
-    for (const t of picked.length ? picked : pickTags(env?.results ?? [], { max: 1, query: word })) if (!tags.some((x) => x.id === t.id)) tags.push(t);
+    const candidates = (env?.results ?? []).filter((t) => t?.id && t?.name).map((t) => ({ id: t.id, name: t.name, type: t.type }));
+    const picked = input.theme?.ids?.length ? candidates.filter((t) => input.theme.ids.includes(t.id)) : [];
+    const chosen = picked.length ? picked : pickTags(env?.results ?? [], { max: 1, query: word });
+    for (const t of chosen) if (!tags.some((x) => x.id === t.id)) tags.push(t);
+    if (chosen.length) byWord.push({ word, chosen: chosen[0], candidates: candidates.slice(0, 12) });
   }
   for (const t of tags) registerName(run, t.name, "tag", { id: t.id });
-  return { query, words, tags };
+  for (const w of byWord) for (const c of w.candidates) if (lower(c.name) === lower(w.chosen.name)) registerName(run, c.name, "tag", { id: c.id });
+  return { query, words, tags, byWord };
 }
 
 async function resolveLove(q, run, love) {

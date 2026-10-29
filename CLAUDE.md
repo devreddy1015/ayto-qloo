@@ -37,7 +37,8 @@ demand lift = country rank − city rank of a flavour tag (tag read with the the
 supply = recent (last 4 years) titles in the city's themed catalogue (raw entity Insights, with tags) that carry the flavour.
 Control cities (3 from CANDIDATE_CITIES, not the city or contrast): specific lift = lift − median(control lifts); lanes rank on it
 (scope "this city" ≥ 8, "leans here" ≥ 3, else "most cities"). gap = (lift/30) × (1 − min(recent,10)/10). A lane must exist in the
-catalogue at least once unless specific ≥ 20 (then zero supply is the open lane). Compare only within one response.
+catalogue at least once unless specific ≥ 10 (then zero supply is the open lane). A control that does not list a flavour
+counts as lift (countryRank ?? 31) − 31, i.e. 0 when the country lacks it too (specificLift in src/analysis.js). Compare only within one response.
 Look stage (src/engine/look.js): film = style-tag share lift between city and country catalogues + style_description quotes;
 fashion = aesthetic/personal_style typed tag lift + material/age/segment share lift on fashion labels + the loves' own tags.
 Research behind this: /home/dev/hackthons/culture-gap/research.txt (29 Oct 2026, another session; verified live).
@@ -60,6 +61,11 @@ Research behind this: /home/dev/hackthons/culture-gap/research.txt (29 Oct 2026,
   for the theme, or `signal.interests.entities` for loves.
 - `/v2/trending` is frozen (flat series). Unsupported params return 200 with empty results.
 - Place recommendations include junk names; cleanPlaceName() drops them and the card reports how many.
+- Location text fails silently for some cities and types ("Mumbai, India": 0 artists, needs_input for places). placeLabel() adds the
+  state ("Mumbai, Maharashtra, India"); raw Insights use the locality id (signalLocation()). The recommend tool rejects ids (400).
+- Tags are typed: genre:media:* filters no artists; genre:music:* / genre:qloo:* do. themeTagIdsFor(run, type) picks per type.
+- Empty answers (results [], needs_input) are cached in memory for 10 minutes only, never on disk (isEmptyAnswer in qloo.js).
+- Lane strength = min(lift over country, specific lift over controls); lanes rank on it.
 
 ## Run
 npm install · npm start (live if QLOO_API_KEY) · CULTURE_GAP_MODE=fake npm start · npm test · PORT=8787 locally (8080 is taken on

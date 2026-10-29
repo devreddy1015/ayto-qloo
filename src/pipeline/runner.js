@@ -117,7 +117,11 @@ function applyEdits(output, edits) {
   return merged;
 }
 
-/** Apply edits to a finished stage without rerunning it, then rerun everything after it. */
+/**
+ * Apply edits to a finished stage without rerunning it, then rerun everything after it.
+ * Resolves as soon as the rerun has started ({ done } is the whole rerun), and rejects
+ * with a plain message when it cannot start, so the caller can answer the request at once.
+ */
 export async function editAndRerun(run, stageId, edits, credential) {
   const index = run.plan.indexOf(stageId);
   if (index < 0) throw new Error("Unknown stage");
@@ -129,8 +133,7 @@ export async function editAndRerun(run, stageId, edits, credential) {
   emitEvent(run, { type: "stage", id: stageId, status: "done", output: state.output, edited: true });
   await saveRun(run);
   if (credential) setRunCredential(run.id, credential);
-  if (index + 1 < run.plan.length) return startRun(run, index + 1);
-  return run;
+  return { done: index + 1 < run.plan.length ? startRun(run, index + 1) : Promise.resolve(run) };
 }
 
 /** Rerun from a stage with changed input (production assumptions). The stages before it keep their outputs. */
@@ -144,7 +147,7 @@ export async function rerunFrom(run, stageId, { assumptions } = {}) {
     run.input.assumptions = { ...prev, ...assumptions, unitCost: { ...(prev.unitCost ?? {}), ...(assumptions.unitCost ?? {}) } };
   }
   await saveRun(run);
-  return startRun(run, index);
+  return { done: startRun(run, index) };
 }
 
 /** Rerun from the write stage, with a (new) credential. */
@@ -157,7 +160,7 @@ export async function regenerate(run, credential) {
     setRunCredential(run.id, credential);
     run.llm = { provider: credential.provider, model: credential.model, byok: true };
   }
-  return startRun(run, index);
+  return { done: startRun(run, index) };
 }
 
 function withTimeout(promise, ms, message) {
