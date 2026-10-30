@@ -35,8 +35,10 @@ export const providerList = () => Object.entries(PROVIDERS).filter(([, p]) => !p
 export function redact(text) {
   return String(text ?? "")
     .replace(/\b(sk-ant-|sk-or-|sk-|gsk_|AIza|xai-|csk-|fw_|hf_|r8_)[A-Za-z0-9_\-]{8,}/g, "$1[redacted]")
-    .replace(/\b[A-Za-z0-9_\-]{40,}\b/g, "[redacted]")
-    .replace(/(authorization|x-api-key|api[-_]?key)(["':\s=]+)[^\s"',]+/gi, "$1$2[redacted]");
+    .replace(/\bBearer\s+[^\s"',]+/gi, "Bearer [redacted]")
+    // Long random tokens: 40+ characters, or 32+ with both letters and digits (Mistral keys, UUID keys).
+    .replace(/\b[A-Za-z0-9_\-]{32,}\b/g, (m) => (m.length >= 40 || (/[A-Za-z]/.test(m) && /\d/.test(m)) ? "[redacted]" : m))
+    .replace(/(authorization|x-api-key|api[-_]?key)(["':\s=]+)(?!Bearer \[redacted\])[^\s"',]+/gi, "$1$2[redacted]");
 }
 
 /**
@@ -61,7 +63,8 @@ export function credentialFrom(body) {
   const provider = String(body.provider ?? "").toLowerCase();
   if (!PROVIDERS[provider] || PROVIDERS[provider].serverOnly) throw new LlmError(`Unknown LLM provider “${provider.slice(0, 20)}”.`);
   const key = String(body.key ?? "").trim();
-  if (key.length < 8 || key.length > 300 || /\s/.test(key)) throw new LlmError("That key doesn't look right.");
+  // Printable ASCII only: a control character would make fetch throw with the key inside its error message.
+  if (key.length < 8 || key.length > 300 || !/^[\x21-\x7e]+$/.test(key)) throw new LlmError("That key doesn't look right.");
   const model = typeof body.model === "string" && body.model.trim() ? body.model.trim().slice(0, 120) : undefined;
   return { provider, key, model };
 }

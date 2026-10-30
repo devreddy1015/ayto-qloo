@@ -26,6 +26,34 @@ const post = async (url, body) => {
   return json;
 };
 
+// Edit keys of the runs started in this browser. A change to any other run (a showcase someone else opened, a page
+// from the gallery) comes back as the visitor's own copy.
+const editKeyOf = (id) => {
+  try {
+    return localStorage.getItem(`ayto-edit:${id}`) || undefined;
+  } catch {
+    return undefined;
+  }
+};
+const keepEditKey = (id, key) => {
+  try {
+    if (id && key) localStorage.setItem(`ayto-edit:${id}`, key);
+  } catch {}
+};
+
+/** Change the open run (edit, regenerate, assumptions) and show the result: the run itself, or the copy made for this visitor. */
+async function changeRun(action, body) {
+  const id = state.run.id;
+  const out = await post(`/api/runs/${id}/${action}`, { ...body, editKey: editKeyOf(id) });
+  const next = out.forked?.id ?? id;
+  if (out.forked) {
+    keepEditKey(next, out.forked.editKey);
+    history.pushState({}, "", `/run/${next}`);
+  }
+  attach(next);
+  return out;
+}
+
 const FORMAT_CHIPS = [
   ["reel", "Reel"],
   ["film", "Short film"],
@@ -323,6 +351,12 @@ async function init() {
   });
   $("#where-button").addEventListener("click", () => findWhere());
   $("#text-input").addEventListener("input", () => markConfirmStale());
+  // Enter sends the sentence and Shift+Enter starts a new line; Enter that ends an IME word (Telugu, Hindi) stays with the IME.
+  $("#text-input").addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    $("#run-form").requestSubmit();
+  });
   $("#city-input").addEventListener("input", () => markConfirmStale());
   $("#theme-input").addEventListener("input", () => markConfirmStale());
   $("#ask-form").addEventListener("submit", (event) => {
@@ -494,7 +528,7 @@ function renderWhere(out) {
             { class: `where-city ${i === 0 && c.lanes.length ? "first" : ""}` },
             el("div", { class: "where-head" }, el("span", { class: "where-rank", text: `#${i + 1}` }), el("strong", { class: "where-name", text: c.name }), c.state ? el("span", { class: "sub", text: ` ${c.state}` }) : null),
             c.lanes.length
-              ? el("ul", { class: "where-lanes" }, c.lanes.map((l) => el("li", {}, el("strong", { text: l.name }), el("span", { class: "sub", text: ` +${l.lift} vs ${out.market} · +${l.specific ?? "?"} vs the other cities` }))))
+              ? el("ul", { class: "where-lanes" }, c.lanes.map((l) => el("li", {}, el("strong", { text: l.name }), el("span", { class: "sub", text: ` ${signed(l.lift)} vs ${out.market} · ${signed(l.specific ?? "?")} vs the other cities`}))))
               : el("p", { class: "muted small", text: c.coverage === "none" ? "Qloo returned no flavours for this city." : "Nothing here the other cities don't share." }),
             el("button", { type: "button", class: i === 0 && c.lanes.length ? "primary small" : "secondary small", text: `Make it in ${c.name}`, onclick: () => makeItHere(c, out) }),
           ),
@@ -519,7 +553,7 @@ function drawWhereMap(box, out) {
     const color = i === 0 && s > 0 ? "#f2be22" : s > 0 ? "#dfe3ff" : "#5d6382";
     const marker = L.circleMarker([c.lat, c.lon], { radius: 5 + (s / best) * 16, color, weight: 2, fillColor: color, fillOpacity: i === 0 ? 0.75 : 0.35 }).addTo(map);
     const label = document.createElement("div");
-    label.append(el("strong", { text: `#${i + 1} ${c.name}` }), el("br"), c.lanes[0] ? `${c.lanes[0].name} · +${c.lanes[0].lift}` : "no open lane");
+    label.append(el("strong", { text: `#${i + 1} ${c.name}` }), el("br"), c.lanes[0] ? `${c.lanes[0].name} · ${signed(c.lanes[0].lift)}` : "no open lane");
     marker.bindPopup(label);
   });
   if (pts.length) map.fitBounds(L.latLngBounds(pts.map((c) => [c.lat, c.lon])).pad(0.15));
@@ -676,6 +710,7 @@ async function runFromConfirm() {
   status.textContent = "Starting…";
   try {
     const run = await post("/api/runs", body);
+    keepEditKey(run.id, run.editKey);
     history.pushState({}, "", `/run/${run.id}`);
     attach(run.id);
   } catch (error) {
@@ -690,6 +725,7 @@ async function startShowcase(showcase) {
   $("#mode-note").textContent = "Starting the showcase…";
   try {
     const run = await post("/api/runs", { showcase: showcase.id });
+    keepEditKey(run.id, run.editKey);
     history.pushState({}, "", `/run/${run.id}`);
     attach(run.id);
   } catch (error) {
@@ -850,7 +886,8 @@ function updateStatus() {
   const u = run.usage;
   const meter = u?.calls ? ` Model tokens so far: ${(u.input + u.output).toLocaleString()} over ${u.calls} call${u.calls === 1 ? "" : "s"}${u.byok ? " on your key" : ""}.` : "";
   $("#run-status").textContent = `${head} ${mode[0].toUpperCase() + mode.slice(1)}; writing with ${llm}.${meter}`;
-  const calls = run.ledger?.length ?? $("#trace-list").children.length;
+  // The list, not the snapshot: calls stream in after the snapshot and only the list hears them.
+  const calls = $("#trace-list").children.length;
   $("#trace-status").textContent = `${calls} Qloo request${calls === 1 ? "" : "s"}`;
   if (run.status !== "running") setupAsk();
 }
@@ -986,13 +1023,14 @@ async function loadGallery() {
   const w = data?.walkthrough;
   const steps = $("#watch-steps");
   if (steps && w && (w.onlyHere?.length || w.lanes?.length)) {
-    $("#watch-sub").textContent = `One real run, step by step: ${w.kicker.toLowerCase()}${w.theme?.length ? `, ${w.theme.join(", ").toLowerCase()}` : ""}. ${w.calls} Qloo calls${w.tokens ? `, ${w.tokens.toLocaleString()} model tokens` : ""}.`;
+    // "A film for Hyderabad" → "a film for Hyderabad": only the first letter, the city keeps its capital.
+    $("#watch-sub").textContent = `One real run, step by step: ${(w.kicker ?? "").replace(/^./, (c) => c.toLowerCase())}${w.theme?.length ? `, ${w.theme.join(", ").toLowerCase()}` : ""}. ${w.calls} Qloo calls${w.tokens ? `, ${w.tokens.toLocaleString()} model tokens` : ""}.`;
     const step = (n, title, body, note) => el("li", { class: "watch-step" }, el("span", { class: "step-n", text: `Step ${n} of 4` }), el("h3", { text: title }), note ? el("p", { class: "block-note", text: note }) : null, body);
-    const lane = (l) => el("span", { class: "chip-inner" }, el("strong", { text: l.name }), el("small", { class: "sub", text: ` ${w.city} #${l.cityRank ?? "–"} · ${l.countryRank ? `${w.country} #${l.countryRank}` : `not in ${w.country}'s top 30`}${typeof l.specific === "number" ? ` · +${l.specific} vs control cities` : ""}${l.supplyTotal === 0 ? " · open lane" : ""}` }));
+    const lane = (l) => el("span", { class: "chip-inner" }, el("strong", { text: l.name }), el("small", { class: "sub", text: ` ${w.city} #${l.cityRank ?? "–"} · ${l.countryRank ? `${w.country} #${l.countryRank}` : `not in ${w.country}'s top 30`}${typeof l.specific === "number" ? ` · ${signed(l.specific)} vs control cities` : ""}${l.supplyTotal === 0 ? " · open lane" : ""}` }));
     steps.replaceChildren(
       step(1, `Read ${w.city}`, chips([...w.onlyHere.map((n) => el("span", { class: "chip-inner" }, el("strong", { text: n }))), ...w.hiddenGems.map((n) => el("span", { class: "chip-inner" }, el("strong", { text: n }), el("small", { class: "sub", text: " hidden gem" })))]), `Qloo lists what ${w.city} favours that ${w.country} doesn't, with a contrast city as a second check. Aggregate taste, never one person.`),
       step(2, "Find the gap", chips(w.lanes.map(lane)), "A flavour the city ranks far above the country and above three control cities, weighed by how few recent titles carry it."),
-      step(3, "Read the look", chips(w.look.map((x) => el("span", { class: "chip-inner" }, el("strong", { text: x.name }), typeof x.lift === "number" ? el("small", { class: "lift", text: ` +${x.lift}` }) : null))), "Style words from Qloo's own tags on what the city favours; a model never invents them."),
+      step(3, "Read the look", chips(w.look.map((x) => el("span", { class: "chip-inner" }, el("strong", { text: x.name }), typeof x.lift === "number" ? el("small", { class: "lift", text: ` ${signed(x.lift)}` }) : null))), "Style words from Qloo's own tags on what the city favours; a model never invents them."),
       step(4, "Write into it", el("div", { class: "watch-write" }, el("p", { class: "title-option first", text: w.title }), w.line ? el("p", { class: "lead", text: w.line }) : el("p", { class: "muted", text: w.written ? "" : "Written from the evidence template; add a key for the model's version." }), w.cast?.length ? el("p", { class: "sub", text: `Cast ideas: ${w.cast.join(", ")}` }) : null, w.url ? el("a", { class: "secondary-link", href: w.url, target: "_blank", rel: "noopener", text: "Read the whole piece" }) : null, w.grounded ? el("p", { class: "footnote", text: `${w.grounded.grounded} of ${w.grounded.checked} names trace to Qloo.` }) : null), w.llm?.byok ? "Written with the maker's own key." : w.written ? "Written with the server's model." : undefined),
     );
     $("#watch").hidden = false;
@@ -1005,7 +1043,7 @@ async function loadGallery() {
           el("span", { class: "kicker", text: c.kicker }),
           el("strong", { class: "showing-title", text: c.title }),
           c.line ? el("p", { class: "sub", text: c.line.length > 120 ? `${c.line.slice(0, 117)}…` : c.line }) : null,
-          c.lanes?.[0] ? el("p", { class: "small", text: `Lane: ${c.lanes[0].name}${typeof c.lanes[0].specific === "number" ? ` (+${c.lanes[0].specific} vs controls)` : ""}` }) : null,
+          c.lanes?.[0] ? el("p", { class: "small", text: `Lane: ${c.lanes[0].name}${typeof c.lanes[0].specific === "number" ? ` (${signed(c.lanes[0].specific)} vs controls)` : ""}` }) : null,
           c.palette?.length ? el("div", { class: "palette-strip" }, c.palette.map((p) => el("span", { style: `background:${/^#[0-9a-f]{6}$/i.test(p.hex ?? "") ? p.hex : "#555"}`, title: p.name ?? "" }))) : el("div", { class: "palette-strip ghost" }),
           el("span", { class: "footnote", text: `${c.calls} Qloo calls${c.grounded ? ` · ${c.grounded.grounded}/${c.grounded.checked} names traced` : ""}${c.written ? "" : " · template"}` }),
         ),
@@ -1406,8 +1444,7 @@ async function recompute(event) {
   const button = form.querySelector("button");
   button.disabled = true;
   try {
-    await post(`/api/runs/${run.id}/assumptions`, { assumptions });
-    attach(run.id);
+    await changeRun("assumptions", { assumptions });
   } catch (error) {
     showError(error.message);
     button.disabled = false;
@@ -1687,8 +1724,7 @@ async function regenerate(button) {
   button.disabled = true;
   status.textContent = language && language !== (state.run.stages?.write?.output?.language ?? "English") ? `Writing it in ${language}…` : "Writing again…";
   try {
-    await post(`/api/runs/${state.run.id}/regenerate`, { ...(c ? { llm: c } : {}), ...(language ? { language } : {}) });
-    attach(state.run.id);
+    await changeRun("regenerate", { ...(c ? { llm: c } : {}), ...(language ? { language } : {}) });
   } catch (error) {
     status.textContent = error.message;
     button.disabled = false;
@@ -1705,12 +1741,12 @@ async function makeLaneFirst(index) {
   const card = document.getElementById("stage-gap");
   const buttons = card.querySelectorAll("button");
   for (const b of buttons) b.disabled = true;
-  const body = { stage: "gap", edits: { lanes, summary: `Lane 1: ${lanes[0].name} (your pick).` } };
+  // The server rebuilds the order from its own lanes; only the name of the one to put first is sent.
+  const body = { stage: "gap", lane: lanes[0].name };
   const c = credential();
   if (c) body.llm = c;
   try {
-    await post(`/api/runs/${run.id}/edit`, body);
-    attach(run.id);
+    await changeRun("edit", body);
   } catch (error) {
     showError(error.message);
     for (const b of buttons) b.disabled = false;

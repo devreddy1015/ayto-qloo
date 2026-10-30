@@ -11,14 +11,29 @@ import { CANDIDATE_CITIES, closestKnownCity } from "./cities.js";
 import { FORMAT_IDS } from "./formats.js";
 import { marketFrom, whereToMake } from "./engine/where.js";
 import { renderShareMarkdown, renderSharePage } from "./pipeline/page.js";
-import { createRun, editAndRerun, isRunning, regenerate, rerunFrom, startRun } from "./pipeline/runner.js";
-import { findRunBySlug, loadRun, publicRun, subscribe } from "./pipeline/store.js";
+import { createRun, editAndRerun, forkRun, isRunning, laneFirstEdit, regenerate, rerunFrom, startRun } from "./pipeline/runner.js";
+import { findRunBySlug, loadRun, ownsRun, publicRun, subscribe } from "./pipeline/store.js";
 import { formatList, MARKETS, SHOWCASES } from "./presets.js";
 import { closeQloo, qlooStatus } from "./qloo.js";
 
 const app = express();
 app.disable("x-powered-by");
-app.set("trust proxy", true);
+// One proxy hop (Render's): req.ip is the address that proxy saw, not a client-supplied X-Forwarded-For.
+app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 1));
+
+// Express 4 lets a rejected async handler escape, and Node then exits: one bad request would take the server down.
+// Every handler registered below is guarded, so its errors reach the error handler at the end instead.
+const guard = (h) => (typeof h !== "function" || h.length === 4 ? h : (req, res, next) => {
+  try {
+    Promise.resolve(h(req, res, next)).catch(next);
+  } catch (error) {
+    next(error);
+  }
+});
+for (const method of ["get", "post", "delete"]) {
+  const register = app[method].bind(app);
+  app[method] = (path, ...handlers) => (handlers.length ? register(path, ...handlers.map(guard)) : register(path));
+}
 app.use(express.json({ limit: "64kb" }));
 // Pages, scripts and styles revalidate on every load (an ETag makes that a cheap 304), so a deploy is never
 // half old and half new in someone's browser; images and data may be cached for five minutes.
@@ -43,6 +58,8 @@ function allow(ip, { perHour = config.scansPerIpPerHour, bucket = "runs" } = {})
   if (recent.length + 1 > perHour) return false;
   recent.push(now);
   hits.set(key, recent);
+  // Drop addresses with nothing in the last hour, so the map can't grow without bound.
+  if (hits.size > 5000) for (const [k, list] of hits) if (!list.some((t) => now - t < 3600e3)) hits.delete(k);
   return true;
 }
 
@@ -78,6 +95,16 @@ const publicError = (error) =>
       : /rate|429/i.test(error?.message ?? "")
         ? "Qloo or the language model is rate limiting right now. Try again in a minute."
         : redact(error?.message ?? "Something went wrong.").slice(0, 300);
+
+/**
+ * The run a change applies to: the caller's own when their edit key matches, else a copy made for them, so nobody
+ * changes a run someone else started (a showcase, a page in the gallery). Returns the run and, for a copy, its key.
+ */
+async function ownRun(run, req) {
+  if (ownsRun(run, req.body?.editKey)) return { run };
+  const copy = await forkRun(run);
+  return { run: copy, forked: { id: copy.id, editKey: copy.editKey } };
+}
 
 /** The user's own credential, if the body carries one. Never logged, never echoed. */
 function credentialOf(body, res) {
@@ -169,13 +196,15 @@ app.post("/api/runs", async (req, res) => {
   // A showcase may carry the user's own key too, so a judge with a key gets real writing from one click.
   const credential = credentialOf(body, res);
   if (credential === null) return;
-  if (!showcase && !allow(req.ip)) return res.status(429).json({ error: "You've started a lot of runs this hour. Try again later." });
-  if (!showcase && !allowGlobal({ llm: !credential && llmAvailable() })) return res.status(503).json({ error: "The demo has hit today's budget. The showcase runs still work, or bring your own LLM key." });
+  // Showcases skip the daily budget (their Qloo reads are cached) but not the per-address limit.
+  if (showcase ? !allow(req.ip, { perHour: 30, bucket: "showcase" }) : !allow(req.ip)) return res.status(429).json({ error: "You've started a lot of runs this hour. Try again later." });
   try {
     const input = await parseInput(showcase ?? body);
+    // Counted only once the input is a real run, so empty or broken requests can't use up the day.
+    if (!showcase && !allowGlobal({ llm: !credential && llmAvailable() })) return res.status(503).json({ error: "The demo has hit today's budget. The showcase runs still work, or bring your own LLM key." });
     const run = await createRun(input, { showcase: showcase?.id, credential });
     startRun(run, 0).catch(() => {});
-    res.status(201).json({ id: run.id, input, llm: run.llm });
+    res.status(201).json({ id: run.id, editKey: run.editKey, input, llm: run.llm });
   } catch (error) {
     res.status(400).json({ error: publicError(error) });
   }
@@ -209,19 +238,27 @@ app.get("/api/runs/:id/events", async (req, res) => {
   res.on("close", unsubscribe);
 });
 
-/** Edit a finished stage's output and rerun everything after it. */
+/**
+ * Put one of the run's lanes first and rerun everything after the gap. That is the only edit the web takes: the
+ * lanes are rebuilt from the run, so no text or shape from the request is ever stored.
+ */
 app.post("/api/runs/:id/edit", async (req, res) => {
-  const run = await loadRun(req.params.id);
-  if (!run) return res.status(404).json({ error: "No such run." });
+  const original = await loadRun(req.params.id);
+  if (!original) return res.status(404).json({ error: "No such run." });
   if (!allow(req.ip)) return res.status(429).json({ error: "Too many reruns this hour." });
   const { stage, edits } = req.body ?? {};
-  if (typeof stage !== "string" || !edits || typeof edits !== "object") return res.status(400).json({ error: "Send a stage and edits." });
+  if (stage !== "gap") return res.status(400).json({ error: "Only the lane order can be changed." });
+  const first = edits?.lanes?.[0];
+  const lane = typeof req.body?.lane === "string" ? req.body.lane : typeof first === "string" ? first : first?.name;
+  if (typeof lane !== "string" || !laneFirstEdit(original, lane)) return res.status(400).json({ error: "Pick one of this run's lanes." });
+  if (isRunning(original.id)) return res.status(400).json({ error: "This run is still working. Wait for it to finish." });
   const credential = credentialOf(req.body, res);
   if (credential === null) return;
   try {
-    const job = await editAndRerun(run, stage, edits, credential);
+    const { run, forked } = await ownRun(original, req);
+    const job = await editAndRerun(run, "gap", laneFirstEdit(run, lane), credential);
     job.done.catch(() => {});
-    res.json({ ok: true });
+    res.json({ ok: true, ...(forked ? { forked } : {}) });
   } catch (error) {
     res.status(400).json({ error: publicError(error) });
   }
@@ -229,8 +266,8 @@ app.post("/api/runs/:id/edit", async (req, res) => {
 
 /** Change the production assumptions and recompute from the produce stage. Numbers only; nothing else in the run moves. */
 app.post("/api/runs/:id/assumptions", async (req, res) => {
-  const run = await loadRun(req.params.id);
-  if (!run) return res.status(404).json({ error: "No such run." });
+  const original = await loadRun(req.params.id);
+  if (!original) return res.status(404).json({ error: "No such run." });
   if (!allow(req.ip, { perHour: 30, bucket: "assumptions" })) return res.status(429).json({ error: "Too many recomputes this hour." });
   const a = req.body?.assumptions;
   if (!a || typeof a !== "object") return res.status(400).json({ error: "Send assumptions." });
@@ -243,10 +280,13 @@ app.post("/api/runs/:id/assumptions", async (req, res) => {
     clean.unitCost = {};
     for (const k of ["fabric", "cmt", "print", "trimsAndPacking"]) if (num(a.unitCost[k], 0, 1e5) !== undefined) clean.unitCost[k] = Math.round(a.unitCost[k]);
   }
+  if (!original.plan?.includes("produce")) return res.status(400).json({ error: "This run has no production stage." });
+  if (isRunning(original.id)) return res.status(400).json({ error: "This run is still working. Wait for it to finish." });
   try {
+    const { run, forked } = await ownRun(original, req);
     const job = await rerunFrom(run, "produce", { assumptions: clean });
     job.done.catch(() => {});
-    res.json({ ok: true, assumptions: run.input.assumptions });
+    res.json({ ok: true, assumptions: run.input.assumptions, ...(forked ? { forked } : {}) });
   } catch (error) {
     res.status(400).json({ error: publicError(error) });
   }
@@ -254,17 +294,21 @@ app.post("/api/runs/:id/assumptions", async (req, res) => {
 
 /** Write again, with the user's own key and/or in another language. */
 app.post("/api/runs/:id/regenerate", async (req, res) => {
-  const run = await loadRun(req.params.id);
-  if (!run) return res.status(404).json({ error: "No such run." });
+  const original = await loadRun(req.params.id);
+  if (!original) return res.status(404).json({ error: "No such run." });
   if (!allow(req.ip)) return res.status(429).json({ error: "Too many reruns this hour." });
   const credential = credentialOf(req.body, res);
   if (credential === null) return;
   if (!credential && !llmAvailable()) return res.status(400).json({ error: "Add a key to write again." });
+  const w = original.plan?.indexOf("write") ?? -1;
+  if (w < 0 || original.stages?.[original.plan[w - 1]]?.status !== "done") return res.status(400).json({ error: "The evidence stages must finish first." });
+  if (isRunning(original.id)) return res.status(400).json({ error: "This run is still working. Wait for it to finish." });
   if (!credential && !allowGlobal({ llm: true })) return res.status(503).json({ error: "The demo has hit today's budget. Bring your own key to write." });
   try {
+    const { run, forked } = await ownRun(original, req);
     const job = await regenerate(run, credential, { language: typeof req.body?.language === "string" ? req.body.language.slice(0, 30) : undefined });
     job.done.catch(() => {});
-    res.json({ ok: true, llm: run.llm });
+    res.json({ ok: true, llm: run.llm, ...(forked ? { forked } : {}) });
   } catch (error) {
     res.status(400).json({ error: publicError(error) });
   }
@@ -318,10 +362,15 @@ app.get("/.well-known/ayto.json", (req, res) => res.json(discovery(publicUrl(req
 app.post(
   "/mcp",
   (req, res, next) => {
+    // One JSON-RPC message per request (MCP dropped batching), so each tool call meets the limits below.
+    if (Array.isArray(req.body)) return res.status(400).json({ jsonrpc: "2.0", error: { code: -32600, message: "Send one JSON-RPC message per request." }, id: null });
     const id = req.body?.id ?? null;
     if (!allow(req.ip, { perHour: 30, bucket: "mcp" })) return res.status(429).json({ jsonrpc: "2.0", error: { code: -32000, message: "Too many MCP calls this hour." }, id });
-    // A tool call runs the engine against Qloo: it counts against the same daily budget as a web run.
-    if (req.body?.method === "tools/call" && !allowGlobal()) return res.status(503).json({ jsonrpc: "2.0", error: { code: -32000, message: "The demo has hit today's Qloo budget." }, id });
+    // A tool call runs the engine against Qloo: it counts against the same daily budget as a web run, and a write
+    // without the caller's own key spends the server's model too.
+    const call = req.body?.method === "tools/call" ? req.body.params ?? {} : undefined;
+    const serverModel = call?.name === "ayto_write" && !call.arguments?.key && llmAvailable();
+    if (call && !allowGlobal({ llm: serverModel })) return res.status(503).json({ jsonrpc: "2.0", error: { code: -32000, message: "The demo has hit today's budget." }, id });
     next();
   },
   mcpHandler(),
@@ -329,7 +378,15 @@ app.post(
 app.get("/mcp", (_req, res) => res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "AYTO's MCP server is stateless: POST JSON-RPC here. Discovery at /.well-known/ayto.json" }, id: null }));
 app.delete("/mcp", (_req, res) => res.status(405).end());
 
-const server = app.listen(config.port, async () => {
+// Anything a route threw: logged without secrets, answered plainly, and the server stays up.
+app.use((error, req, res, _next) => {
+  console.error(`${req.method} ${req.path} failed: ${redact(error?.stack ?? error?.message ?? error).slice(0, 500)}`);
+  if (res.headersSent) return res.end();
+  res.status(500).json({ error: "Something went wrong on the server. Try again." });
+});
+process.on("unhandledRejection", (error) => console.error(`unhandled: ${redact(error?.stack ?? error?.message ?? error).slice(0, 500)}`));
+
+export const server = app.listen(config.port, async () => {
   const llm = await probeServerLlm();
   console.log(`AYTO on :${config.port} (mode=${config.mode}, llm=${llm.available ? `on (${llm.model})` : `off: ${llm.error ?? "no key"}`})`);
   if (process.env.PREWARM === "1" && config.mode !== "samples") setTimeout(prewarm, 3000);

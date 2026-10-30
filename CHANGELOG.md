@@ -3,7 +3,30 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: briefs in the city's own language
+## Unreleased: the public server holds up (bug hunt, batch 1)
+
+Found by a review of the server, the parser, the engine and the pipeline (30 Oct), each bug reproduced first.
+
+- **One bad request could take the server down for good.** Express 4 lets a rejected async route escape and Node
+  exits; an edit that stored a plan of the wrong shape then crashed it again on the next home page visit, after
+  every restart. Every route is now guarded, errors answer 500 with no stack, and the server stays up.
+- **Nobody can change a run they didn't start.** Each run gets an edit key, handed only to whoever started it
+  (kept in that browser, never sent with the run). A lane pick or a "Write again" on anyone else's run (a
+  showcase, a page from the gallery) makes the visitor their own copy, with the same receipts, and opens it; the
+  original stays as its owner left it. Edits are only the lane order now, rebuilt from the run's own lanes, so no
+  text from a request is stored. That also closes a share slug takeover and a replaceable share link.
+- A run cut off by a restart says so ("The server restarted while this run was working") instead of saying
+  "running" forever.
+- Rate limits: one trusted proxy hop (a made-up X-Forwarded-For no longer resets the limit), the daily budget
+  counts only valid runs, showcases have a per-address limit, the limiter's memory is pruned, and MCP takes one
+  message per request (a batch skipped the budget); MCP writes on the server's model count against its cap.
+- Keys: a key with control characters is refused (it used to surface inside an error), and the redactor now
+  catches `Bearer` tokens and 32-character keys.
+- In the app: Enter sends the sentence (Shift+Enter for a new line, IME Enter left alone), the receipts header
+  counts every request (it showed the snapshot's 12 of 44), the walkthrough says "a film for Hyderabad" (not
+  "hyderabad"), and negative lifts print as "-3", not "+-3".
+
+## PR #19 (30 Oct, 14:29): briefs in the city's own language
 
 - **"Write in": English, or the city's own language.** The confirm step offers English plus the languages of the
   city's own screen culture (Telugu for Hyderabad, Tamil for Chennai, Marathi or Hindi for Mumbai; English only

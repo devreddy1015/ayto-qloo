@@ -19,7 +19,7 @@ import { check } from "./check.js";
 import { diff } from "./diff.js";
 import { produce } from "./produce.js";
 import { share } from "./share.js";
-import { emitEvent, newId, saveRun } from "./store.js";
+import { emitEvent, newEditKey, newId, saveRun } from "./store.js";
 import { write } from "./write.js";
 
 export const STAGE_RUNNERS = { resolve, read, gap, look, audio, spots, audience, travels, write, check, produce, diff, share };
@@ -35,6 +35,7 @@ export async function createRun(input, meta = {}) {
   const plan = planFor(input.format);
   const run = {
     id: newId("r"),
+    editKey: newEditKey(),
     version: 1,
     createdAt: new Date().toISOString(),
     mode: meta.mode ?? config.mode,
@@ -132,9 +133,30 @@ export async function editAndRerun(run, stageId, edits, credential) {
   state.userEdits = { ...(state.userEdits ?? {}), ...edits };
   state.output = applyEdits(state.output, edits);
   emitEvent(run, { type: "stage", id: stageId, status: "done", output: state.output, edited: true });
-  await saveRun(run);
   if (credential) setRunCredential(run.id, credential);
-  return { done: index + 1 < run.plan.length ? startRun(run, index + 1) : Promise.resolve(run) };
+  // Start before any await, so a regenerate landing in between can't take the run first; the rerun saves the edit.
+  if (index + 1 < run.plan.length) return { done: startRun(run, index + 1) };
+  await saveRun(run);
+  return { done: Promise.resolve(run) };
+}
+
+/** The one edit the web app makes: one of the run's own lanes first. Built from the run, so nothing sent is stored. */
+export function laneFirstEdit(run, name) {
+  const lanes = run.stages.gap?.output?.lanes ?? [];
+  const pick = lanes.find((l) => l.name === name);
+  if (!pick) return undefined;
+  return { lanes: [pick, ...lanes.filter((l) => l !== pick)], summary: `Lane 1: ${pick.name} (your pick).` };
+}
+
+/**
+ * Someone else's run, copied for the person who wants to change it: the same evidence and receipts under a new id
+ * and edit key. The original (a showcase, a run in the gallery) stays exactly as its owner left it.
+ */
+export async function forkRun(run) {
+  const { events, editKey, publish, showcase, ...rest } = run;
+  const copy = { ...structuredClone(rest), id: newId("r"), editKey: newEditKey(), forkedFrom: run.id, createdAt: new Date().toISOString(), version: 1, events: [] };
+  await saveRun(copy);
+  return copy;
 }
 
 /** Rerun from a stage with changed input (production assumptions). The stages before it keep their outputs. */
@@ -147,7 +169,7 @@ export async function rerunFrom(run, stageId, { assumptions } = {}) {
     const prev = run.input.assumptions ?? {};
     run.input.assumptions = { ...prev, ...assumptions, unitCost: { ...(prev.unitCost ?? {}), ...(assumptions.unitCost ?? {}) } };
   }
-  await saveRun(run);
+  // The rerun saves the new assumptions itself; no await before it, so nothing can start in between.
   return { done: startRun(run, index) };
 }
 
