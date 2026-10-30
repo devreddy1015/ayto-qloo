@@ -3,6 +3,21 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: a concept image for every brief
+
+- **One click under any finished brief draws a concept image** with OpenAI (`gpt-image-2.5-flare`, falling back to
+  `gpt-image-2` for an account without it): a film's mood still, a café's room from the doorway, a drop's hero garment, a
+  reel's opening frame, a book or podcast cover, a game's key art.
+- **The prompt is built from the run, not made up:** the brief's own logline or concept, Qloo's look words, the brief's
+  palette, and the city and area AYTO found. Every name a Qloo read put in the run (titles, artists, brands, venues) is
+  scrubbed out first, and the prompt asks for no text, logos, real people, real posters or real venues.
+- **It is never a stage**, so a run never waits on it or fails because of it. One image per run: a second click shows
+  the same one. Capped at 6 an hour per visitor and 40 a day for the site (`MAX_IMAGES_PER_DAY`). It is off, with no
+  button, when the server has no `OPENAI_API_KEY`.
+- **Routes:** `POST /api/runs/:id/image` (starts drawing, 202), `GET /api/runs/:id/image` (status), and
+  `GET /api/runs/:id/image.jpg`. Tests run against a fake image API (model fallback, no Qloo name in the prompt, the
+  file served, off without a key).
+
 ## PR #30 (31 Oct, 02:49): Claude writes on the live site; a café's lanes are tastes, not people
 
 - **Claude (Sonnet 5.5) works as the writer.** With the live site switched to Anthropic, every call failed with

@@ -2192,3 +2192,10 @@ details.raw > summary {
 .q { position: relative; cursor: help; }
 .q .q-rank { font-size: 0.65em; color: #f2be22; margin-left: 0.25em; font-weight: 700; }
 @media (max-width: 720px) { .watch-steps, .showing-cards { grid-template-columns: minmax(0, 1fr); } }
+
+/* Concept image (OpenAI), under the written brief */
+.concept-image { margin: 1.5rem 0 0; display: grid; gap: 0.6rem; justify-items: start; }
+.concept-image img { width: 100%; height: auto; border-radius: var(--radius-md); border: 1px solid var(--line); display: block; }
+.concept-image figcaption { color: var(--fg-mute); font-size: var(--step--1); }
+.concept-image figcaption a { color: var(--link); }
+.concept-wait { width: 100%; aspect-ratio: 3 / 2; border-radius: var(--radius-md); }
