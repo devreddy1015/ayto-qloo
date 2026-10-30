@@ -9,7 +9,7 @@ const BUDGET_NOTES = {
 export const film = {
   id: "film",
   thought: "Writing the film into the gap…",
-  maxTokens: 4200,
+  maxTokens: 4800,
   system: `You are a story developer and line producer. A filmmaker is making a film in a city. Qloo's taste evidence tells you what that city's audience favours beyond the rest of the country, which flavours it leans to, which lanes are loved but under-served (high demand, little recent supply), the look the city leans to, the places this crowd goes and where they cluster. Write a treatment into lane 1 that the filmmaker can shoot.
 ${RULES}
 - Characters are yours to invent (names fitting the city). Every title, person, artist, place and neighbourhood must come from the evidence.
@@ -21,6 +21,7 @@ Return JSON:
  "theme":"one sentence on what it is really about",
  "look":"one or two sentences on the visual style, using only the style words the evidence gives for this city",
  "synopsis":{"act1":"2-3 sentences","act2":"2-3 sentences","act3":"2-3 sentences"},
+ "story":"the story, simply: 120-200 words of plain English in the present tense, for someone who has read nothing else here. Who wants what, what stands in the way, how it turns, how it ends. Name only your invented characters and the city; no titles, artists, places or brands",
  "beats":[{"title":"3-5 words","what":"two sentences of what happens on screen","who":["character names"],"after":{"title":"a reference title from the evidence whose staging this beat borrows, or empty"},"where":{"name":"a place name from the evidence, or empty"}}],
  "characters":[{"name":"invented, fits the city","role":"one line: age, job, place in the story","wants":"one line","hides":"one line","look":"one line of wardrobe, concrete and within budget","arc":"where we meet them, where we leave them","archetype":"one of the character archetypes the evidence says this city leans to, or empty"}],
  "references":[{"title":"from the evidence","borrow":"one concrete shot, staging or edit choice to borrow, phrased as an instruction"}],
@@ -43,6 +44,8 @@ Give 3 titles, 5-6 beats, 2-4 characters, 3-5 references, 2-4 cast ideas (only p
     const base = ev.shoot_base ?? (ev.neighbourhoods?.[0] ? { name: ev.neighbourhoods[0] } : undefined);
     return {
       titles: [],
+      // Built in finish() below from whatever the plan ends up holding, so a model's plan never gets the template's.
+      story: "",
       lane: lane ? { flavour: lane.flavour, why: `${ev.city} ranks it #${lane.city_rank}; ${ev.country} ${typeof lane.country_rank === "number" ? `ranks it #${lane.country_rank}` : "doesn't rank it in its top 30"}.` } : undefined,
       logline: "",
       theme: "",
@@ -65,4 +68,30 @@ Give 3 titles, 5-6 beats, 2-4 characters, 3-5 references, 2-4 cast ideas (only p
       fallback: true,
     };
   },
+  /**
+   * The story, simply: the model's own telling; else its logline and three acts in a row; else, with no model, the
+   * shape the evidence gives the film (its lane, look and where it would be shot). Never invented.
+   */
+  finish(plan, ev) {
+    if (str(plan.story).trim()) return plan;
+    const acts = plan.synopsis && typeof plan.synopsis === "object" ? ["act1", "act2", "act3"].map((k) => str(plan.synopsis[k])) : [str(plan.synopsis)];
+    const told = [str(plan.logline), ...acts].map((x) => x.trim()).filter(Boolean).join(" ");
+    return { ...plan, story: told || shapeOf(plan, ev) };
+  },
 };
+
+const str = (v) => (typeof v === "string" ? v : "");
+
+/** What the template knows about the film, told plainly, for a run with no language model. */
+function shapeOf(plan, ev) {
+  const look = (ev.look?.style_this_city_leans_to ?? []).slice(0, 3).map((x) => x.replace(/\s*\(\+[\d.]+\)$/, ""));
+  const places = (plan.locations ?? []).map((l) => str(l?.name)).filter(Boolean).slice(0, 3);
+  const base = str(plan.shoot_base?.name);
+  return [
+    "No language model wrote this one, so there is no story yet, only the shape the evidence gives it.",
+    plan.lane?.flavour && `It is a ${String(plan.lane.flavour).toLowerCase()} film${ev.city ? ` for ${ev.city}` : ""}. ${str(plan.lane.why)}`.trim(),
+    look.length && `The look leans ${look.join(", ")}.`,
+    (base || places.length) && `It would be shot ${base ? `around ${base}` : "in the city"}${places.length ? `, at ${places.join(", ")}` : ""}.`,
+    "Add a language model key and this becomes the story in plain words: who wants what, what stands in the way, how it turns, how it ends.",
+  ].filter(Boolean).join(" ");
+}

@@ -44,6 +44,8 @@ export async function writeWith(run, { forbid = [] } = {}) {
   const nameLists = new Set((GROUND[writer.id] ?? []).map(([path]) => path.match(/^plan\.([a-z_]+)\[\]$/)?.[1]).filter(Boolean));
   if (plan) ({ plan, filled } = normalizePlan(plan, template, { nameLists }));
   plan ??= template;
+  // A writer may complete the plan from its own fields (the film's plain-language story).
+  if (writer.finish) plan = writer.finish(plan, evidence);
   const server = serverCredential();
   const llm = credential ? { provider: credential.provider, model: credential.model ?? PROVIDERS[credential.provider].model, byok: true } : { provider: server?.provider ?? "none", model: server ? server.model ?? PROVIDERS[server.provider].model : undefined, byok: false, server: true };
   return {

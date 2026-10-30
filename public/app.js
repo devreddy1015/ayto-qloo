@@ -1542,6 +1542,7 @@ const WRITE = {
     const lighting = p.camera?.lighting ?? [];
     const shots = p.camera?.shots ?? [];
     return [
+      p.story ? el("div", { class: "story-simply" }, el("span", { class: "k", text: "The story, simply" }), el("p", { text: p.story })) : null,
       titles.length ? el("div", { class: "titles" }, titles.map((t, i) => el("span", { class: `title-option ${i === 0 ? "first" : ""}`, text: t }))) : el("p", { class: "muted", text: "No titles yet." }),
       p.lane?.flavour ? el("p", { class: "lane-line" }, tag("Lane", "lane-tag"), " ", q(p.lane.flavour), p.lane.why ? el("span", { class: "sub", text: ` ${p.lane.why}` }) : null) : null,
       p.logline ? el("p", { class: "lead", text: p.logline }) : null,
@@ -1725,6 +1726,7 @@ function planText(o) {
   const names = (arr, f = (x) => x) => (arr ?? []).map((x) => (typeof x === "string" ? x : f(x))).filter(Boolean).join(", ");
   if (o.writer === "film") {
     add("Titles", names(p.titles));
+    add("The story, simply", p.story);
     add("Lane", p.lane?.flavour && `${p.lane.flavour}${p.lane.why ? ` — ${p.lane.why}` : ""}`);
     add("Logline", p.logline);
     add("Theme", p.theme);

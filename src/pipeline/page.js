@@ -27,6 +27,7 @@ function filmBody(p) {
   const camera = p.camera && typeof p.camera === "object" ? p.camera : {};
   const base = p.shoot_base && typeof p.shoot_base === "object" ? p.shoot_base : p.shoot_base ? { name: txt(p.shoot_base) } : undefined;
   return [
+    section("The story, simply", para(p.story)),
     section("Logline", para(p.logline)),
     section("Theme", para(p.theme)),
     section("Look", para(p.look)),
@@ -103,7 +104,7 @@ export function renderShareMarkdown(run) {
     for (const l of arr(pg.lanes).map(rec)) lines.push(`- **${l.name}**: ${pg.city} #${l.cityRank} · ${pg.country} #${l.countryRank ?? "–"}${l.supplyCount !== undefined ? ` · ${l.supplyCount} recent titles` : ""}`);
     lines.push("");
   }
-  const label = (k) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+  const label = (k) => (k === "story" ? "The story, simply" : k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()));
   const present = (vv) => vv !== undefined && vv !== null && vv !== "" && typeof vv !== "boolean" && !(Array.isArray(vv) && !vv.length) && !(typeof vv === "object" && !Array.isArray(vv) && !Object.values(vv).some((x) => x !== undefined && x !== ""));
   // Nested values flatten to text: lists join, objects become "key value" pairs, so nothing prints as [object Object].
   const flat = (vv) => {
