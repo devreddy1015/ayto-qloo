@@ -28,6 +28,8 @@ server default is Groq; the live site runs DeepSeek (LLM_PROVIDER=deepseek, mode
   where.js ("Where should I make it?": one theme across a market's 10 largest cities, peerLift = lift − 70th pct of the others; POST /api/where, MCP ayto_where_to_make).
 - src/writers/: one prompt per format + evidence digest + grounding paths (shared.js). src/pipeline/produce.js: fashion production path.
 - src/pipeline/: runner (per-run plan, edit-and-rerun, regenerate), store, evidence (ledger), write, check, diff, share, page.
+  diff (fashion) also asks the no-evidence model for its hero piece (garment, print, palette): lookWithout() cleans it into
+  output.withoutLook, kept out of the name counts; app.js compare3d() shows it beside the plan's hero style in two small viewers.
 - src/shots.js: shot deck on demand for a finished film (one frame per beat, max 6, 2 OpenAI calls at a time, quality low; shot line from
   the server model or the plan's camera notes; reference = a Qloo-traced plan.references title; prompts scrubbed with image.js scrub()); never a stage;
   POST/GET /api/runs/:id/shots, /shots/:n.jpg, /shots.html (one-file download). The film writer's finish() fills plan.story ("the story, simply").

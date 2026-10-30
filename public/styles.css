@@ -2294,3 +2294,26 @@ details.raw > summary {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* ---------- with vs without Qloo, in 3D (fashion): two small viewers on the with/without card ---------- */
+.compare-3d {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1.2rem;
+}
+.compare-3d h3 {
+  margin: 0;
+}
+.compare-3d figure {
+  margin: 0;
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+  min-width: 0;
+}
+.compare-stage {
+  height: 300px;
+}
+@media (max-width: 720px) {
+  .compare-stage { height: 230px; }
+}
