@@ -96,6 +96,8 @@ export async function read(run) {
         type,
         filter: city.mode,
         rows,
+        // False when the country read failed or came back empty: no row can then be "not in the country".
+        baseline: Boolean(country?.results?.length),
         countryNames: (country?.results ?? []).slice(0, 20).map((x) => x.name),
         contrastNames: (contrast?.results ?? []).slice(0, 20).map((x) => x.name),
         onlyHere: rows.filter((x) => x.onlyHere).map((x) => x.name),
@@ -109,7 +111,9 @@ export async function read(run) {
   await latinNames(q, run, columns);
   const only = Object.values(columns).reduce((n, c) => n + c.onlyHere.length, 0);
   const gems = Object.values(columns).reduce((n, c) => n + c.hiddenGems.length, 0);
-  return { columns, city: r.city.name, country: countryWhere, contrast: r.contrast?.name, summary: `${only} pick${only === 1 ? "" : "s"} ${r.city.name} favours that the country doesn't, ${gems} hidden gem${gems === 1 ? "" : "s"}.` };
+  const unread = Object.values(columns).filter((c) => c.baseline === false).map((c) => c.type.replace("_", " "));
+  const note = unread.length ? ` Qloo's ${countryWhere} read came back empty for ${unread.join(", ")}, so nothing there is marked as only here.` : "";
+  return { columns, city: r.city.name, country: countryWhere, contrast: r.contrast?.name, summary: `${only} pick${only === 1 ? "" : "s"} ${r.city.name} favours that the country doesn't, ${gems} hidden gem${gems === 1 ? "" : "s"}.${note}` };
 }
 
 const looseName = (n) => String(n ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");

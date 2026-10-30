@@ -205,10 +205,12 @@ export function isEmptyAnswer(v) {
   const r = v.results;
   if (Array.isArray(r)) return r.length === 0 && !(Array.isArray(v.series) && v.series.length);
   if (r && typeof r === "object") {
+    // An object with none of the lists ({results: {}}) holds nothing either.
     const lists = ["entities", "tags", "heatmap"].map((k) => r[k]).filter(Array.isArray);
-    return lists.length > 0 && lists.every((l) => l.length === 0);
+    return lists.every((l) => l.length === 0);
   }
-  return false;
+  // No results at all ({}, {success: false}, an unparseable tool reply): never written to disk.
+  return !(Array.isArray(v.series) && v.series.length);
 }
 
 async function cached(kind, name, args, live) {
@@ -229,8 +231,9 @@ async function cached(kind, name, args, live) {
 
     const value = await limiter.run(() => withRetry(live));
     // An empty answer may be a passing hiccup or an ambiguous location: keep it in memory for ten
-    // minutes only, never on disk, so the next run asks again instead of inheriting the blank.
-    if (isEmptyAnswer(value)) {
+    // minutes only, never on disk, so the next run asks again instead of inheriting the blank. Qloo answers
+    // are read by their result lists; anything else memoised (a written plan) is empty only when missing.
+    if (kind === "api" || kind === "mcp" ? isEmptyAnswer(value) : value == null) {
       setTimeout(() => memory.delete(key), EMPTY_TTL_MS).unref?.();
       return value;
     }
@@ -262,9 +265,12 @@ async function withRetry(fn, attempts = 3) {
   throw lastError;
 }
 
-/** Cache any other expensive, deterministic-enough step (the written brief) the same way. */
-export function memo(kind, name, args, fn) {
-  return cached(kind, name, args, fn);
+/**
+ * Cache any other expensive, deterministic-enough step (the written brief) the same way. Each caller gets its own
+ * copy: the check edits a plan in place, and one run's edits must not reach the next run's cached plan.
+ */
+export async function memo(kind, name, args, fn) {
+  return structuredClone(await cached(kind, name, args, fn));
 }
 
 /** Run one Qloo workflow tool (qloo_recommend, qloo_trends, ...). Returns the envelope. */

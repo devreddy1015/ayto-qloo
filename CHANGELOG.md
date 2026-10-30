@@ -3,6 +3,28 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: the engine on bad days (bug hunt, batch 3)
+
+- **A failed country read made everything "this city's".** When Qloo's country read timed out or came back empty,
+  every city flavour looked far above the country (lanes at +30, "specific to this city"), every pick was "only
+  here", every style tag a lift and every place a fashion opportunity. Now there are no lifts without a
+  baseline: the gap says the country read came back empty and to run it again, and the read says which kinds had
+  no country list.
+- **A cached plan leaked one run's check into the next.** The server's written plans are cached, and the check
+  edits a plan in place; the next visitor got the already-cleaned plan, saw "0 removed" and skipped the rewrite.
+  Each caller now gets its own copy.
+- Answers with no result list at all (`{}`, `{results: {}}`, an unparseable tool reply) count as empty, so they
+  are never written to disk for good; written plans are cached as before.
+- The travels map found its home city by the first word of the name ("Las" matched Dallas); now by id or the
+  exact name. A venue on "Connaught Place, New Delhi, Delhi" is in Connaught Place, not "New" (likewise North Las
+  Vegas, Navi Mumbai).
+- Equal heatmap values share a percentile (order no longer decided them); a point with a latitude but no
+  longitude no longer fails the stage; an audience skew averages each key over the picks that carry it.
+- Venue names: "...", "1234", "N/A" and bank branches are dropped; PVR INOX, IMAX, "Left Bank Bar" and "The
+  Residency Club" are kept.
+- Looked at and left: the control cities skip the next-largest city after the contrast (Delhi for Hyderabad).
+  CLAUDE.md doesn't say whether that is meant, and changing it would move the showcase lanes.
+
 ## Unreleased: the sentence reads right and the city is the city (bug hunt, batch 2)
 
 - **Big cities resolved to villages that share their name.** Qloo lists "Jaipur" the city only as "Jaipur

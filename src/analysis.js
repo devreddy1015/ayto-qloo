@@ -68,7 +68,7 @@ export function heatPoint(point) {
   const lat = num(loc.latitude) ?? num(loc.lat) ?? num(point?.latitude);
   const lon = num(loc.longitude) ?? num(loc.lon) ?? num(loc.lng) ?? num(point?.longitude);
   const name = loc.name ?? loc.city ?? loc.locality ?? point?.name ?? point?.entity?.name ?? point?.properties?.name ?? undefined;
-  const key = loc.geohash ?? loc.id ?? name ?? (lat !== undefined ? `${lat.toFixed(2)},${lon.toFixed(2)}` : undefined);
+  const key = loc.geohash ?? loc.id ?? name ?? (lat !== undefined && lon !== undefined ? `${lat.toFixed(2)},${lon.toFixed(2)}` : undefined);
   return {
     key,
     name,
@@ -141,12 +141,18 @@ export const haversineKm = (a, b) => {
   return 2 * R * Math.asin(Math.sqrt(h));
 };
 
-/** Percentile rank (0..1) of each point's `field` within its own heatmap. */
+/** Percentile rank (0..1) of each point's `field` within its own heatmap; equal values share their average rank. */
 function percentiles(points, field = "affinity") {
   const sorted = [...points].sort((a, b) => a[field] - b[field]);
   const n = sorted.length;
   const map = new Map();
-  sorted.forEach((p, i) => map.set(p.key, n === 1 ? 1 : i / (n - 1)));
+  for (let i = 0; i < n; ) {
+    let j = i;
+    while (j + 1 < n && sorted[j + 1][field] === sorted[i][field]) j += 1;
+    const pct = n === 1 ? 1 : (i + j) / 2 / (n - 1);
+    for (let k = i; k <= j; k += 1) map.set(sorted[k].key, pct);
+    i = j + 1;
+  }
   return map;
 }
 
@@ -186,7 +192,8 @@ export function liftPoints(points) {
  * Points are matched by key, or by distance when the two grids differ.
  */
 export function cultureFashionGap(culture, fashion, { matchKm = 35 } = {}) {
-  if (!culture.length) return [];
+  // No fashion read at all is no data, not "fashion hasn't arrived anywhere": no place is called an opportunity.
+  if (!culture.length || !fashion?.length) return [];
   const c = liftPoints(culture);
   const f = liftPoints(fashion);
   const fashionByKey = new Map(f.map((p) => [p.key, p]));
@@ -343,8 +350,10 @@ export function threeColumns(cityRaw = [], countryRaw = [], contrastRaw = [], { 
   const country = new Set(countryRaw.map((r) => r.entity_id ?? r.id));
   const contrast = new Set(contrastRaw.map((r) => r.entity_id ?? r.id));
   const top = Math.max(...city.map((e) => e.affinity ?? 0), 0);
+  // With no country list (the read failed or came back empty) nothing can be "not in the country".
+  const baseline = countryRaw.length > 0;
   const rows = city.map((e, i) => {
-    const notCountry = !country.has(e.id);
+    const notCountry = baseline ? !country.has(e.id) : false;
     const notContrast = contrastRaw.length ? !contrast.has(e.id) : undefined;
     const onlyHere = notCountry && notContrast !== false;
     const hiddenGem = e.affinity !== undefined && e.popularity !== undefined && e.affinity >= top - gemSlack && e.popularity <= gemPopularity;
@@ -361,6 +370,8 @@ export function threeColumns(cityRaw = [], countryRaw = [], contrastRaw = [], { 
  * counts as one past the end. Positive = the city cares more than the country.
  */
 export function demandLift(cityTags = [], countryTags = [], { take } = {}) {
+  // No country list, no lift: every city tag would otherwise look far above a country that simply wasn't read.
+  if (!countryTags.length) return [];
   const n = take ?? Math.max(cityTags.length, countryTags.length, 1);
   const countryRank = new Map(countryTags.map((t, i) => [t.id ?? t.name, i + 1]));
   return cityTags
@@ -398,23 +409,35 @@ export function laneGap(flavours = [], supply = {}, { n = 30, cap = 10, minLift 
 export function averageSkew(results = []) {
   const rows = results.map((r) => r?.query ?? r).filter((q) => q?.age || q?.gender);
   if (!rows.length) return undefined;
+  // Each key over the picks that carry it: one pick without a gender read doesn't halve the others' skew.
   const avg = (key) => {
-    const out = {};
-    for (const r of rows) for (const [k, v] of Object.entries(r[key] ?? {})) if (num(v) !== undefined) out[k] = (out[k] ?? 0) + v / rows.length;
-    for (const k of Object.keys(out)) out[k] = round(out[k]);
-    return out;
+    const sum = {};
+    const n = {};
+    for (const r of rows) for (const [k, v] of Object.entries(r[key] ?? {})) if (num(v) !== undefined) {
+      sum[k] = (sum[k] ?? 0) + v;
+      n[k] = (n[k] ?? 0) + 1;
+    }
+    return Object.fromEntries(Object.keys(sum).map((k) => [k, round(sum[k] / n[k])]));
   };
   return { age: avg("age"), gender: avg("gender"), entities: rows.length };
 }
 
-/** A place name worth printing: no phone numbers, emoji, shouting, or two-letter stubs. */
+// Short all-caps names that are real venues, not shouting.
+const CAPS_BRANDS = /^(PVR(?: INOX)?|INOX|IMAX|AMC|BMS|MOMA|LACMA|SFMOMA|ICA|BFI|NFT|O2|HMV|KFC|IKEA|H&M|ZARA|UNIQLO|MUJI)\b/;
+
+/** A place name worth printing: no phone numbers, emoji, shouting, punctuation stubs or two-letter names. */
 export function cleanPlaceName(name) {
   const s = String(name ?? "").trim();
   if (s.length < 3 || s.length > 60) return false;
+  if ((s.match(/\p{L}/gu) ?? []).length < 2) return false; // "...", "1234", "???"
+  if (/^(n\/?a|null|undefined|unknown|none)$/i.test(s)) return false;
   if (/\d{5,}/.test(s)) return false; // phone numbers
   if (/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}]/u.test(s)) return false; // emoji
-  if (/^[^a-z]*$/.test(s) && /[A-Z]{4,}/.test(s)) return false; // ALL CAPS
-  if (/\b(ambulance|apartment|apartments|residency|pvt|ltd|llc|inc\.?|hospital|clinic|atm|bank)\b/i.test(s)) return false;
+  if (/^[^a-z]*$/.test(s) && /[A-Z]{4,}/.test(s) && !CAPS_BRANDS.test(s)) return false; // ALL CAPS
+  // Homes, clinics and offices; a bank only as a branch or ATM ("Left Bank Bar" is a bar), a residency only as housing.
+  if (/\b(ambulance|apartment|apartments|pvt|ltd|llc|inc\.?|hospital|clinic|atm)\b/i.test(s)) return false;
+  if (/\bbank\b/i.test(s) && !/\b(bar|cafe|café|club|pub|kitchen|lounge|bistro|brewery|restaurant)\b/i.test(s)) return false;
+  if (/\bresidency\b/i.test(s) && !/\b(club|hotel|bar|lounge|restaurant|cafe|café)\b/i.test(s)) return false;
   return true;
 }
 
@@ -433,6 +456,8 @@ export function shareLift(cityEntities = [], countryEntities = [], { families = 
     }
     return out;
   };
+  // No country catalogue, no share lift: the city's shares alone would read as lifts.
+  if (!cityEntities.length || !countryEntities.length) return { over: [], under: [], cityN: cityEntities.length, countryN: countryEntities.length };
   const c = count(cityEntities);
   const k = count(countryEntities);
   const nc = cityEntities.length || 1;
