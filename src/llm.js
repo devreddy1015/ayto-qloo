@@ -161,7 +161,8 @@ export async function chat({ credential, ...ask }) {
   if (!backup) return chatWith(cred, ask);
   // The server's model gets the budget less a reserve (a third, at most 30 s), so the backup still has time to write.
   const { deadline } = ask;
-  const reserve = deadline ? Math.min(30000, Math.max(0, (deadline - Date.now()) / 3)) : 0;
+  // Whole milliseconds: a fractional timeout makes AbortSignal.timeout throw, which would fail every call to the main model.
+  const reserve = deadline ? Math.floor(Math.min(30000, Math.max(0, (deadline - Date.now()) / 3))) : 0;
   try {
     return await chatWith(cred, { ...ask, deadline: deadline ? deadline - reserve : undefined });
   } catch (error) {

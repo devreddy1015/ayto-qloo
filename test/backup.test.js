@@ -49,7 +49,8 @@ after(async () => {
 test("the server's model fails, DeepSeek answers, and the site's model stays the server's", async () => {
   calls.length = 0;
   const { chat, currentModel, llmStatus } = await import("../src/llm.js");
-  const message = await chat({ messages: [{ role: "system", content: "Write." }, { role: "user", content: "Go." }], deadline: Date.now() + 30000 });
+  // A budget whose third isn't a whole number of milliseconds: the main model must still be asked.
+  const message = await chat({ messages: [{ role: "system", content: "Write." }, { role: "user", content: "Go." }], deadline: Date.now() + 30001 });
   assert.deepEqual(JSON.parse(message.content), PLAN);
   assert.deepEqual(calls.map((c) => c.name), ["main", "deepseek"], "a 401 isn't retried; the backup is asked once");
   const ds = calls[1];
