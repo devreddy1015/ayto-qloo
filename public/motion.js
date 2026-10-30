@@ -230,6 +230,20 @@ function unfoldStages() {
       enter(t, headingFrames(), { delay: 120, duration: SLOW, at });
     });
   };
+  // The brief's main results panel (.highlights, drawn by app.js): the same reveal as a section, once per run (an
+  // emptied panel is ready again), and its numbers count up to the values already in it.
+  const panels = new WeakSet();
+  const highlights = (panel) => {
+    if (!panel.children.length) return panels.delete(panel);
+    if (panels.has(panel)) return;
+    panels.add(panel);
+    panel.dataset.reveal = "wait";
+    whenSeen(panel, () => {
+      panel.dataset.reveal = "in";
+      [...panel.children].forEach((n, i) => enter(n, FRAMES.rise, { delay: Math.min(i, 8) * STAGGER, duration: SLOW * 0.7 }));
+      panel.querySelectorAll(".hl-num").forEach((n, i) => countUp(n, 120 + Math.min(i, 8) * STAGGER));
+    });
+  };
   const start = (card) => {
     const m = memo.get(card);
     if (!m?.done) return;
@@ -268,6 +282,8 @@ function unfoldStages() {
       }
       if (t.classList?.contains("stage-body")) cards.add(t.closest(".stage"));
       for (const n of r.addedNodes) if (n.classList?.contains("stage")) cards.add(n);
+      if (t.classList?.contains("highlights")) highlights(t);
+      for (const n of r.addedNodes) if (n.nodeType === 1) (n.matches(".highlights") ? [n] : n.querySelectorAll(".highlights")).forEach((p) => highlights(p));
       for (const n of r.removedNodes) if (n.classList?.contains("stage") && !n.isConnected) forget(n);
     }
     for (const card of cards) if (card?.isConnected) check(card);
@@ -305,20 +321,32 @@ function accordions() {
 
 // ---------- city comparison: bars, numbers and markers from what /api/where returned ----------
 
-/** Counts a number up from 0 to the value already in the page. Its width is held so nothing beside it moves. */
+/**
+ * Counts a number up from 0 to the value already in the page: data-count, or else the one whole number in its text
+ * ("+23", "35", "1,204 calls"; "20/20" has two and is left alone). Its width is held so nothing beside it moves, and
+ * if app.js writes a new value mid-count the count stops and the new value stays.
+ */
 function countUp(node, delay) {
-  const to = Number(node.dataset.count);
-  if (!Number.isFinite(to) || node.dataset.counted) return;
+  if (node.dataset.counted) return;
+  const text = node.textContent;
+  const m = node.dataset.count !== undefined ? ["", "", node.dataset.count, ""] : text.match(/^(\D*?)(-?\d{1,3}(?:,\d{3})*|-?\d+)(\D*)$/);
+  const to = m ? Number(m[2].replace(/,/g, "")) : NaN;
+  if (!Number.isFinite(to)) return;
   node.dataset.counted = "1";
+  const [pre, post] = node.dataset.count !== undefined ? ["", ""] : [m[1], m[3]];
+  const show = (v) => `${pre}${m[2].includes(",") ? v.toLocaleString("en-US") : v}${post}`;
   node.style.display = "inline-block";
-  node.style.minWidth = `${String(to).length}ch`;
+  node.style.minWidth = `${show(to).length}ch`;
   const begin = performance.now() + delay;
+  let wrote = show(0);
   const tick = (now) => {
+    if (node.textContent !== wrote) return; // app.js drew a new value: it wins
     const t = Math.min(1, Math.max(0, (now - begin) / SLOW));
-    node.textContent = String(Math.round(to * (1 - (1 - t) ** 3)));
+    wrote = show(Math.round(to * (1 - (1 - t) ** 3)));
+    node.textContent = wrote;
     if (t < 1) requestAnimationFrame(tick);
   };
-  node.textContent = "0";
+  node.textContent = wrote;
   requestAnimationFrame(tick);
 }
 

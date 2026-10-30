@@ -2528,7 +2528,8 @@ html.hero-go #parse-button {
 #watch[data-reveal="wait"],
 #showing[data-reveal="wait"] :is(h2, .showing-head .block-note, .showing-card),
 .stage[data-unfold="wait"] .stage-body > *,
-.where-list[data-reveal="wait"] > li {
+.where-list[data-reveal="wait"] > li,
+.highlights[data-reveal="wait"] > * {
   opacity: 0;
 }
 

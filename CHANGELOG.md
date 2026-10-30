@@ -30,6 +30,8 @@ What changed in AYTO (Are You The One), newest first. Times are IST. Each entry 
   the stream sends, so nothing lights early. A stage's content unfolds when the stream marks it done and its card is
   on screen, including after `pages.js` moves it to its tab. Lane, travel and age bars grow from zero to their real
   values.
+- **Ready for the main results panel:** a `.highlights` panel on the brief reveals like a section, once per run, and
+  each `.hl-num` holding one whole number counts up to it. A value `app.js` redraws mid-count wins.
 - **Smaller things:**
   - three example sentences under the field type themselves in;
   - the field glows on focus;
