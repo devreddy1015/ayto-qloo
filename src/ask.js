@@ -92,7 +92,7 @@ export async function runAsk({ question, context, credential, signal }, emit) {
       emit({ type: "answer", text: message.content ?? "" });
       return message.content ?? "";
     }
-    messages.push({ role: "assistant", content: message.content ?? "", tool_calls: calls });
+    messages.push({ role: "assistant", content: message.content ?? "", tool_calls: calls, ...(message.blocks ? { blocks: message.blocks } : {}) });
 
     for (const [i, call] of calls.entries()) {
       const name = call.function?.name;
