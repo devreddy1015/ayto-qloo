@@ -19,7 +19,14 @@ import { closeQloo, qlooStatus } from "./qloo.js";
 const app = express();
 app.disable("x-powered-by");
 // One proxy hop (Render's): req.ip is the address that proxy saw, not a client-supplied X-Forwarded-For.
-app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 1));
+// TRUST_PROXY may be a hop count, true/false, or addresses; anything Express refuses (empty, "yes") means one hop.
+const trust = String(process.env.TRUST_PROXY ?? "").trim();
+try {
+  app.set("trust proxy", /^\d+$/.test(trust) ? Number(trust) : trust === "true" ? true : trust === "false" ? false : trust || 1);
+} catch {
+  console.error(`TRUST_PROXY "${trust.slice(0, 40)}" isn't a hop count, true/false or an address list; trusting one hop.`);
+  app.set("trust proxy", 1);
+}
 
 // Express 4 lets a rejected async handler escape, and Node then exits: one bad request would take the server down.
 // Every handler registered below is guarded, so its errors reach the error handler at the end instead.
@@ -216,14 +223,16 @@ app.get("/api/runs/:id", async (req, res) => {
   res.json(publicRun(run));
 });
 
-/** Live events, resumable: the browser sends Last-Event-ID and gets everything after it. */
+/**
+ * Live events: the run as it is now (a snapshot), then every new event. Past events are not replayed on top of the
+ * snapshot, which already holds their result: replaying them flashed finished stages back to "running", marked
+ * kept stages stale and brought back receipts a rerun had replaced. A reconnect (Last-Event-ID) gets a fresh snapshot.
+ */
 app.get("/api/runs/:id/events", async (req, res) => {
   const run = await loadRun(req.params.id);
   if (!run) return res.status(404).json({ error: "No such run." });
   const send = sse(res);
-  const after = Number(req.headers["last-event-id"] ?? req.query.after ?? 0) || 0;
   send({ type: "snapshot", run: publicRun(run) });
-  for (const event of run.events ?? []) if (event.seq > after) send(event);
   if (!isRunning(run.id)) {
     send({ type: "end" });
     return res.end();
@@ -281,6 +290,8 @@ app.post("/api/runs/:id/assumptions", async (req, res) => {
     for (const k of ["fabric", "cmt", "print", "trimsAndPacking"]) if (num(a.unitCost[k], 0, 1e5) !== undefined) clean.unitCost[k] = Math.round(a.unitCost[k]);
   }
   if (!original.plan?.includes("produce")) return res.status(400).json({ error: "This run has no production stage." });
+  const before = original.plan[original.plan.indexOf("produce") - 1];
+  if (original.stages?.[before]?.status !== "done") return res.status(400).json({ error: "The stages before it must finish first." });
   if (isRunning(original.id)) return res.status(400).json({ error: "This run is still working. Wait for it to finish." });
   try {
     const { run, forked } = await ownRun(original, req);
@@ -321,9 +332,13 @@ app.post("/api/ask", async (req, res) => {
   const credential = credentialOf(req.body, res);
   if (credential === null) return;
   if (!credential && !llmAvailable()) return res.status(400).json({ error: "The analyst needs a language model. Add your key in the drawer." });
+  // A question on the server's model counts against its daily cap like a run does.
+  if (!credential && !allowGlobal({ llm: true })) return res.status(503).json({ error: "The demo has hit today's budget. Bring your own key to ask." });
   const emit = sse(res);
+  const left = new AbortController();
+  res.on("close", () => left.abort());
   try {
-    await runAsk({ question, context, credential }, emit);
+    await runAsk({ question, context, credential, signal: left.signal }, emit);
   } catch (error) {
     emit({ type: "error", message: publicError(error) });
   } finally {
@@ -365,11 +380,12 @@ app.post(
     // One JSON-RPC message per request (MCP dropped batching), so each tool call meets the limits below.
     if (Array.isArray(req.body)) return res.status(400).json({ jsonrpc: "2.0", error: { code: -32600, message: "Send one JSON-RPC message per request." }, id: null });
     const id = req.body?.id ?? null;
-    if (!allow(req.ip, { perHour: 30, bucket: "mcp" })) return res.status(429).json({ jsonrpc: "2.0", error: { code: -32000, message: "Too many MCP calls this hour." }, id });
-    // A tool call runs the engine against Qloo: it counts against the same daily budget as a web run, and a write
-    // without the caller's own key spends the server's model too.
     const call = req.body?.method === "tools/call" ? req.body.params ?? {} : undefined;
-    const serverModel = call?.name === "ayto_write" && !call.arguments?.key && llmAvailable();
+    // Tool calls run the engine: 30 an hour. Handshakes and listings are cheap, so a reconnecting client isn't shut out.
+    if (!allow(req.ip, call ? { perHour: 30, bucket: "mcp" } : { perHour: 300, bucket: "mcp-meta" })) return res.status(429).json({ jsonrpc: "2.0", error: { code: -32000, message: "Too many MCP calls this hour." }, id });
+    // A tool call runs the engine against Qloo: it counts against the same daily budget as a web run, and a write
+    // without the caller's own provider and key spends the server's model too.
+    const serverModel = call?.name === "ayto_write" && !(call.arguments?.key && call.arguments?.provider) && llmAvailable();
     if (call && !allowGlobal({ llm: serverModel })) return res.status(503).json({ jsonrpc: "2.0", error: { code: -32000, message: "The demo has hit today's budget." }, id });
     next();
   },
@@ -378,11 +394,16 @@ app.post(
 app.get("/mcp", (_req, res) => res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "AYTO's MCP server is stateless: POST JSON-RPC here. Discovery at /.well-known/ayto.json" }, id: null }));
 app.delete("/mcp", (_req, res) => res.status(405).end());
 
-// Anything a route threw: logged without secrets, answered plainly, and the server stays up.
+// Anything a route threw: logged without secrets, answered plainly, and the server stays up. A body that isn't JSON
+// or is too large is the caller's mistake (400, 413), not a server error, and on /mcp it is a JSON-RPC error.
 app.use((error, req, res, _next) => {
-  console.error(`${req.method} ${req.path} failed: ${redact(error?.stack ?? error?.message ?? error).slice(0, 500)}`);
+  const status = Number(error?.status ?? error?.statusCode);
+  const theirs = status >= 400 && status < 500;
+  if (!theirs) console.error(`${req.method} ${req.path} failed: ${redact(error?.stack ?? error?.message ?? error).slice(0, 500)}`);
   if (res.headersSent) return res.end();
-  res.status(500).json({ error: "Something went wrong on the server. Try again." });
+  const message = !theirs ? "Something went wrong on the server. Try again." : status === 413 ? "That request is too large." : "That request isn't valid JSON.";
+  if (req.path === "/mcp") return res.status(theirs ? status : 500).json({ jsonrpc: "2.0", error: { code: theirs ? -32700 : -32603, message }, id: null });
+  res.status(theirs ? status : 500).json({ error: message });
 });
 process.on("unhandledRejection", (error) => console.error(`unhandled: ${redact(error?.stack ?? error?.message ?? error).slice(0, 500)}`));
 

@@ -295,7 +295,9 @@ export async function checkCredential(credential) {
 // ---------- server default status ----------
 
 /** Probe the server default once (at boot). "available" then means a call succeeded. */
+let probedAt = 0;
 export async function probeServerLlm() {
+  probedAt = Date.now();
   const cred = serverCredential();
   if (!cred) return (status = { available: false, probed: true, error: "No server LLM key (ANTHROPIC_API_KEY, OPENAI_API_KEY, GROQ_API_KEY…)" });
   const r = await checkCredential(undefined);
@@ -305,5 +307,9 @@ export async function probeServerLlm() {
 
 let status = { available: Boolean(serverCredential()), probed: false, provider: serverCredential()?.provider, model: undefined, error: undefined };
 export const llmStatus = () => ({ ...status, model: status.model ?? workingModel ?? (status.provider ? PROVIDERS[status.provider].model : undefined) });
-export const llmAvailable = () => status.available;
+/** The server's model is there. One failed probe (a 429 at boot) isn't final: it is tried again every ten minutes. */
+export const llmAvailable = () => {
+  if (!status.available && status.probed && serverCredential() && Date.now() - probedAt > 10 * 60e3) probeServerLlm().catch(() => {});
+  return status.available;
+};
 export const currentModel = () => workingModel ?? (serverCredential() ? serverCredential().model ?? PROVIDERS[serverCredential().provider].model : config.groq.models[0]);

@@ -51,6 +51,9 @@ test("the area of a venue in a city named after another", () => {
   assert.equal(areaOf({ address: "12 Outer Circle, Connaught Place, New Delhi, Delhi 110001" }, "Delhi"), "Connaught Place");
   assert.equal(areaOf({ address: "Sector 17, Vashi, Navi Mumbai, Mumbai" }, "Mumbai"), "Vashi");
   assert.equal(areaOf({ address: "Road No. 36, Jubilee Hills, Hyderabad, Telangana 500033" }, "Hyderabad"), "Jubilee Hills");
+  assert.equal(areaOf({ address: "1600 21st St NW, Dupont Circle, Washington, DC 20009" }, "Washington"), "Dupont Circle");
+  assert.equal(areaOf({ address: "1208 Surf Ave, Coney Island, New York, NY 11224" }, "New York"), "Coney Island");
+  assert.equal(areaOf({ address: "Plot 4, Circle 12, Hyderabad, Telangana" }, "Hyderabad"), undefined, "a municipal circle is no neighbourhood");
 });
 
 test("an envelope with no result list is empty and never cached; trends and real lists are not", () => {

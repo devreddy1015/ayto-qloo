@@ -17,8 +17,8 @@ Must ship: live hosted app (no login), public repo with OSS licence visible in A
 
 ## Stack
 Node 22 + Express, vanilla JS front end (public/), SSE streaming, file cache (.cache/, git-ignored).
-Qloo via `@qloo/qloo-harness` (`qloo mcp` stdio for workflow tools, `qloo api search` for localities, raw HTTP Insights for
-heatmaps, tag reads and tagged entity reads). LLM: provider table in src/llm.js (12 providers, OpenAI-compatible + Anthropic adapter);
+Qloo via `@qloo/qloo-harness` (`qloo mcp` stdio for workflow tools; raw HTTP for search (`GET /search`, the request
+`qloo api search` makes, without a process per call), Insights heatmaps, tag reads and tagged entity reads). LLM: provider table in src/llm.js (12 providers, OpenAI-compatible + Anthropic adapter);
 server default is Groq. MCP door in src/mcp.js. Hackathon host: https://hackathon.api.qloo.com.
 
 ## Code map
@@ -89,6 +89,12 @@ Research behind this: /home/dev/hackthons/culture-gap/research.txt (29 Oct 2026,
 npm install · npm start (live if QLOO_API_KEY) · CULTURE_GAP_MODE=fake npm start · npm test · PORT=8787 locally (8080 is taken on
 this machine; .claude/launch.json starts it). Showcases: POST /api/runs {showcase:"hyderabad-crime-film"|"vegas-reel"|"tiruppur-kidswear"}.
 PREWARM=1 runs them at boot. Scratch probes live outside the repo.
+
+## Status (30 Oct 2026, evening IST)
+v0.2.0: a bug-hunt loop (30 Oct) fixed ~75 reproduced bugs in stacked PRs #20–#24 (merge in order; see CHANGELOG).
+Runs carry an edit key (`run.editKey`, never in publicRun); changing someone else's run forks a copy (forkRun). The web edit
+is lane order only (laneFirstEdit). City picks go through `rankLocalities` (src/cities.js). Model calls take a `deadline`.
+The event stream sends a snapshot then live events, no replay. 113 tests.
 
 ## Status (29 Oct 2026, 03:30 IST)
 Done and on GitHub main (devreddy1015/ayto-qloo, MIT detected): engine, eight formats (film, reel, fashion, podcast, game, cafe,

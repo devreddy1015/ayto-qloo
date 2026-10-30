@@ -39,7 +39,8 @@ export function marketFrom(text) {
   const raw = String(text ?? "");
   const t = ` ${lower(raw).replace(/[^a-zÀ-ɏ\s]/g, " ")} `;
   for (const [market, aliases] of Object.entries(COUNTRY_ALIASES)) if (aliases.some((a) => t.includes(` ${a} `)) || t.includes(` ${lower(market)} `)) return market;
-  if (/\b(?:US|USA|U\.S\.A?\.?)(?![\w.])/.test(raw) || /(?<!(?:latin|south|central|north)\s)\bamerica\b/i.test(raw)) return "United States";
+  // "US" only in capitals ("help us pick" is no country); "usa" and "u.s.a." in any case.
+  if (/\b(?:US|U\.S\.)(?![\w.])/.test(raw) || /\b(?:usa|u\.s\.a\.?)(?![\w])/i.test(raw) || /(?<!(?:latin|south|central|north)\s)\bamerica\b/i.test(raw)) return "United States";
   if (/\s(uk|britain|england)\s/.test(t)) return "United Kingdom";
   return undefined;
 }

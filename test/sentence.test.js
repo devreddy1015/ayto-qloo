@@ -147,3 +147,43 @@ test("display names drop admin words but keep a city's own 'City'", () => {
   assert.equal(displayName("County Borough of Belfast"), "Belfast");
   for (const keep of ["Kansas City", "Quezon City", "Benin City", "Oklahoma City", "Salt Lake City", "Mexico City"]) assert.equal(displayName(keep), keep);
 });
+
+// Found by a review of the bug-hunt diff itself (30 Oct): what the first rewrite of the reader got wrong.
+test("a title's own words stay in the title, and compound formats name the last noun", () => {
+  const cases = {
+    "a romance inspired by In the Mood for Love in Mumbai": ["Mumbai", ["In the Mood for Love"]],
+    "I love Lost in Translation, set in Tokyo": ["Tokyo", ["Lost In Translation"]],
+    "a film after Midnight in Paris in Pune": ["Pune", ["Midnight in Paris"]],
+    "a gangster film after Once Upon a Time in Mumbaai in Mumbai": ["Mumbai", ["Once Upon a Time in Mumbaai"]],
+    "a reel in Cox's Bazar": ["Cox's Bazar", []],
+  };
+  for (const [text, [city, loves]] of Object.entries(cases)) {
+    const p = heuristicParse(text);
+    assert.equal(p.city, city, text);
+    assert.deepEqual(p.loves.map((l) => l.name), loves, text);
+  }
+  const formats = { "A film festival in Kochi": "event", "A film podcast": "podcast", "A book cafe": "cafe", "A movie-themed cafe": "cafe", "A book launch event": "event", "A fashion week event": "event", "a movie night in Pune": "event", "a fashion film": "film" };
+  for (const [text, format] of Object.entries(formats)) assert.equal(formatFrom(text), format, text);
+});
+
+test("a country after the city: short codes are markets, other places narrow by whole name", async () => {
+  const { marketFor } = await import("../src/engine/resolve.js");
+  const { rankLocalities } = await import("../src/cities.js");
+  assert.equal(marketFor("US"), "United States");
+  assert.equal(marketFor("U.S."), "United States");
+  assert.equal(marketFor("UK"), "United Kingdom");
+  assert.equal(marketFor("Indiana"), undefined, "no 'india' inside Indiana");
+  assert.equal(marketFor("Australia"), "Australia");
+  assert.equal(marketFrom("where in usa should I shoot"), "United States");
+  const MIAMI = [
+    hit("au", "Miami", { level: 9, pop: 0.95, chain: ["Gold Coast", "Queensland", "Australia"] }),
+    hit("us", "Miami", { level: 8, pop: 0.999, chain: ["Miami-Dade", "Florida", "United States of America"] }),
+  ];
+  assert.equal(pickLocality(MIAMI, { query: "Miami", market: marketFor("US") }).entity_id, "us");
+  const PORTLAND = [
+    hit("or", "Portland", { level: 8, pop: 0.999, chain: ["Multnomah", "Oregon", "United States of America"] }),
+    hit("me", "Portland", { level: 8, pop: 0.98, chain: ["Cumberland", "Maine", "United States of America"] }),
+  ];
+  assert.equal(rankLocalities(PORTLAND, "Portland", { within: "Maine" }).entity_id, "me");
+  assert.equal(rankLocalities(PORTLAND, "Portland", { within: "Ain" }), undefined, "a whole name, never part of one");
+});

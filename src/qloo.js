@@ -13,7 +13,6 @@
 // guide). In "samples" mode, recorded real responses are replayed instead.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -64,6 +63,16 @@ class Semaphore {
 
 const limiter = new Semaphore(config.qloo.concurrency);
 const memory = new Map(); // key -> Promise<value>, de-duplicates in-flight calls too
+// A bounded working set: answers past it are dropped from memory (oldest first) and read from disk again when needed.
+const MEMORY_MAX = Number(process.env.QLOO_MEMORY_ENTRIES) || 400;
+function remember(key, promise) {
+  memory.set(key, promise);
+  if (memory.size <= MEMORY_MAX) return;
+  for (const k of memory.keys()) {
+    if (memory.size <= MEMORY_MAX) break;
+    if (k !== key) memory.delete(k);
+  }
+}
 
 async function readJson(path) {
   try {
@@ -83,12 +92,12 @@ async function writeJson(dir, key, value) {
 let clientPromise;
 
 async function connect() {
-  const client = new Client({ name: "culture-gap", version: "0.1.0" });
+  const client = new Client({ name: "culture-gap", version: "0.2.0" });
   const transport = new StdioClientTransport({
     command: config.qloo.command,
     args: ["mcp"],
-    // Forward the environment so QLOO_API_KEY / QLOO_BASE_URL reach the server.
-    env: process.env,
+    // Only what the harness needs (its QLOO_* settings, the path, home and Node's own): the server's LLM keys stay here.
+    env: Object.fromEntries(Object.entries(process.env).filter(([k]) => /^(QLOO_|NODE_|PATH$|HOME$|TMPDIR$|TEMP$|TMP$|LANG$|SYSTEMROOT$)/.test(k))),
     stderr: "ignore",
   });
   transport.onclose = () => {
@@ -145,25 +154,6 @@ function safeParse(text) {
 
 // ---------- raw requests ----------
 
-function runQlooApi(args) {
-  return new Promise((resolve, reject) => {
-    execFile(
-      config.qloo.command,
-      ["api", ...args, "--json", "--quiet", "--no-color"],
-      { env: process.env, timeout: config.qloo.timeoutMs, maxBuffer: 8 * 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (error) {
-          const detail = String(stderr || error.message).replace(/[A-Za-z0-9_-]{32,}/g, "[redacted]");
-          return reject(new QlooError(`qloo api failed: ${detail.slice(0, 300)}`, { code: "QLOO_API_ERROR" }));
-        }
-        const parsed = safeParse(stdout);
-        if (parsed === undefined) return reject(new QlooError("qloo api returned non-JSON output"));
-        resolve(parsed);
-      },
-    );
-  });
-}
-
 const redact = (text) => String(text).replace(/[A-Za-z0-9_-]{32,}/g, "[redacted]");
 
 /** One authenticated GET against the Qloo API. Lists become comma-separated values. */
@@ -215,7 +205,13 @@ export function isEmptyAnswer(v) {
 
 async function cached(kind, name, args, live) {
   const key = cacheKey(kind, name, args);
-  if (memory.has(key)) return memory.get(key);
+  if (memory.has(key)) {
+    // Used again: to the back of the line, so the trim drops what nobody has asked for lately.
+    const hit = memory.get(key);
+    memory.delete(key);
+    memory.set(key, hit);
+    return hit;
+  }
 
   const promise = (async () => {
     const sample = await readJson(join(config.samplesDir, "qloo", `${key}.json`));
@@ -245,7 +241,7 @@ async function cached(kind, name, args, live) {
     return value;
   })();
 
-  memory.set(key, promise);
+  remember(key, promise);
   promise.catch(() => memory.delete(key));
   return promise;
 }
@@ -279,11 +275,18 @@ export async function qlooTool(name, args) {
   return cached("mcp", name, args, () => callMcpTool(name, args));
 }
 
-/** Entity search through `qloo api search`. Returns { results: [...] } of raw Qloo entities. */
+// Entity types the way /search takes them; the harness's own aliases for the few that differ from the URN.
+const typeUrn = (t) => (String(t).startsWith("urn:") ? t : `urn:entity:${{ music: "artist", tv: "tv_show", show: "tv_show", restaurant: "place", video_game: "videogame" }[t] ?? t}`);
+
+/**
+ * Entity search: GET /search with query, take and types, the request `qloo api search` itself makes. Over HTTP,
+ * not by starting `qloo api` per search: a new process took about 10 s to start on a small instance, and four at
+ * once ran past the timeout. Returns { results: [...] } of raw Qloo entities; cached under the same keys as before.
+ */
 export async function qlooSearch(args) {
   if (config.mode === "fake") return (await import("./fake-qloo.js")).fakeSearch(args);
   return cached("api", "search", args, async () => {
-    const out = await runQlooApi(["search", "-q", args.query, ...(args.type ? ["-t", args.type] : []), "-n", String(args.take ?? 10)]);
+    const out = await rawGet("/search", { query: args.query, take: args.take ?? 10, ...(args.type ? { types: typeUrn(args.type) } : {}) });
     return { results: Array.isArray(out) ? out : (out?.results ?? []) };
   });
 }

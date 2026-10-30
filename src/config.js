@@ -27,7 +27,8 @@ export const config = {
   port: int("PORT", 8080),
   // "live" calls Qloo; "samples" replays recorded real Qloo responses so the
   // app still works when the key is missing or the quota is exhausted.
-  mode: process.env.CULTURE_GAP_MODE || (process.env.QLOO_API_KEY ? "live" : "samples"),
+  // With no key and no recorded samples on disk, synthetic data (labelled as such) rather than a run that can't place a city.
+  mode: process.env.CULTURE_GAP_MODE || (process.env.QLOO_API_KEY ? "live" : existsSync(join(ROOT, "samples", "qloo")) ? "samples" : "fake"),
   hasQlooKey: Boolean(process.env.QLOO_API_KEY),
   groq: {
     apiKey: process.env.GROQ_API_KEY || "",

@@ -65,11 +65,11 @@ The **with vs without Qloo** card runs the same sentence through the same model 
 
 ## Bring your own key
 
-Twelve providers, eleven on the same OpenAI-compatible wire format plus an Anthropic adapter that also carries tool calls for the analyst: Groq, OpenAI, Anthropic, Gemini, Mistral, OpenRouter, Together, Fireworks, DeepSeek, xAI, Cerebras, SambaNova. The showcase buttons use your key too. The key travels once in the run request, lives in memory for that run, and is never written to a run file, an event, the cache or a log. Error text passes through a redactor. `POST /api/llm/check` makes one 8-token call so a bad key fails before the run. The server's own key is capped per IP and per day; your key skips the LLM cap and still counts against the Qloo cap.
+Twelve providers, eleven on the same OpenAI-compatible wire format plus an Anthropic adapter that also carries tool calls for the analyst: Groq, OpenAI, Anthropic, Gemini, Mistral, OpenRouter, Together, Fireworks, DeepSeek, xAI, Cerebras, SambaNova. The showcase buttons use your key too. The key travels once in the run request, lives in memory for that run, and is never written to a run file, an event, the cache or a log. Error text passes through a redactor. `POST /api/llm/check` makes one 8-token call so a bad key fails before the run. The server's own key is capped per IP and per day (runs, rewrites, analyst questions and MCP writes); your key skips the LLM cap and still counts against the Qloo cap. A model call that doesn't answer inside its stage gives the evidence template instead of a failed run.
 
 ## The agent door
 
-`POST /mcp` is a stateless Model Context Protocol server (Streamable HTTP) with four tools that call the same engine: `ayto_where_to_make` (rank a market's cities for a theme), `ayto_read_city`, `ayto_find_gap`, `ayto_write`. Discovery at `/.well-known/ayto.json`. A key passed to `ayto_write` is used for that call only.
+`POST /mcp` is a stateless Model Context Protocol server (Streamable HTTP) with four tools that call the same engine: `ayto_where_to_make` (rank a market's cities for a theme), `ayto_read_city`, `ayto_find_gap`, `ayto_write`. Discovery at `/.well-known/ayto.json`. A key passed to `ayto_write` (with its `provider`) is used for that call only. A run that fails comes back as a tool error with its reason.
 
 ---
 
@@ -102,6 +102,7 @@ Twelve providers, eleven on the same OpenAI-compatible wire format plus an Anthr
 - Supply is counted inside Qloo's catalogue for the city, not the market's full release slate.
 - The quality of the written output depends on the model you bring. The server default is capped.
 - Sample mode (`CULTURE_GAP_MODE=fake`) is synthetic and labelled; it exists so the app runs with no keys.
+- A run changes only for whoever started it (their browser keeps its edit key). Picking another lane or writing again on someone else's run, a showcase or a page from the gallery, makes your own copy with the same receipts; the original stays as it was.
 
 ## Run it
 
@@ -113,7 +114,7 @@ CULTURE_GAP_MODE=fake npm start   # synthetic sample data, no keys
 npm test
 ```
 
-`PORT` (default 8080), `PREWARM=1` runs the three showcases at boot, `MAX_RUNS_PER_DAY`, `MAX_LLM_RUNS_PER_DAY`, `SCANS_PER_IP_PER_HOUR`, `PUBLIC_URL` for the discovery document. The server's own model comes from the first key it finds: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, or `LLM_PROVIDER` + `LLM_API_KEY` (for example `deepseek`). A local OpenAI-compatible model (Ollama, LM Studio) works for the server only: `LLM_PROVIDER=local LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=qwen2.5:7b`; it is never offered to visitors. Docker: `docker build -t ayto . && docker run -p 8080:8080 --env-file .env ayto`. The app runs Qloo's official harness (`qloo mcp`) as a child process, so it needs a long-running container, not serverless: Render (`render.yaml` is a ready blueprint on the free plan; switch to starter for an always-awake demo), Railway or Fly.io from the Dockerfile all work.
+`PORT` (default 8080), `PREWARM=1` runs the three showcases at boot, `MAX_RUNS_PER_DAY`, `MAX_LLM_RUNS_PER_DAY`, `SCANS_PER_IP_PER_HOUR`, `PUBLIC_URL` for the discovery document. The server's own model comes from the first key it finds: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, or `LLM_PROVIDER` + `LLM_API_KEY` (for example `deepseek`). A local OpenAI-compatible model (Ollama, LM Studio) works for the server only: `LLM_PROVIDER=local LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=qwen2.5:7b`; it is never offered to visitors. Docker: `docker build -t ayto . && docker run -p 8080:8080 --env-file .env ayto`. The app runs Qloo's official harness (`qloo mcp`) as a child process, so it needs a long-running container, not serverless: Render (`render.yaml` is a ready blueprint on the free plan, which sleeps when idle and has no disk, so share links and the Qloo cache reset at each wake; on Starter, uncomment its disk block to keep them), Railway or Fly.io from the Dockerfile all work. With no Qloo key and no recorded samples, the app runs on labelled synthetic data.
 
 ## What changed
 

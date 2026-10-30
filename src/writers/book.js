@@ -14,7 +14,7 @@ Return JSON:
  "comps":[{"title":"a book, film or series from the evidence","take":"what to borrow"}],
  "audience":{"who":"from the skew","note":""},
  "travels_next":["cities from the evidence"],
- "avoid":["from the flavours the city cares less about"]}
+ "avoid":["flavour names copied exactly from flavours_the_city_cares_less_about"]}
 Give 3 chapters (opening, midpoint, ending), 3-5 comps.`,
   evidence: digest,
   fallback(ev) {

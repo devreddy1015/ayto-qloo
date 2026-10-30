@@ -13,6 +13,8 @@ import { emitEvent } from "./store.js";
 function walk(obj, path, visit) {
   const segs = path.split(".");
   const parts = segs.at(-1).endsWith("[]") ? segs : segs.slice(0, -1);
+  // The key the path names ("artist" in soundtrack[].artist) is read first; other name keys only when it is missing.
+  const hint = segs.at(-1).endsWith("[]") ? undefined : segs.at(-1);
   const step = (holder, [head, ...rest]) => {
     if (!holder || typeof holder !== "object") return;
     const key = head.replace("[]", "");
@@ -21,10 +23,10 @@ function walk(obj, path, visit) {
     if (head.endsWith("[]")) {
       value = holder[key] = Array.isArray(value) ? value.flat(Infinity) : [value];
       if (rest.length) return value.forEach((item) => step(item, rest));
-      return value.forEach((item, i) => visit(item, (replacement) => (value[i] = replacement)));
+      return value.forEach((item, i) => visit(item, (replacement) => (value[i] = replacement), hint));
     }
     if (rest.length) return step(value, rest);
-    visit(value, (replacement) => (holder[key] = replacement));
+    visit(value, (replacement) => (holder[key] = replacement), hint);
   };
   step(obj, parts);
 }
@@ -45,14 +47,19 @@ function prune(node) {
   }
 }
 
-const NAME_KEYS = ["title", "artist", "name", "city", "flavour", "brand", "place", "venue", "show", "film", "guest", "partner"];
-/** The names one written item carries: itself if a string, the strings in a list, or the value under a name key. */
-function namesOf(item) {
+const NAME_KEYS = ["title", "artist", "name", "city", "flavour", "brand", "place", "venue", "show", "film", "guest", "partner", "actor", "person", "director", "author", "band", "singer"];
+const present = (v) => v !== undefined && v !== null && v !== "";
+/**
+ * The names one written item carries: itself if a string, the strings in a list, or the value under its name key:
+ * the key the GROUND path names when the item has it ({ artist, title } is checked by its artist), else the first
+ * name key it has ({ name } for a reference).
+ */
+function namesOf(item, hint) {
   if (typeof item === "string") return item.trim() ? [item] : [];
   if (typeof item === "number") return [String(item)];
-  if (Array.isArray(item)) return item.flatMap(namesOf);
+  if (Array.isArray(item)) return item.flatMap((x) => namesOf(x, hint));
   if (!item || typeof item !== "object") return [];
-  const key = NAME_KEYS.find((k) => item[k] !== undefined && item[k] !== null && item[k] !== "");
+  const key = hint && present(item[hint]) ? hint : NAME_KEYS.find((k) => present(item[k]));
   return key ? namesOf(item[key]) : [];
 }
 
@@ -84,8 +91,8 @@ export function checkEvidence(run) {
   let removed = 0;
   if (output) {
     for (const [path, kind] of paths) {
-      walk(output, path, (item, replace) => {
-        const names = namesOf(item);
+      walk(output, path, (item, replace, hint) => {
+        const names = namesOf(item, hint);
         if (!names.length) return;
         let bad = false;
         for (const name of names) {

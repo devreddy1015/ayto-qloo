@@ -775,6 +775,8 @@ button.linkish:disabled {
 }
 .results-main {
   display: grid;
+  /* One column that may shrink below its widest table, so a card never grows past a phone's width. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.2rem;
   min-width: 0;
 }
@@ -1412,6 +1414,10 @@ button.linkish:disabled {
   text-align: right;
   color: var(--fg-soft);
   font-size: 0.8rem;
+}
+.table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
 }
 .table {
   width: 100%;

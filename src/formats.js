@@ -136,7 +136,7 @@ const FORMAT_WORDS = {
     ["podcast", /\b(podcasts?|audio shows?|talk shows?|audio series)\b/gi],
     ["game", /\b(video ?games?|mobile games?|indie games?|board games?|card games?|games?|gameplay|game studio)\b/gi],
     ["cafe", /(?:\bcaf[eé]s?(?![a-zà-ÿ])|\b(?:coffee shops?|restaurants?|bakery|bakeries|tea house|bistro|cloud kitchen|food truck|eatery|diner|pubs?|brewery)\b)/gi],
-    ["event", /\b(events?|concerts?|gigs?|club nights?|festivals?|open mics?|screening nights?|pop-?ups?|meetups?|comedy nights?|stand-?up (?:show|night|gig)s?|raves?|parties)\b/gi],
+    ["event", /\b(events?|concerts?|gigs?|club nights?|festivals?|open mics?|screening nights?|screenings?|movie nights?|film nights?|pop-?ups?|meetups?|comedy nights?|stand-?up (?:show|night|gig)s?|raves?|parties)\b/gi],
     ["book", /\b(books?|novels?|novellas?|web ?novels?|short stor(?:y|ies)|story collections?|graphic novels?|manga|comic books?|zines?)\b/gi],
     ["film", /\b(short films?|feature films?|films?|movies?|screenplays?|web ?series|docu-?series|series|documentar(?:y|ies)|short(?!\s+(?:stor(?:y|ies)|videos?|reels?|clips?|form|films?|documentar(?:y|ies)|podcasts?|novels?)\b)(?![-\w]))/gi],
     ["reel", /\b(reels?|tik ?toks?|short videos?|youtube shorts?|insta(?:gram)? (?:reels?|videos?)|instagram|vlogs?|ig videos?|youtube videos?)\b/gi],
@@ -153,13 +153,31 @@ const FORMAT_WORDS = {
   ],
 };
 
-/** The format a sentence names, else the one it suggests, else undefined. */
+const CONTAINERS = /^(?:series|collections?|drops?|labels?|capsule|editions?)$/;
+// Words that end a noun phrase: "a podcast about films" is a podcast, "a film festival" is a festival.
+const PHRASE_BREAK = /[,.;:!?()]|\b(?:about|for|with|on|in|at|from|set|inspired|after|of|to|by|and|or|that|which|where|like|a|an|the|my|our|is|are|was)\b/i;
+
+/**
+ * The format a sentence names, else the one it suggests, else undefined. Within the first noun phrase the last
+ * format word is the thing being made: "a film festival" is an event, "a book café" a café, "a fashion film" a film.
+ */
 export function formatFrom(text) {
   const t = String(text ?? "");
   for (const tier of ["named", "suggested"]) {
-    const hits = FORMAT_WORDS[tier].flatMap(([id, re]) => [...t.matchAll(re)].map((m) => ({ id, at: m.index, length: m[0].length })));
-    hits.sort((a, b) => a.at - b.at || b.length - a.length);
-    if (hits.length) return hits[0].id;
+    const all = FORMAT_WORDS[tier].flatMap(([id, re]) => [...t.matchAll(re)].map((m) => ({ id, at: m.index, end: m.index + m[0].length, word: m[0].toLowerCase() })));
+    // A hit inside a longer one is part of it: "story collection" in "a short story collection" is the book's.
+    const hits = all.filter((h) => !all.some((o) => o !== h && o.at <= h.at && o.end >= h.end && o.end - o.at > h.end - h.at)).sort((a, b) => a.at - b.at || b.end - a.end);
+    if (!hits.length) continue;
+    let head = hits[0];
+    for (const next of hits.filter((h) => h.at >= head.end)) {
+      const gap = t.slice(head.end, next.at);
+      // At most two plain words between them ("movie-themed", "book launch"), none that starts a new phrase.
+      if (PHRASE_BREAK.test(gap) || gap.trim().split(/[\s-]+/).filter(Boolean).length > 2) break;
+      // "series", "collection", "drop" or "label" after a format only packages it: a podcast series is a podcast.
+      if (CONTAINERS.test(next.word)) break;
+      head = next;
+    }
+    return head.id;
   }
   return undefined;
 }

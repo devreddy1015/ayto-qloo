@@ -1,12 +1,21 @@
 # Render blueprint: one long-running web service (the app runs Qloo's harness as a child process).
-# Plan: "free" works (512 MB is enough) but sleeps after 15 idle minutes, so the first visit after that waits about
-# a minute. Switch to "starter" in the Render dashboard for a demo that is always awake.
+# Plan: "free" runs the app, with three costs for a judged demo:
+#   - it sleeps after 15 idle minutes, and the first visit after that waits about a minute;
+#   - it has no disk, so every sleep or deploy wipes the runs and the Qloo cache: share links (/s/…) from before
+#     stop working, and each wake reads the showcases from Qloo again (about 150 requests with PREWARM=1);
+#   - it has 0.1 CPU, so a showcase takes longer than on a laptop.
+# For the judging window, "starter" with the disk below keeps share links and the cache across restarts.
 services:
   - type: web
     name: ayto
     runtime: docker
     plan: free
     healthCheckPath: /api/health
+    # Uncomment with plan: starter (disks need a paid plan). CACHE_DIR must match mountPath.
+    # disk:
+    #   name: ayto-cache
+    #   mountPath: /app/.cache
+    #   sizeGB: 1
     envVars:
       # Required.
       - key: QLOO_API_KEY

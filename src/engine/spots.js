@@ -7,7 +7,8 @@ import { evidenceFor, registerName } from "../pipeline/evidence.js";
 import { crowdIds, placeLabel, themeTagsInFamily } from "./common.js";
 
 // Admin units Qloo lists among a city's localities: too big to shoot in, so never a neighbourhood.
-const ADMIN = /\b(zone|mandal|district|division|metropolitan|region|municipal corporation|taluk|taluka|tehsil|circle|urban agglomeration|ward|island|county|borough of)\b/i;
+// "Circle 12" is a municipal circle; "Dupont Circle" and "Coney Island" are neighbourhoods.
+const ADMIN = /\b(zone|mandal|district|division|metropolitan|region|municipal corporation|taluk|taluka|tehsil|circle[\s-]*\d+|urban agglomeration|ward|county|borough of)\b/i;
 // Places Qloo lists that nobody can shoot in or visit as a crowd: homes, clinics, banks, missions.
 const NOT_PUBLIC = /\b(apartment building|apartment complex|apartments|residential (building|complex|society)|housing society|gated community|hospital|clinic|pharmacy|bank branch|atm|consulate|embassy|office building|office space|coworking|self[- ]storage|storage facility|storage units?|gas station|petrol pump|parking (lot|garage))\b/i;
 // Adult venues stay out of a public showcase: nobody shoots a short film or a reel for all ages there.

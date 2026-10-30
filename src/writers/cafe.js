@@ -15,7 +15,7 @@ Return JSON:
  "study_these":["places from the evidence"],
  "brands_to_stock":["brands from the evidence"],
  "audience":{"who":"from the skew","note":""},
- "avoid":["from the flavours the city cares less about"]}
+ "avoid":["flavour names copied exactly from flavours_the_city_cares_less_about"]}
 Give 6 menu items, 4-6 playlist artists. Leave neighbourhood empty if the evidence has none.`,
   evidence: digest,
   fallback(ev) {

@@ -59,3 +59,26 @@ test("check blanks a print motif that names a real brand and drops unknown garme
   assert.equal(out.items.some((i) => i.kind === "motif"), true);
   assert.deepEqual(run.stages.write.output.plan.brands_to_study, ["Diesel"]); // still allowed as a reference
 });
+
+test("what the city cares less about is checked too: an invented flavour in avoid goes", () => {
+  for (const writer of ["film", "fashion", "podcast", "game", "cafe", "event", "book"]) {
+    const run = { names: { horror: { name: "Horror" } }, stages: { write: { output: { writer, plan: { avoid: ["Horror", "Made Up Flavour"] } } } } };
+    const out = checkEvidence(run);
+    assert.equal(out.removed, 1, writer);
+    assert.deepEqual(run.stages.write.output.plan.avoid, ["Horror"], writer);
+  }
+});
+
+test("the key a path names is the one checked, and object items in name lists keep their name", async () => {
+  const { normalizePlan } = await import("../src/pipeline/write.js");
+  const names = { "sid sriram": { name: "Sid Sriram" }, gritty: { name: "Gritty" }, pune: { name: "Pune" } };
+  const run = { names, stages: { write: { output: { writer: "film", plan: { soundtrack: [{ artist: "Sid Sriram", title: "Srivalli" }], lane: { name: "The gritty lane", flavour: "Gritty" } } } } } };
+  const out = checkEvidence(run);
+  assert.equal(out.removed, 0, JSON.stringify(out.items));
+  const { plan } = normalizePlan({ travels_next: [{ city: "Pune", why: "leans the same way" }], beats: [{ title: "Hook", shot: "Close-up on the sign" }] }, { travels_next: ["Mysuru"], beats: ["Open on the street"] }, { nameLists: new Set(["travels_next"]) });
+  assert.deepEqual(plan.travels_next, ["Pune"], "a name list keeps the name");
+  assert.deepEqual(plan.beats, ["Hook · Close-up on the sign"], "a text list keeps every part");
+  // A registered name with no letters doesn't let every other symbol string through.
+  const odd = { names: { "": { name: "!!!" } }, stages: { write: { output: { writer: "film", plan: { travels_next: ["???"] } } } } };
+  assert.equal(checkEvidence(odd).removed, 1);
+});
