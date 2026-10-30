@@ -46,9 +46,9 @@ test("format hints pick the new formats from a sentence", async () => {
 
 test("recomputing the produce stage with new assumptions changes the numbers and nothing before it", async () => {
   const { rerunFrom } = await import("../src/pipeline/runner.js");
-  const { SHOWCASES } = await import("../src/presets.js");
-  const sc = SHOWCASES.find((s) => s.format === "fashion");
-  const run = await createRun(await parseInput(sc), { showcase: sc.id });
+  // The costing is India's, so this drop is Tiruppur's (the Paris showcase gets no rupee costing).
+  const sc = { text: "I run a small kidswear unit in Tiruppur. KPop Demon Hunters is everywhere.", format: "fashion", city: { query: "Tiruppur, India" }, theme: { query: "" }, loves: [{ name: "KPop Demon Hunters", type: "movie" }] };
+  const run = await createRun(await parseInput(sc), {});
   await startRun(run, 0);
   const before = run.stages.produce.output;
   const writeBefore = run.stages.write.output.plan;

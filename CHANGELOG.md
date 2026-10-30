@@ -3,6 +3,14 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: no rupee costing for a drop outside India
+
+- **The Paris showcase was costed in rupees with Indian GST.** The production stage (tech packs, unit economics,
+  channels, Legal Metrology) is built for India's marketplaces. A drop for another market now gets one plain line:
+  "costed for India's marketplaces … a costing for France isn't built yet". The drop keeps its styles, look and 3D, and
+  the share page shows no first-run section. Indian drops are unchanged.
+- The costing tests use a Tiruppur drop of their own, since the fashion showcase is now Paris.
+
 ## PR #40 (31 Oct, 04:14): hear the story with Sarvam; music steps aside when the key has no quota
 
 - **Hear the story.** One click under any finished brief has Sarvam's Bulbul (`bulbul:v3`) read it aloud: a film reads

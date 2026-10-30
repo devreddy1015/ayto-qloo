@@ -39,3 +39,13 @@ test("produce flips to 18% GST above the ₹2,500 cliff", async () => {
   assert.equal(out.economics.gstRate, 0.18);
   assert.match(out.economics.gstNote, /18% GST/);
 });
+
+test("a drop outside India gets no rupee costing, and says why", async () => {
+  const { produce } = await import("../src/pipeline/produce.js");
+  const run = { stages: { resolve: { output: { city: { name: "Paris", market: "France" } } }, write: { output: { plan: { styles: [{ name: "Studio Leather Jacket", garment: "jacket", hero: true }] } } } } };
+  const out = await produce(run);
+  assert.equal(out.notCosted, true);
+  assert.deepEqual(out.packs, []);
+  assert.doesNotMatch(out.summary, /₹/);
+  assert.match(out.summary, /France/);
+});
