@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: the write-up leads with London and Paris
+## PR #46 (31 Oct, 04:42): the write-up leads with London and Paris
 
 - **Devpost text (`docs/SUBMISSION.md`), README and video script** now walk through the live London crime film, using
   the run Claude Sonnet 5.5 wrote on 31 Oct:
