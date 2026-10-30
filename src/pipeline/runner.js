@@ -13,6 +13,7 @@ import { spots } from "../engine/spots.js";
 import { travels } from "../engine/travels.js";
 import { FORMATS, STAGE_LABELS } from "../formats.js";
 import { clearRunCredential, setRunCredential } from "../keys.js";
+import { writeLanguage } from "../languages.js";
 import { runWithUsage } from "../usage.js";
 import { check } from "./check.js";
 import { diff } from "./diff.js";
@@ -150,12 +151,16 @@ export async function rerunFrom(run, stageId, { assumptions } = {}) {
   return { done: startRun(run, index) };
 }
 
-/** Rerun from the write stage, with a (new) credential. */
-export async function regenerate(run, credential) {
+/** Rerun from the write stage, with a (new) credential, and in another language if one is given ("English" clears it). */
+export async function regenerate(run, credential, { language } = {}) {
   const index = run.plan.indexOf("write");
   if (index < 0) throw new Error("This run has no write stage.");
   if (isRunning(run.id)) throw new Error("This run is still working. Wait for it to finish.");
   if (run.stages[run.plan[index - 1]]?.status !== "done") throw new Error("The evidence stages must finish first.");
+  if (typeof language === "string") {
+    run.input.language = writeLanguage(language);
+    if (!run.input.language) delete run.input.language;
+  }
   if (credential) {
     setRunCredential(run.id, credential);
     run.llm = { provider: credential.provider, model: credential.model, byok: true };

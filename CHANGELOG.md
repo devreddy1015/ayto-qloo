@@ -3,7 +3,28 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: an international home wall
+## Unreleased: briefs in the city's own language
+
+- **"Write in": English, or the city's own language.** The confirm step offers English plus the languages of the
+  city's own screen culture (Telugu for Hyderabad, Tamil for Chennai, Marathi or Hindi for Mumbai; English only
+  for Las Vegas). "…in Hyderabad, in Telugu" picks it from the sentence; "a Telugu film" doesn't, because that
+  names the film's language, not the brief's.
+- **A finished run switches language without reading Qloo again.** The Write card has the same picker; "Write it
+  in Telugu" reruns from the write stage on, with no new Qloo requests.
+- **Every name still traces.** The writer is told to keep Qloo's names in Latin letters. If it writes one in
+  Telugu with Qloo's spelling in brackets ("హిట్ (HIT)"), the check reads the bracket. Titles it invents come in
+  Telugu script with the Latin spelling; character names stay in Latin letters so the beats and the cast line up.
+  The English prompt is unchanged, so cached English writing still applies.
+- The share page marks the written parts with their language and loads that script's Noto Sans font; the app
+  loads it only when a brief or a picker needs it. The MCP `ayto_write` tool takes `language` too.
+- Without a model, the template stays in English and the card says Telugu needs a model.
+- Why: the client research (29 Oct) found Telugu output, along with a back-test, the biggest gap before a
+  Hyderabad production house would take AYTO seriously.
+- Fixes in the sentence reader: "a crime film in Telugu set in Hyderabad" finds Hyderabad (a language word is
+  never a city), and "reels in Las Vegas. Nightlife and food." stops at the full stop (it used to read the city
+  as "Las Vegas. Nightlife"); "St. Louis" stays whole.
+
+## PR #18 (29 Oct, 20:04): an international home wall
 
 - **The home background now speaks to an international jury.** A wall of 39 titles known worldwide across
   AYTO's themes, among them Oppenheimer, Parasite, Squid Game, Money Heist, Narcos, The Bear, Taylor Swift, BTS,

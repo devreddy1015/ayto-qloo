@@ -64,9 +64,9 @@ export function buildMcpServer() {
       return text({ ...rest, receipts: ledger.length, note: "Aggregate Qloo taste affinity, not sales. Run ayto_find_gap or ayto_write for the city you pick." });
     },
   );
-  server.registerTool("ayto_write", { title: "Write into the gap", description: "The full run: read, gap, and the written film, reel or drop, checked so every name traces to Qloo. Pass your own LLM provider and key; it is used for this call only and never stored.", inputSchema: { city: z.string().describe(cityDesc), theme: z.string().optional(), format: formatSchema.default("film"), loves: z.array(z.string()).optional(), provider: z.string().optional().describe("groq, openai, anthropic, gemini, mistral, openrouter, together, fireworks, deepseek, xai, cerebras, sambanova"), key: z.string().optional().describe("Your API key for that provider"), model: z.string().optional() } }, async ({ city, theme, format, loves, provider, key, model }) => {
+  server.registerTool("ayto_write", { title: "Write into the gap", description: "The full run: read, gap, and the written film, reel or drop, checked so every name traces to Qloo. Pass your own LLM provider and key; it is used for this call only and never stored.", inputSchema: { city: z.string().describe(cityDesc), theme: z.string().optional(), format: formatSchema.default("film"), loves: z.array(z.string()).optional(), provider: z.string().optional().describe("groq, openai, anthropic, gemini, mistral, openrouter, together, fireworks, deepseek, xai, cerebras, sambanova"), key: z.string().optional().describe("Your API key for that provider"), model: z.string().optional(), language: z.string().optional().describe("Write the brief in this language, e.g. Telugu for Hyderabad. Names stay as Qloo spells them. Default English.") } }, async ({ city, theme, format, loves, provider, key, model, language }) => {
     const credential = provider && key ? credentialFrom({ provider, key, model }) : undefined;
-    const run = await runUntil(await parseInput({ text: "", format, city, theme: theme ?? "", loves: loves ?? [] }), undefined, credential);
+    const run = await runUntil(await parseInput({ text: "", format, city, theme: theme ?? "", loves: loves ?? [], language: language ?? "English" }), undefined, credential);
     return text(digest(run));
   });
 

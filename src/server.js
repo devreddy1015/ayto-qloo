@@ -252,7 +252,7 @@ app.post("/api/runs/:id/assumptions", async (req, res) => {
   }
 });
 
-/** Write again, with the user's own key. */
+/** Write again, with the user's own key and/or in another language. */
 app.post("/api/runs/:id/regenerate", async (req, res) => {
   const run = await loadRun(req.params.id);
   if (!run) return res.status(404).json({ error: "No such run." });
@@ -262,7 +262,7 @@ app.post("/api/runs/:id/regenerate", async (req, res) => {
   if (!credential && !llmAvailable()) return res.status(400).json({ error: "Add a key to write again." });
   if (!credential && !allowGlobal({ llm: true })) return res.status(503).json({ error: "The demo has hit today's budget. Bring your own key to write." });
   try {
-    const job = await regenerate(run, credential);
+    const job = await regenerate(run, credential, { language: typeof req.body?.language === "string" ? req.body.language.slice(0, 30) : undefined });
     job.done.catch(() => {});
     res.json({ ok: true, llm: run.llm });
   } catch (error) {

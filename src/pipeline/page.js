@@ -1,5 +1,7 @@
 // Server-rendered share page for a finished run. All text is escaped and the
 // page carries no scripts, so published content can't run code.
+import { WRITE_LANGUAGES } from "../languages.js";
+
 // The AYTO mark (public/icon.svg) as a data URI, so the share page needs no request outside its own CSP.
 const ICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0b0b0d"/><path d="M25.487 15.503A9.5 9.5 0 1 1 16.497 6.513" fill="none" stroke="#f5f5f7" stroke-width="4.4" stroke-linecap="round"/><circle cx="22.718" cy="9.282" r="2.7" fill="#f2be22"/></svg>')}`;
 const BRAND = '<a class="brand" href="/" aria-label="AYTO home"><span aria-hidden="true">AYT</span><svg viewBox="4 4 24 24" aria-hidden="true"><path d="M25.487 15.503A9.5 9.5 0 1 1 16.497 6.513"/><circle cx="22.718" cy="9.282" r="2.7"/></svg></a>';
@@ -116,10 +118,15 @@ export function renderSharePage(run) {
   const body = pg.format === "reel" ? reelBody(p) : pg.format === "fashion" ? fashionBody(p, pg) : pg.format === "film" ? filmBody(p) : genericBody(p);
   const NOUN = { film: "A film", reel: "A reel", fashion: "A drop", podcast: "A podcast", game: "A game", cafe: "A café", event: "A night", book: "A book" };
   const kicker = `${NOUN[pg.format] ?? "An idea"} for ${pg.city}`;
-  const fine = `Built with AYTO on Qloo taste signals (${pg.ledgerCount} requests)${pg.grounded ? `; ${pg.grounded.grounded} of ${pg.grounded.checked} names trace to Qloo` : ""}. Qloo describes aggregate taste, not individuals and not sales. ${pg.fallback ? "Written from the evidence template without a language model." : `Written with ${pg.llm?.provider ?? "a language model"}${pg.llm?.model ? ` (${pg.llm.model})` : ""}.`}${pg.usage?.calls ? ` Model tokens: ${pg.usage.input + pg.usage.output} over ${pg.usage.calls} call${pg.usage.calls === 1 ? "" : "s"}${pg.usage.byok ? ", on the maker's own key" : ""}.` : ""}`;
+  const fine = `Built with AYTO on Qloo taste signals (${pg.ledgerCount} requests)${pg.grounded ? `; ${pg.grounded.grounded} of ${pg.grounded.checked} names trace to Qloo` : ""}. Qloo describes aggregate taste, not individuals and not sales. ${pg.fallback ? "Written from the evidence template without a language model." : `Written${pg.language && pg.language !== "English" ? ` in ${pg.language}` : ""} with ${pg.llm?.provider ?? "a language model"}${pg.llm?.model ? ` (${pg.llm.model})` : ""}.`}${pg.usage?.calls ? ` Model tokens: ${pg.usage.input + pg.usage.output} over ${pg.usage.calls} call${pg.usage.calls === 1 ? "" : "s"}${pg.usage.byok ? ", on the maker's own key" : ""}.` : ""}`;
   // Each section gets an index for its entrance delay; the title's words rise one by one.
   const staged = body.split(/(?=<h2)/).filter(Boolean).map((part, i) => `<section class="s" style="--i:${i + 1}">${part}</section>`).join("");
   const titleWords = String(pg.title).split(/\s+/).map((w, i) => `<span class="w" style="--i:${i}">${esc(w)}</span>`).join(" ");
+  // A brief written in Telugu (or another language): the written parts carry its lang, and its script's web font loads.
+  const lang = WRITE_LANGUAGES[pg.language];
+  const langAttr = lang && lang.code !== "en" ? ` lang="${lang.code}"` : "";
+  const font = lang?.font ? `,"${lang.font}"` : "";
+  const fontLink = lang?.font ? `&family=${lang.font.replace(/ /g, "+")}:wght@400..700` : "";
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(pg.title)} · AYTO</title>
@@ -127,14 +134,14 @@ export function renderSharePage(run) {
 <meta name="description" content="${esc(p.logline ?? p.hook ?? p.positioning ?? kicker)}">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data:;">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Sans:ital,wght@0,400..700;1,400..700${fontLink}&display=swap" rel="stylesheet">
 <style>
 :root{--ink:#eef0f7;--paper:#0b0b0d;--tape:#f2be22;--soft:#aab0c4;--line:rgba(255,255,255,.12);--glow:rgba(242,190,34,.14);--rise:.9s;--ease:cubic-bezier(.2,.8,.2,1)}
 *{box-sizing:border-box}html{scroll-behavior:smooth}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:"Instrument Sans",system-ui,sans-serif;line-height:1.55;font-size:17px;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Instrument Sans"${font},system-ui,sans-serif;line-height:1.55;font-size:17px;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 body::before{content:"";position:fixed;inset:-20%;z-index:0;pointer-events:none;background:radial-gradient(60% 50% at 20% 10%,var(--glow),transparent 60%),radial-gradient(40% 40% at 85% 80%,rgba(120,140,255,.10),transparent 60%);animation:drift 28s ease-in-out infinite alternate}
 main{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:2.5rem 1.25rem 5rem}
-h1,h2,h3{font-family:Fraunces,"Instrument Sans",serif;font-variation-settings:"opsz" 144;letter-spacing:-.02em;text-wrap:balance}
+h1,h2,h3{font-family:Fraunces,"Instrument Sans"${font},serif;font-variation-settings:"opsz" 144;letter-spacing:-.02em;text-wrap:balance}
 .brand{display:inline-flex;align-items:baseline;margin-bottom:1.6rem;color:var(--ink);text-decoration:none;font-weight:700;font-size:1rem;letter-spacing:.1em;animation:fade var(--rise) var(--ease) both}.brand svg{width:.8em;height:.8em;margin-left:0;overflow:visible;transform:translateY(.03em)}.brand path{fill:none;stroke:currentColor;stroke-width:4.8;stroke-linecap:round}.brand circle{fill:var(--tape)}.brand:hover{color:var(--tape)}
 .k{display:inline-block;position:relative;color:#19234d;font-weight:700;padding:.3rem .7rem;border-radius:4px;font-size:.85rem;font-family:"Instrument Sans",sans-serif;letter-spacing:.02em;background:var(--tape);transform-origin:left center;animation:wipe .7s var(--ease) both}
 h1{font-size:clamp(2.8rem,8vw,5.6rem);line-height:.96;margin:.7rem 0 1rem;font-weight:600}
@@ -170,11 +177,11 @@ p,li{max-width:66ch;font-size:1.05rem}p{margin:.4rem 0 .8rem}ul,ol{padding-left:
 </style></head><body><main>
 ${BRAND}<br>
 <span class="k">${esc(kicker)}</span>
-<h1>${titleWords}</h1>
+<h1${langAttr}>${titleWords}</h1>
 <div class="meta">${[...(pg.theme ?? []), ...(pg.loves ?? [])].map((x) => `<span>${esc(x)}</span>`).join(" · ")}</div>
 <div class="tools"><a href="${esc(run.publish.url)}.md" download>Download as Markdown</a><a href="${esc(run.publish.url)}">Print or save as PDF: Ctrl+P</a></div>
 ${pg.lanes?.length ? `<section class="s" style="--i:0"><h2>The gap</h2><div class="lanes">${pg.lanes.map((l) => `<div class="lane"><b>${esc(l.name)}</b><div><div class="bar" style="width:${Math.max(8, Math.round((l.gap ?? 0) * 100))}%"></div><span>${esc(pg.city)} #${esc(l.cityRank)} · ${esc(pg.country)} #${esc(l.countryRank ?? "–")}${l.supplyCount !== undefined ? ` · ${esc(l.supplyCount)} recent` : ""}</span></div></div>`).join("")}</div></section>` : ""}
-${staged}
+<div${langAttr}>${staged}</div>
 <p class="fine">${esc(fine)}</p>
 </main></body></html>`;
 }
