@@ -1,94 +1,204 @@
-# Devpost submission draft
+# Devpost submission pack
 
-## Title
+Everything the Devpost form asks for, ready to paste. Deadline: **30 Oct 2026, 11:45 pm ET = 31 Oct, 9:15 am IST**.
+The app must stay up, free and with no login, until judging ends on **5 Nov 2026, 11:45 pm ET**.
+
+## Checklist
+
+| Required by the rules | Status |
+|---|---|
+| A live, working app judges can try end to end, hosted externally | **To do:** deploy (see "Deploy" below), then paste the URL in four places |
+| A public repo with all source and instructions | Done: [github.com/devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) |
+| An open-source licence visible in the repo's About section | Done: MIT, shown in About |
+| A text description of the features and what makes it Qloo-powered | Done: "About the project" below |
+| Video (optional, but judges may score on text, images and video alone) | Script ready: [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md) |
+| Gallery images | Frames ready in `submission/frames/` (kept out of git); retake the write and with-vs-without cards after the deploy |
+
+**Once the live URL exists, put it in:**
+1. the README's "Live demo" line;
+2. the repo's About website field;
+3. the Devpost "Try it out" links;
+4. the closing frame of the video.
+
+## Deploy
+
+Render, from the blueprint in `render.yaml` (Docker, one web service). The blueprint is tested at the free plan's limits: 0.1 CPU,
+512 MB and an empty cache, with all three showcases done about 85 s after boot.
+
+1. Go to https://render.com/deploy?repo=https://github.com/devreddy1015/ayto-qloo and sign in with GitHub.
+2. Paste the secrets when Render asks:
+   - `QLOO_API_KEY`: the hackathon key.
+   - `GROQ_API_KEY`: a free key from console.groq.com. Without a server model, judges get a template instead of a written treatment unless they bring their own key.
+3. Pick the plan:
+   - **Free** works. It sleeps after 15 idle minutes (the first visit then waits about a minute), and share links reset on each wake.
+   - **Starter** ($7/month) never sleeps. With the disk block in `render.yaml` uncommented, share links survive restarts. Recommended for the judging week (2–5 Nov).
+4. When it's live, check these three things:
+   - `/api/health` shows Qloo `live` and the model `available`;
+   - the three showcases open from the home page;
+   - one fresh sentence runs end to end.
+
+---
+
+## Project name
+
 AYTO — Are You The One
 
-## Tagline
-Tell AYTO what you're making and where. Qloo finds the gap in what the city loves. Your own LLM writes you into it.
+## Elevator pitch (200 characters max)
 
-## Who it's for
-The filmmaker in Hyderabad, and the production house behind them, deciding what to make next. India released 1,972 films in 2025 and only six Telugu releases succeeded; the audience research producers buy today (Ormax) starts after a film is announced. AYTO works before greenlight. Reel creators and small fashion makers run on the same engine and are shown as the other two formats.
+An agent with taste for filmmakers. Tell AYTO what you're making and where: Qloo finds what that city loves and isn't getting, and your AI writes the film into the gap.
+
+## About the project
+
+Paste everything between the lines into Devpost's "About the project" box.
+
+---
 
 ## Inspiration
-Everyone making something for a place starts from a blank page and a guess. A filmmaker in Hyderabad knows crime films do well; nobody can tell them which kind of crime film Hyderabad loves and isn't getting. Qloo knows the first half. AYTO does the second.
+
+In 2025 India released 1,972 films, 313 of them in Telugu, and only six Telugu releases succeeded. Producers say on record that they no longer know what "commercial" means. The audience research they can buy today starts after a film is announced. So a filmmaker in Hyderabad starts the way every maker starts: a blank page and a guess.
+
+They know crime does well. Nobody can tell them which kind of crime film Hyderabad loves and isn't getting. Qloo knows the first half. AYTO does the second.
 
 ## What it does
-One sentence in: "I'm making a crime short film in Hyderabad, after HIT, on a shoestring." AYTO shows what Qloo made of it before anything runs: the city (a typo like "Hydrabad" is read as Hyderabad, and says so), the theme as Qloo tags, and each title you named. When a title exists twice, AYTO picks the original in the city's own language. "HIT" in Hyderabad is the 2020 Telugu film, not its 2022 Hindi remake, and you can switch.
 
-Then it reads the city three ways (city vs country vs a contrast city). It finds the flavours the city ranks far above the country and above three control cities, so a lane belongs to this city, not just "not the country". It counts how many recent titles actually carry each flavour, and ranks the lanes: loved here, under-served. A look stage reads the style words the city leans to from Qloo's own tag families: Cinematic, Moody and Gritty for Hyderabad's crime crowd; Denim and Leather up, Silk down for Tiruppur's buyers. It reads the audience skew, the artists, the places this crowd goes and the area where most of them sit (the shoot base), and where the taste travels next.
+AYTO is an agent with taste. You give it one sentence: *"A crime short film in Hyderabad, after HIT, on a shoestring."*
 
-Finally your own language model (12 providers, key never stored) writes the thing into lane 1. For a film that means a treatment you can shoot:
-- titles, a logline and three acts
-- five or six beats, and characters with what they want and hide, their look and their arc
-- the films to study, with the shot to borrow from each
-- cast ideas from the people this city favours
-- locations by beat, with Qloo's own description of each place
-- camera and light notes for your budget, and a palette
+**1. It confirms what Qloo found, before anything runs.**
+- The city: a typo like "Hydrabad" still finds Hyderabad, and AYTO says so.
+- The theme, as Qloo tags.
+- Each title you named. When a title exists twice, AYTO picks the original in the city's language: "HIT" in Hyderabad is the 2020 Telugu film, not its 2022 Hindi remake. You can switch it.
 
-Not sure where yet? "Let AYTO compare cities" reads the same theme across the country's ten largest cities. Each city is measured against the country and against the other nine, so a lane counts only where few other cities share it. AYTO maps where the widest open lane is, lists what's crowded everywhere, and runs the full treatment for the city you pick. For crime films in India, Kolkata's lane is Crime Lord, Delhi's is Finance and Mumbai's is Gender Violence, while Martial Arts and Biographical lean high almost everywhere. Agents get the same ranking through the MCP door.
+**2. It reads the city and finds the gap.** Same theme, read for Hyderabad, for India and for three control cities (Bengaluru, Chennai and Kolkata). A lane counts only if the city ranks it far above the country *and* above comparable cities. Then AYTO counts how many recent films in the city's own catalogue carry each lane. For crime films in Hyderabad, from the live run:
+- **Folk +17, Finance +16, Revenge and Justice +15.** Hyderabad ranks each in its top 16; India doesn't rank them in its top 30.
+- **Zero** recent titles in the catalogue carry them. That's the gap: loved here, under-served.
+- **The look** the city's crime crowd leans to: Cinematic +10, Moody +8, Atmospheric +4, Gritty +4. Less Observational and Clinical.
+- **The rest of the read:** the artists, the places this crowd goes, the shoot base (Monda Market, Secunderabad), the audience skew, and where the taste travels next (Mysuru, Tirupati, Nellore, Mangaluru).
 
-Seven more formats run on the same engine: a reel (hook, beats, song, spots, caption), a fashion drop you can turn in 3D with a first production run costed as editable assumptions, a podcast, an indie game, a café, a live event night and a book.
+**3. Your own language model writes into lane 1.** You bring the model (12 providers; the key is never stored), or the site's own model is used. For a film the result is a treatment you can shoot:
+- titles, a logline and three acts;
+- beats, and characters with what each wants and hides, their look and their arc;
+- the films to study, with the shot to borrow from each;
+- cast ideas from the people this city favours;
+- locations by beat, camera and light notes for your budget, and a palette.
 
-A check stage removes any name the model made up and has the writer try once more with those names banned. Every name on the page opens the Qloo request it came from.
+It can write in the city's own language (Telugu for Hyderabad), with every Qloo name kept checkable.
+
+**4. It checks itself.** Every name in the output is looked up in what Qloo returned during the run. Anything made up is removed, and the writer tries once more with those names banned. Every name on the page opens the Qloo request it came from. In the live Hyderabad run, 25 of 25 names trace to Qloo.
+
+**5. It proves Qloo is the difference.** The with-vs-without card asks the same model the same question with no Qloo evidence, and counts how many of its names trace to anything.
+
+**Not sure where yet?** Say "a crime short film in India" and click *Let AYTO compare cities*. AYTO reads the theme across India's ten largest cities. Each city is measured against the country and against the other nine, so a lane counts only where few others share it. The map shows where the widest open lane is:
+- Kolkata's open lane is Crime Lord, Bengaluru's is Documentary, Mumbai's is Gender Violence.
+- Martial Arts leans high in all ten cities, so it is nobody's gap.
+
+One click runs the full treatment for the city you pick.
+
+**The same engine runs seven more formats:**
+- a reel (hook, beats, song, spots, caption);
+- a fashion drop you can turn in 3D, with a first production run costed as editable assumptions;
+- a podcast, an indie game, a café, a live event night, and a book.
+
+**Agents can use it too.** AYTO is an MCP server at `/mcp` with four tools: `ayto_where_to_make`, `ayto_read_city`, `ayto_find_gap` and `ayto_write`. Claude, or any other MCP client, can ask where to make something and get back lanes with receipts.
+
+**How to try it:** open the live link (no login) and click the Hyderabad crime film showcase, or type your own sentence.
+
+## How it's agentic
+
+- **It plans per format.** Each format has its own stage plan: a film reads the look and locations, a podcast skips them, and a fashion drop adds production.
+- **It reads with tools.** Every stage calls Qloo's tools through the official harness (`qloo mcp`) or raw Insights.
+- **It writes, then checks its own output** against the evidence, and rewrites once with the invented names banned.
+- **It answers follow-ups.** The "Ask the analyst" box calls Qloo tools itself, for example `qloo_describe`, `qloo_audience_demographics` and `qloo_where_popular`, up to 12 calls per question.
+- **It is a tool for other agents** through the MCP door.
 
 ## What makes it Qloo-powered
-Every step is a Qloo request with a receipt: locality search and tag resolve; `qloo_recommend` with the theme as `include_tags` and the location as the signal, run for the city, the country and a contrast city, which gives the only-here picks; a `urn:tag` Insights read with `signal.location.query` for the city, the country and three control cities, which gives demand lift and specific lift per flavour; typed tag reads (`filter.tag.types`) and tagged entity reads for the look (style, aesthetic, material and age tags); an entity Insights read with `filter.tags` and the city as signal, returning 50 titles with their own tags and years, which gives supply; audience demographics; artist and place recommendations signalled by the city's picks; a geohash heatmap snapped to Qloo localities for where the taste travels. Place recommendations come with Qloo's own short description and price level, which become the shoot locations. When the theme's tag can't filter a kind (people, podcasts, games), AYTO tries the theme's other tags for that kind, then seeds the read with Qloo's search for the theme or with the picks of a section that is on theme. That's how a horror film's cast comes back as Hunter Schafer and Florence Pugh, not a local quarterback. /entities supplies the aliases that pick the right title and the dates that keep people who have died out of a cast list. "Where should I make it?" runs one tag read per city for the country's ten largest cities and treats them as each other's controls: a city's lane is its lift over the country minus the 70th percentile of the other cities' lifts. The with-vs-without card runs the same sentence with no evidence and counts the names that trace. Without Qloo there is no lane, no list, no map: only a prompt.
+
+Nothing on the page exists without Qloo. The Hyderabad film run makes 44 Qloo requests, and each one is a receipt you can open.
+
+- **Resolve.** Locality search, `qloo_find_tags` for the theme, and `qloo_describe` plus `/entities` for the titles. The aliases pick the original over the remake, and death dates keep people who have died out of a cast list.
+- **Read.** `qloo_recommend` with the theme as `include_tags` and the location as the signal, for the city, the country and a contrast city. That gives the only-here picks and the hidden gems: high affinity, low popularity.
+- **Demand.** A `urn:tag` Insights read with `signal.interests.tags` and `signal.location.query`, for the city, the country and three control cities. That gives each flavour's lift over the country and its specific lift over comparable cities.
+- **Supply.** An entity Insights read with `filter.tags` and the city as signal, returning 50 titles with their own tags and years. Supply is how many recent titles carry each flavour.
+- **The look.** Style and aesthetic tag families (`filter.tag.types`), counted on the city's catalogue against the country's, plus Qloo's own style descriptions of the films to study.
+- **The rest.** Audience demographics; artist and place recommendations signalled by the city's picks; and a geohash heatmap snapped to Qloo localities for where the taste travels.
+- **Where should I make it?** One tag read per city across the ten largest cities, which act as each other's controls.
+
+Without Qloo there is no lane, no list and no map: only a prompt.
 
 ## How we built it
-Node + Express, vanilla JS, SSE streaming. Qloo through the official harness for workflow tools, raw Insights for heatmaps, tag reads and tagged entity reads. An evidence ledger wraps every Qloo call. The gap formula compares only within one response. A stateless MCP server exposes the same engine to agents.
 
-## Challenges
-Signalling a tag with a location lets the location swamp it (crime + Hyderabad gave Borat). Affinity comes back flat at the top, so ranking by it is noise. Filtering by affinity tags returns nothing because they are not entity tags; the tagged catalogue read fixed supply. Free text without a confirm step shipped nonsense once; now a city Qloo cannot place blocks the run. The live API had quieter traps:
+- Node 22 and Express, a vanilla JS front end, and live progress streamed over SSE.
+- Qloo through the official `@qloo/qloo-harness` for the workflow tools, and raw HTTP for search, Insights heatmaps, tag reads and tagged entity reads. An evidence ledger wraps every call.
+- A provider table for 12 LLM providers, OpenAI-compatible plus an Anthropic adapter. Keys stay in memory for one run and are redacted from errors.
+- A stateless MCP server.
+- A three.js garment viewer for the fashion drop.
+- One Docker image, deployed on Render.
+- 118 tests, including every showcase end to end on synthetic data.
+
+## Challenges we ran into
+
+**The maths.**
+- Signalling a tag with a location lets the location swamp it: crime plus Hyderabad returned *Borat*. The theme had to be a filter, not a signal.
+- Affinity comes back flat at the top (0.98–1.00), so ranking by it is noise. AYTO ranks by set differences and by affinity minus popularity.
+- A country baseline behaves like its largest city: Biographical reads +22 in Hyderabad and +22 in Chennai. Control cities fixed that.
+
+**The live API's quiet traps.**
 - "Mumbai, India" returns zero artists without an error; the state-qualified name works.
-- Qloo's tags are typed: a film genre tag filters no artists, and of twelve hip hop tags only three filter artists, one of them named " Hip Hop" with a leading space.
-- For films, "cricket" filters only as a media keyword.
-- An original and its remake share an alias, and the describe tool picks the remake.
-- Recommendation results carry no aliases and no dates.
+- Tags are typed: a film genre tag filters no artists, and of twelve hip hop tags only three filter artists, one of them named " Hip Hop" with a leading space.
+- An original film and its remake share an alias, and the describe tool picks the remake.
+- Recommendation results carry no aliases, no tags and no dates.
 
-We found each of these by checking 13 live runs against what they were asked for, and the fixes are in the changelog. Model replies are another trap: the writer accepts a reply after a thinking block, in code fences or cut off by the token limit, and fills any section the model left empty from the evidence, never from guesswork.
+**The models.** Replies come back after a thinking block, in code fences, cut off mid-word, or in the wrong shape. The writer repairs the reply, and fills empty sections from the evidence, never from guesswork.
+
+## Accomplishments that we're proud of
+
+- A lane you can check. Folk crime in Hyderabad isn't a vibe: it's rank 14 against "not in the top 30", above three control cities, with zero recent supply, and every step is a receipt.
+- 25 of 25 names traced in the live run.
+- The original, not the remake: "HIT" means the Telugu film in Hyderabad.
+- Eight formats and 12 model providers on one engine, plus an MCP door for agents.
+- It fits a free host: at 0.1 CPU and 512 MB with an empty cache, all three showcases finish within about 85 seconds of boot.
+- Before the deploy, a bug hunt reproduced and fixed about 90 bugs and grew the suite from 79 to 118 tests.
 
 ## What we learned
-Documented in the README under "What the live API taught us".
 
-## What's next
+- Qloo is strongest as a difference engine: the same read for the city and for the country, and the gap between them, beats any single affinity score.
+- Every claim has to be checkable. Once each name on the page opened its Qloo request, it was obvious which parts were evidence and which were the model.
+
+## What's next for AYTO
+
 - A supply read across a market's full release slate, not just the themed catalogue.
 - Momentum, once Qloo's trend data moves.
-- A team view, where a production house can compare lanes across its cities.
+- A team view, where a production house compares lanes across its cities.
 - A deeper casting read, with each actor's recent work.
 
-## Links
-- Live: _fill in_
-- Repo: https://github.com/devreddy1015/ayto-qloo (MIT)
-- Video: _fill in_
+---
 
-## Video script (3 minutes)
-Record at 1080p from the live URL with a key set (server key or the drawer). Run the showcases once beforehand so they open instantly.
+## Built with
 
-**0:00–0:15 The problem.** Narrate over the home page: "Making something for a city starts with a guess. Qloo knows what the city loves. AYTO finds what it loves and isn't getting."
+`node.js` · `express` · `javascript` · `qloo` · `qloo-insights-api` · `mcp` · `model-context-protocol` · `groq` · `anthropic` ·
+`openai` · `three.js` · `leaflet` · `docker` · `render` · `server-sent-events`
 
-**0:15–0:35 One sentence.** Type "A short film in Hyderabad about crime, after HIT: The First Case, on a shoestring" and click Check with Qloo. Point at the confirm strip: the city, the Crime tag, "HIT (2020, Telugu)" picked over the Hindi remake, and the budget.
+## Try it out (links)
 
-**0:35–1:10 The read and the gap.** Click Run. Show:
-- the three-column read: only-Hyderabad films against India's top
-- the gap card: Folk, Finance and Revenge and Justice, specific to Hyderabad against three control cities, with no recent title carrying them
-- the look: Cinematic, Moody, Gritty
+- Live app: `<LIVE_URL>`
+- Source: https://github.com/devreddy1015/ayto-qloo
+- MCP endpoint: `<LIVE_URL>/mcp` (discovery at `<LIVE_URL>/.well-known/ayto.json`)
 
-Hover one chip to show its receipt.
+## Video demo link
 
-**1:10–1:55 The treatment.** Scroll the write card:
-- titles and logline
-- the beats
-- one character card (wants, hides)
-- a reference with its "borrow" note
-- the shoot base and its locations
-- camera, and the palette (click a swatch to copy it)
+`<YouTube or Vimeo link>`. Script: [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md).
 
-**1:55–2:15 Grounded.** Show the check card ("every name traces to Qloo") and the with-vs-without card, where the same sentence without Qloo names nothing traceable. Open one receipt.
+## Image gallery (in this order)
 
-**2:15–2:25 Where?** Back on the home page, type "a crime short film in India" and click "Let AYTO compare cities". Point at the map, Kolkata's Crime Lord against Delhi's Finance, and the "crowded everywhere" line.
+Devpost recommends 3:2 images under 5 MB. Crop the frames to 3:2 on a dark background.
 
-**2:25–2:35 Same engine.** Click the Las Vegas reel showcase, then the Tiruppur kidswear drop: the 3D garment and the costed first run.
+| # | File (`submission/frames/`) | Caption |
+|---|---|---|
+| 1 | `04-gap.png` | The gap: Folk, Finance, Revenge and Justice. Loved in Hyderabad, not in India's top 30, and no recent film carries them. |
+| 2 | `02-confirm.png` | One sentence. AYTO shows what Qloo found: the city, the Crime tag, and HIT (2020, Telugu) over its Hindi remake. |
+| 3 | `05-look.png` | The look Hyderabad's crime crowd leans to, from Qloo's own style tags: Cinematic, Moody, Atmospheric, Gritty. |
+| 4 | the write card from the live site | The treatment, written into lane 1. Take this after the deploy, once a model writes it. |
+| 5 | the with-vs-without card from the live site | The same question without Qloo. Take this after the deploy too. |
+| 6 | `10-where.png` | "Where should I make it?" Ten cities, each against the other nine. |
+| 7 | `06-spots.png` | Locations from the places this crowd goes, and a shoot base. |
 
-**2:35–2:50 Yours.** Open the key drawer (your key, never stored), then the share page and its Markdown brief.
-
-**2:50–3:00 Honest limits.** "Qloo describes taste, not sales. AYTO says lean and signal, never hit."
+The home frame (`01-home.png`) shows real film posters in the background wall. Leave it out of the gallery, or blur the wall.

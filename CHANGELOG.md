@@ -3,6 +3,18 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: the submission pack
+
+- **docs/VIDEO_SCRIPT.md**: a 60-second animated video for the animators, scene by scene (picture, on-screen text,
+  voiceover), the app's palette, type and logo story, what must stay exact, and a 30-second cut. Every number is
+  from a live run on 30 Oct.
+- **docs/SUBMISSION.md** rewritten as a paste-ready Devpost pack: the rules' checklist, the Render deploy steps, the
+  elevator pitch (168 characters), "About the project" with how AYTO is agentic, built-with tags, links and a
+  gallery order with captions.
+- **README**: the judging table uses the official criteria names; "compare cities" quotes today's read (Delhi's lane
+  is no longer Finance); a line says how AYTO is an agent.
+- `submission/` (frames and video assets) is git-ignored: the frames show Qloo output and film posters.
+
 ## PR #24 (30 Oct, 22:59): v0.2.0, ready for the deploy (bug hunt, batch 5)
 
 Version 0.2.0: batches 1 to 5 of the bug hunt (30 Oct), about 75 bugs, each reproduced before it was fixed.
