@@ -3,6 +3,22 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: Claude writes on the live site; a café's lanes are tastes, not people
+
+- **Claude (Sonnet 5.5) works as the writer.** With the live site switched to Anthropic, every call failed with
+  "400: `temperature` is deprecated for this model": since 21 Oct 2026 Anthropic rejects sampling settings on every
+  model, and the adapter still sent one. The adapter now:
+  - sends no `temperature`;
+  - runs adaptive thinking at `low` effort, so a write stays fast;
+  - gives `max_tokens` room for the thinking as well as the reply (at least 16,000);
+  - passes the assistant's blocks back unchanged in the analyst's tool loop, thinking blocks included;
+  - turns on server-side refusal fallbacks (`fallbacks: "default"`) for the models that have them.
+  Effort and fallbacks are scoped to the Claude 5.x models, so a key for an older model still works.
+- **A group of people is never a lane.** A Hyderabad café came back with "Muslims" as lane 1 (a Qloo film-genre tag)
+  and a menu "tuned to" it. Religions, castes and ethnicities named as groups, and Qloo's `customer_identity` family
+  ("Young Professionals"), are now kept out of lanes and avoid lists. A café's or a brand's lanes are never film
+  genres or keywords.
+
 ## PR #29 (31 Oct, 01:20): the submission covers all eight formats
 
 - **The pitch is for anyone making something for a city**, not only filmmakers: "An agent with taste for anyone making
