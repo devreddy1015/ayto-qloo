@@ -104,7 +104,7 @@ Twelve providers, eleven on the same OpenAI-compatible wire format plus an Anthr
 - **Nonsense in, confidence out.** "i wana make a film in delhi" once became a TV show with a shipped page. Now the confirm step shows what Qloo found before anything runs, and a city Qloo cannot place blocks the run.
 - **Flat affinity.** Ranking by affinity is noise at the top. The useful reads are set differences (only here) and affinity minus popularity (hidden gems).
 - **A gap needs supply.** Filtered intersections returned zeros; reading the catalogue with its tags in one response gave real counts and the titles to show.
-- **Motion that never runs ahead.** The run page lights a stage only when the stream says it is done, and bars grow to their real values. Reveals move by transform and opacity, once each, and nothing moves under reduced motion (`public/motion.js`).
+- **Motion that never runs ahead.** The run's network of stages lights a stage only when the stream says it is done, and every bar or count grows to the value Qloo returned. Reveals move by transform, opacity and clip-path, once each, through one observer, and nothing moves under reduced motion (`public/motion.js`).
 
 ## Honest limits
 

@@ -46,7 +46,7 @@
         } catch {}
         // The hero comes in as the mark lifts, or at once (and quicker) when there is no intro. "Motion pass" in styles.css.
         // hero-go is taken off once the reveal is over, so going back home from a run never replays it.
-        const go = () => root.classList.replace("hero-wait", "hero-go") && setTimeout(() => root.classList.remove("hero-go"), 1600);
+        const go = () => root.classList.replace("hero-wait", "hero-go") && setTimeout(() => root.classList.remove("hero-go"), 1800);
         if (home && !still) root.classList.add("hero-wait");
         if (seen || !home) {
           root.style.setProperty("--hero-pace", "0.6");
@@ -84,7 +84,7 @@
     <main>
       <div id="home">
         <section class="hero" aria-labelledby="hero-title">
-          <h1 id="hero-title"><span class="w">Are</span> <span class="w">you</span> <span class="w">the</span> <span class="w">one?</span></h1>
+          <h1 id="hero-title"><span class="w"><span>Are</span></span> <span class="w"><span>you</span></span> <span class="w"><span>the</span></span> <span class="w"><span>one?</span></span></h1>
           <p class="lede">Tell AYTO what you're making and where. It finds the gap in what the city loves and writes you into it.</p>
           <p class="hero-steps" aria-hidden="true"><span>The city loves it</span><span>The gap: your lane</span><span>The thing arrives</span></p>
         </section>

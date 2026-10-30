@@ -520,6 +520,7 @@ async function findWhere() {
 function renderWhere(out) {
   const box = $("#where");
   const read = out.cities.filter((c) => c.coverage !== "none");
+  const best = Math.max(1, ...out.cities.map((c) => c.lanes[0]?.strength ?? 0)); // the bars' scale, as the map's
   const mapBox = el("div", { class: "map where-map", role: "img", "aria-label": `Map of ${out.market}'s cities by how wide their open lane is for ${out.theme}` });
   setTimeout(() => drawWhereMap(mapBox, out), 0);
   box.replaceChildren(
@@ -537,6 +538,7 @@ function renderWhere(out) {
             "li",
             { class: `where-city ${i === 0 && c.lanes.length ? "first" : ""}` },
             el("div", { class: "where-head" }, el("span", { class: "where-rank", text: `#${i + 1}` }), el("strong", { class: "where-name", text: c.name }), c.state ? el("span", { class: "sub", text: ` ${c.state}` }) : null),
+            c.lanes[0] ? el("div", { class: "where-bar", title: "Lane strength: the lower of the top lane's lift over the market and over the other cities" }, el("span", { class: "where-bar-track" }, el("span", { class: "where-bar-fill", style: `--v:${Math.max(0, c.lanes[0].strength / best).toFixed(3)}` })), el("span", { class: "where-bar-n" }, "strength ", el("b", { "data-count": c.lanes[0].strength, text: String(c.lanes[0].strength) }))) : null,
             c.lanes.length
               ? el("ul", { class: "where-lanes" }, c.lanes.map((l) => el("li", {}, el("strong", { text: l.name }), el("span", { class: "sub", text: ` ${signed(l.lift)} vs ${out.market} · ${signed(l.specific ?? "?")} vs the other cities`}))))
               : el("p", { class: "muted small", text: c.coverage === "none" ? "Qloo returned no flavours for this city." : "Nothing here the other cities don't share." }),
