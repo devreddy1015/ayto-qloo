@@ -3,6 +3,16 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: DeepSeek back on the model that writes
+
+- **`deepseek-chat` again.** After #26 switched the live site to `deepseek-flash` (V4.1, thinking off), a fresh
+  Hyderabad run came back with every written section empty: no titles, no beats, no characters, 10 sections filled from
+  the evidence, though the model returned 1,889 tokens. An hour earlier, `deepseek-chat` wrote a full treatment on the
+  same site (The Clock Tower Ledger, 25 of 25 names traced). The retired name still answers, so it stays until the newer
+  model is checked against the writers. The `extraBody` switch is gone with it.
+- **The live site doesn't autodeploy.** The blueprint was made from the public repo URL, without Render's GitHub app,
+  so each merge needs Manual Deploy → Deploy latest commit (CLAUDE.md says so).
+
 ## PR #26 (31 Oct, 00:14): live on Render, with DeepSeek
 
 - **Live at https://ayto-ocx1.onrender.com** (Render, free plan). The README, the repo's About and the Devpost text link it.

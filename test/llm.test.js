@@ -34,7 +34,7 @@ test("the Anthropic adapter is wired for tools (no provider-level refusal)", asy
   assert.ok(src.includes('type: "tool_use"') && src.includes('type: "tool_result"'));
 });
 
-test("DeepSeek gets its current model with thinking off", async () => {
+test("DeepSeek gets the model that writes", async () => {
   const { createServer } = await import("node:http");
   const { chat } = await import("../src/llm.js");
   let seen;
@@ -54,8 +54,8 @@ test("DeepSeek gets its current model with thinking off", async () => {
     const message = await chat({ credential: credentialFrom({ provider: "deepseek", key: "sk-test-abcdefghijkl" }), messages: [{ role: "user", content: "hi" }] });
     assert.equal(message.content, "ok");
     assert.equal(seen.path, "/chat/completions");
-    assert.equal(seen.body.model, "deepseek-flash");
-    assert.deepEqual(seen.body.thinking, { type: "disabled" });
+    // deepseek-flash wrote empty plans live on 31 Oct; deepseek-chat wrote full ones.
+    assert.equal(seen.body.model, "deepseek-chat");
   } finally {
     PROVIDERS.deepseek.baseUrl = real;
     server.close();
