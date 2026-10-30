@@ -1,6 +1,7 @@
 // AYTO front end. One sentence in; Qloo confirms the city and theme; a run of
 // 4-11 stages streams in as cards, with a receipt for every Qloo request.
 // Vanilla JS; everything from Qloo or the model is inserted as text.
+import { pickReferences } from "./references.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const el = (tag, attrs = {}, ...children) => {
@@ -1776,6 +1777,7 @@ const WRITE = {
       p.palette?.length ? section("Palette", el("div", { class: "palette" }, p.palette.map((c) => el("div", { class: "chip-color" }, el("span", { class: "chip-fill", style: `background:${hex(c.hex)}` }), el("strong", { text: c.name ?? c.hex }), el("small", { text: (c.from_tags ?? []).join(", ") }))))) : null,
       p.styles?.length ? section("Styles", el("div", { class: "styles" }, p.styles.map((s) => el("div", { class: `style-card ${s.hero ? "hero" : ""}` }, el("strong", { text: s.name ?? "" }), el("span", { class: "sub", text: `${s.category ?? ""}${s.hero ? " · hero" : ""}` }), s.cues?.length ? el("p", { class: "small", text: s.cues.join(" · ") }) : null, s.from_tags?.length ? chips(s.from_tags.map((t) => q(t)), "small") : null, s.colourways?.length ? el("span", { class: "sub small", text: s.colourways.join(" · ") }) : null)))) : null,
       p.styles?.length ? garmentSection(p) : null,
+      referenceStrip(state.run),
       p.brands_to_study?.length ? section("Brands to study", chips(p.brands_to_study.map((b) => q(b)))) : null,
       p.soundtrack?.length ? section("Soundtrack", chips(p.soundtrack.map((a) => q(typeof a === "string" ? a : a.artist ?? a.name)))) : null,
       p.first_cities?.length ? section("First cities", chips(p.first_cities.map((c) => q(c)))) : null,
@@ -2228,6 +2230,30 @@ function garmentExtras(styles, getViewer, getIndex) {
   }
   update();
   return { node, update, mount };
+}
+
+// ---------- references from Qloo (fashion) ----------
+// Under the 3D preview: three or four pictures from Qloo's own read of this run (the love the maker named, the labels
+// the city favours), in a strip that slides left. No web search: each picture's name is a Qloo receipt.
+
+function referenceStrip(run) {
+  const refs = pickReferences(run);
+  if (!refs.length) return null;
+  const track = el(
+    "div",
+    { class: "ref-track", tabindex: "0", role: "list", "aria-label": "References from Qloo" },
+    refs.map((r) =>
+      el(
+        "figure",
+        { class: "ref-card", role: "listitem" },
+        el("img", { src: r.image, alt: r.name, loading: "lazy", referrerpolicy: "no-referrer", onerror: (e) => e.target.closest(".ref-card")?.remove() }),
+        el("figcaption", {}, q(r.name), el("span", { class: "garment-note", text: r.why })),
+      ),
+    ),
+  );
+  const step = (dir) => track.scrollBy({ left: dir * (track.querySelector(".ref-card")?.offsetWidth ?? 200) * 1.05, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  const arrows = el("div", { class: "ref-arrows" }, el("button", { type: "button", class: "secondary", "aria-label": "Previous reference", text: "‹", onclick: () => step(-1) }), el("button", { type: "button", class: "secondary", "aria-label": "Next reference", text: "›", onclick: () => step(1) }));
+  return el("div", { class: "sect refs" }, el("div", { class: "refs-head" }, h3("References from Qloo"), refs.length > 2 ? arrows : null), track, note("What this crowd already loves, from Qloo's read of this run. Swipe or use the arrows."));
 }
 
 // ---------- with vs without Qloo, in 3D (fashion) ----------
