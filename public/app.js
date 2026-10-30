@@ -1099,6 +1099,7 @@ function musicTone(run) {
       box.replaceChildren(
         el("audio", { src: s.url, controls: true, preload: "metadata" }),
         el("figcaption", {}, `Music tone, composed by Google Lyria from this run's taste${basis ? ` (${basis})` : ""}. Original, instrumental, no real artist or song. `, el("a", { href: s.url, download: `${run.id}-music-tone.${s.url.split(".").pop()}`, text: "Download" })),
+        s.prompt ? musicAsk(s, sound) : "",
       );
     } else if (s.status === "composing") {
       box.replaceChildren(el("div", { class: "music-wait skeleton" }), el("figcaption", { text: "Composing… about 20 to 60 seconds." }));
@@ -1122,6 +1123,26 @@ function musicTone(run) {
   show({ status: "none" });
   fetch(`/api/runs/${run.id}/music`).then((r) => r.json()).then((s) => s.status !== "none" && show(s)).catch(() => {});
   return box;
+}
+
+/** The exact prompt Lyria got, and the Qloo reads behind each part of it: the receipts for the music. */
+function musicAsk(s, sound) {
+  const count = new Map([...(sound?.genres ?? []), ...(sound?.moods ?? []), ...(sound?.instruments ?? [])].map((t) => [t.name.toLowerCase(), t.artists]));
+  const tagged = (list) => (list ?? []).map((n) => (count.get(n.toLowerCase()) ? `${n} ×${count.get(n.toLowerCase())}` : n));
+  const b = s.basis ?? {};
+  const rows = [
+    [`Genres, feel and instruments: the shortlisted artists' own tags on Qloo${sound?.of ? ` (× = how many of the ${sound.of} carry it)` : ""}`, [...tagged(b.genres), ...tagged(b.moods), ...tagged(b.instruments)]],
+    ["Theme: the lanes from the gap", b.lanes ?? []],
+    ["Visual style: the look words", b.look ?? []],
+  ].filter(([, list]) => list.length);
+  return el(
+    "details",
+    { class: "music-ask" },
+    el("summary", { text: "What we asked Lyria" }),
+    rows.map(([label, list]) => section(label, chips(list, "small"))),
+    el("p", { class: "music-prompt", text: s.prompt }),
+    el("p", { class: "footnote", text: "Every word taken from the run went through the same name scrub as the concept image, so no artist, title, brand or venue reaches the model." }),
+  );
 }
 
 // ---------- small pieces ----------

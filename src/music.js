@@ -3,7 +3,7 @@
 // of it. The prompt is built from what Qloo read (the genres, moods and instruments the audio shortlist's artists carry,
 // the gap's lanes, the look words), the city and the brief's own mood, with every Qloo name taken out: genre, tempo,
 // mood and instruments only, never an artist, a song or "in the style of".
-import { mkdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { config } from "./config.js";
 import { scrub } from "./image.js";
@@ -93,6 +93,8 @@ export function audioOf(json) {
 // Lyria 3 Clip answers MP3; a WAV (RIFF header) is kept as WAV so the browser is told the truth.
 const extOf = (bytes) => (bytes.subarray(0, 4).toString("latin1") === "RIFF" ? "wav" : "mp3");
 const fileOf = (runId, ext) => join(DIR(), `${runId}.${ext}`);
+// What was asked for the tone, kept beside it so the page can show the exact prompt and what it was built from.
+const askOf = (runId) => join(DIR(), `${runId}.json`);
 
 /** The run's music file on disk, if there is one: { path, ext }. */
 export async function musicFile(runId, ext) {
@@ -109,7 +111,10 @@ export async function musicStatus(runId) {
   const job = jobs.get(runId);
   if (job?.status === "done" || !job) {
     const file = await musicFile(runId);
-    if (file) return { status: "done", url: `/api/runs/${runId}/music.${file.ext}`, model: job?.model };
+    if (file) {
+      const asked = await readFile(askOf(runId), "utf8").then(JSON.parse).catch(() => ({}));
+      return { status: "done", url: `/api/runs/${runId}/music.${file.ext}`, model: job?.model ?? asked.model, prompt: asked.prompt, basis: asked.basis };
+    }
     if (!job) return { status: "none" };
   }
   return { status: job.status, ...(job.error ? { error: job.error } : {}) };
@@ -142,6 +147,7 @@ export async function startMusic(run, { timeoutMs = 150000 } = {}) {
       }
       const bytes = Buffer.from(b64, "base64");
       await mkdir(DIR(), { recursive: true });
+      await writeFile(askOf(run.id), JSON.stringify({ prompt: ask.prompt, basis: ask.basis, model }));
       await writeFile(fileOf(run.id, extOf(bytes)), bytes);
       Object.assign(job, { status: "done", model });
     } catch (error) {

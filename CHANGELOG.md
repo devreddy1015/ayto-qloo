@@ -6,7 +6,8 @@ What changed in AYTO (Are You The One), newest first. Times are IST. Each entry 
 ## Unreleased: a music tone for every brief
 
 - **One click under any finished brief composes a music tone:** a 30-second original instrumental from Google's Lyria
-  (`lyria-3-clip-preview` on the Gemini API), with a player on the page and a Download link for the MP3.
+  (`lyria-3-clip-preview` on the Gemini API), with a player on the page and a Download link for the MP3. A "What we
+  asked Lyria" fold under the player shows the exact prompt and the Qloo tags, lanes and look words behind it.
 - **Built from what Qloo read, not made up.** The audio stage now looks up its shortlist on Qloo's `/entities` (one more
   receipt) and counts the genre, mood and instrument tags those artists carry: for six artists Hyderabad favours
   (checked live), Indian Classical, Playback Singing and Film Score; Energetic and Melodious; keyboard, piano and

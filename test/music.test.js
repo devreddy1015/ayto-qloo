@@ -103,6 +103,8 @@ test("a finished run gets one music tone, composed from Qloo's tags without a si
   for (const n of names) assert.equal(named(n.name, ask.prompt), false, `"${n.name}" reached the prompt`);
 
   assert.equal(status.url, `/api/runs/${run.id}/music.mp3`);
+  assert.equal(status.prompt, ask.prompt, "the page can show exactly what Lyria was asked");
+  assert.deepEqual(status.basis.genres, sound.genres.slice(0, 4).map((g) => g.name), "and which Qloo tags it came from");
   const file = await fetch(`${base}${status.url}`);
   assert.equal(file.headers.get("content-type"), "audio/mpeg");
   assert.deepEqual(Buffer.from(await file.arrayBuffer()), MP3);
