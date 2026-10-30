@@ -19,5 +19,8 @@
     "@modelcontextprotocol/sdk": "1.32.2",
     "@qloo/qloo-harness": "0.1.26",
     "express": "4.22.3"
+  },
+  "devDependencies": {
+    "three": "0.170.0"
   }
 }

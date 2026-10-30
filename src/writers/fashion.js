@@ -8,7 +8,7 @@ ${RULES}
 Return JSON:
 {"drop_name":"two or three words, original, no real brand or title in it",
  "positioning":"one sentence: what this drop is and who it is for",
- "styles":[{"name":"short product name","category":"e.g. oversized tee","garment":"one of tee|oversized_tee|hoodie|sweatshirt|dress|kurta|jacket|shorts|set","cues":["silhouette, material, print, detail"],"print":{"type":"graphic|stripe|typographic|none","placement":"chest|back|all_over|sleeve","motif":"2-4 words, no real brand or title"},"from_tags":["flavour tags from the evidence"],"colourways":["palette names"],"hero":true}],
+ "styles":[{"name":"short product name","category":"e.g. oversized tee","garment":"one of tee|oversized_tee|hoodie|sweatshirt|dress|maxi_dress|saree|kurta|jacket|cape|cosplay_set|shorts|set","cues":["silhouette, material, print, detail"],"print":{"type":"graphic|stripe|typographic|none","placement":"chest|back|all_over|sleeve","motif":"2-4 words, no real brand or title"},"from_tags":["flavour tags from the evidence"],"colourways":["palette names"],"hero":true}],
  "palette":[{"name":"","hex":"#rrggbb","from_tags":[""]}],
  "brands_to_study":["from the evidence: the ones this city favours beyond the country"],
  "soundtrack":["artists from the evidence, for the launch reel"],
@@ -16,6 +16,7 @@ Return JSON:
  "channels":["2-3 channels, e.g. Instagram + WhatsApp, own site, boutiques"],
  "avoid":["flavour names copied exactly from flavours_the_city_cares_less_about"]}
 Give 3-5 styles with 1-2 hero, 3-5 palette colours. Every style needs non-empty from_tags.
+Pick each garment from what the evidence leans to, not from habit: dress is an A-line knee dress, maxi_dress floor-length, saree a draped saree with a blouse. When the crowd leans to anime, K-pop, fantasy, gaming, superhero or other fandom flavours, one style may be a cosplay_set (a long coat, layered shoulder plates, a belt) or a cape. Cosplay here means in the spirit of the crowd's taste (silhouette, materials, palette, mood): an original design, never a named character's costume, emblem, logo or likeness, and no character or franchise name in a style's name, cues or print motif.
 When the evidence has a "look": take cues (materials, surface, silhouette, mood) only from its aesthetics, personal styles, materials and motifs; avoid what it lists as the country's preference; respect its age groups; and if it carries a note, say in the positioning whose taste the read describes.`,
   evidence: digest,
   fallback(ev) {

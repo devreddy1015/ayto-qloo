@@ -54,8 +54,24 @@ function defaultPack(style) {
   const fleece = /hoodie|sweatshirt/.test(g);
   return {
     style: style.name,
-    fabric: fleece ? { composition: "80% cotton 20% polyester fleece", gsm: 300, finish: "brushed" } : /dress|kurta/.test(g) ? { composition: "100% cotton", gsm: 140, finish: "soft wash" } : { composition: "100% cotton", gsm: 180, finish: "bio-washed" },
-    construction: fleece ? ["Set-in sleeve, 1x1 rib cuff and hem", "Lined hood with flat drawcord", "Kangaroo pocket, bar-tacked"] : ["Set-in sleeve, overlock seams", "1x1 rib neckband", "Double-needle hem"],
+    fabric: fleece
+      ? { composition: "80% cotton 20% polyester fleece", gsm: 300, finish: "brushed" }
+      : g === "saree"
+        ? { composition: "100% cotton or cotton-silk, 5.5 m with a 0.8 m blouse piece", gsm: 90, finish: "soft wash" }
+        : g === "cape" || g === "cosplay_set"
+          ? { composition: "cotton twill shell, poly lining; EVA foam for any rigid pieces", gsm: 240, finish: "peached" }
+          : /dress|kurta/.test(g)
+            ? { composition: "100% cotton", gsm: 140, finish: "soft wash" }
+            : { composition: "100% cotton", gsm: 180, finish: "bio-washed" },
+    construction: fleece
+      ? ["Set-in sleeve, 1x1 rib cuff and hem", "Lined hood with flat drawcord", "Kangaroo pocket, bar-tacked"]
+      : g === "saree"
+        ? ["Woven or printed border on both selvedges", "Pallu end panel, rolled and tasselled", "Blouse piece cut from the same length"]
+        : g === "cape"
+          ? ["Half-circle cut, fully lined", "Standing collar with interfacing", "Metal clasp at the neck"]
+          : g === "cosplay_set"
+            ? ["Fitted long coat, open front with contrast trim", "Layered shoulder plates in EVA foam, painted, on elastic", "Wide belt with a plain buckle"]
+            : ["Set-in sleeve, overlock seams", "1x1 rib neckband", "Double-needle hem"],
     print_or_embroidery: style.print?.type && style.print.type !== "none" ? { type: style.print.type === "typographic" ? "screen print" : style.print.type === "stripe" ? "yarn-dyed stripe" : "screen print", placement: String(style.print.placement ?? "chest").replace(/_/g, " "), size_cm: style.print.placement === "all_over" ? "repeat" : "25 x 20" } : { type: "none", placement: "", size_cm: "" },
     trims: ["main label", "care label", "size label", "MRP sticker"],
     fit_notes: (style.cues ?? []).slice(0, 2).join(", "),

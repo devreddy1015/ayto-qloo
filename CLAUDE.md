@@ -31,6 +31,11 @@ server default is Groq; the live site runs DeepSeek (LLM_PROVIDER=deepseek, mode
 - src/shots.js: shot deck on demand for a finished film (one frame per beat, max 6, 2 OpenAI calls at a time, quality low; shot line from
   the server model or the plan's camera notes; reference = a Qloo-traced plan.references title; prompts scrubbed with image.js scrub()); never a stage;
   POST/GET /api/runs/:id/shots, /shots/:n.jpg, /shots.html (one-file download). The film writer's finish() fills plan.story ("the story, simply").
+- src/fashion3d.js: on demand per fashion style, never a stage: an OpenAI-drawn print/fabric the viewer wraps onto the garment
+  (OPENAI_API_KEY), and for hero styles an OpenAI product shot lifted to a GLB by Stability Stable Fast 3D (STABILITY_API_KEY;
+  OpenAI has no 3D API). scrub() from image.js on every prompt; caps MAX_PRINTS_PER_DAY / MAX_MODELS_PER_DAY; routes
+  /api/runs/:id/garment, /api/runs/:id/styles/:index/print|model (+ print.jpg, model.glb). public/garment3d.js has 13 garments
+  (maxi_dress, saree, cape, cosplay_set new) and setPrintImage/showModel; test/fashion3d.test.js builds them headless (three devDep).
 - src/image.js: concept image on demand (OpenAI gpt-image-2.5-flare, falls back to gpt-image-2), never a stage; prompt from the plan + look + palette + area with every Qloo name scrubbed; POST/GET /api/runs/:id/image, /image.jpg.
 - src/music.js: music tone on demand (Gemini API, Lyria 3 Clip `lyria-3-clip-preview`, 30 s MP3, GEMINI_API_KEY, MAX_MUSIC_PER_DAY), never a stage;
   prompt = audio.output.sound (the shortlist's own genre/music/instrument tags from /entities, read in the audio stage) + lanes + look + city + the

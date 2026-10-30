@@ -8,7 +8,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-export const GARMENTS = ["tee", "oversized_tee", "hoodie", "sweatshirt", "dress", "kurta", "jacket", "shorts", "set"];
+export const GARMENTS = ["tee", "oversized_tee", "hoodie", "sweatshirt", "dress", "maxi_dress", "saree", "kurta", "jacket", "cape", "cosplay_set", "shorts", "set"];
 const PRINT_TYPES = ["graphic", "stripe", "typographic", "none"];
 const PLACEMENTS = ["chest", "back", "all_over", "sleeve"];
 const DEFAULT_HEX = "#2b2f3a";
@@ -24,6 +24,10 @@ export function garmentOf(style = {}) {
   const given = clean(style.garment).toLowerCase().replace(/[\s-]+/g, "_");
   if (GARMENTS.includes(given)) return given;
   const text = `${clean(style.category)} ${clean(style.name)}`.toLowerCase();
+  if (/cosplay|armou?r|pauldron|costume/.test(text)) return "cosplay_set";
+  if (/\b(sarees?|saris?)\b/.test(text)) return "saree";
+  if (/\b(capes?|cloaks?|capelets?)\b/.test(text)) return "cape";
+  if (/maxi|gown|floor[ -]length|anarkali/.test(text)) return "maxi_dress";
   if (/\b(co-?ord|set)\b/.test(text)) return "set";
   if (/hood/.test(text)) return "hoodie";
   if (/sweat|crew ?neck|jumper|pullover/.test(text)) return "sweatshirt";
@@ -49,6 +53,15 @@ export function printOf(style = {}) {
   if (/typograph|slogan|wordmark|letter|\btext\b/.test(text)) return { type: "typographic", placement, motif: "" };
   if (/graphic|print|logo|artwork|motif|emblem|pattern/.test(text)) return { type: "graphic", placement, motif: "" };
   return { type: "none", placement: "chest", motif: "" };
+}
+
+/**
+ * How a drawn print sits on a style: "fabric" tiles it over the cloth (all-over prints, stripes, a plain style, a saree's
+ * buta), "panel" places it once where the plan put the print (chest, back, sleeve).
+ */
+export function printModeOf(style = {}) {
+  const p = printOf(style);
+  return garmentOf(style) === "saree" || p.type === "none" || p.type === "stripe" || p.placement === "all_over" ? "fabric" : "panel";
 }
 
 /** A palette name to its hex; unknown names take the first palette hex; no palette, a dark default. */
@@ -190,8 +203,31 @@ function seamLine(ctx, x0, y0, x1, y1, base, width = 3, alpha = 0.45) {
   ctx.restore();
 }
 
-/** Repaint one part's canvas for the current look. */
-function paint(part, look) {
+/** Tile a drawn fabric image across the canvas, about `world` metres a tile when the part knows its size. */
+function fabric(ctx, W, H, img, L) {
+  const tw = L.perimeter ? (0.26 / L.perimeter) * W : W / 4;
+  const th = L.height ? (0.26 / L.height) * H : H / 4;
+  for (let y = 0; y < H; y += th) for (let x = 0; x < W; x += tw) ctx.drawImage(img, x, y, tw + 1, th + 1);
+}
+
+/** A drawn print as a panel centred at (cx, cy) inside w×h, kept square on the body, not on the texture. */
+function panel(ctx, W, H, cx, cy, w, h, img, L) {
+  const ww = L.perimeter ? (w / W) * L.perimeter : 1;
+  const wh = L.height ? (h / H) * L.height : 1;
+  const side = Math.min(ww, wh);
+  const pw = (w * side) / ww;
+  const ph = (h * side) / wh;
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(cx - pw / 2, cy - ph / 2, pw, ph, Math.min(pw, ph) * 0.06);
+  ctx.clip();
+  ctx.drawImage(img, cx - pw / 2, cy - ph / 2, pw, ph);
+  ctx.restore();
+}
+
+/** Repaint one part's canvas for the current look. A part in the accent tone (a blouse, armour, a lining) swaps the two. */
+function paint(part, baseLook) {
+  const look = part.tone === "accent" ? { ...baseLook, base: baseLook.accent, accent: baseLook.base } : baseLook;
   const { canvas, ctx } = part;
   const W = canvas.width;
   const H = canvas.height;
@@ -206,9 +242,21 @@ function paint(part, look) {
   }
   const { print } = look;
   const L = part.layout ?? {};
+  // A drawn fabric covers the cloth before the seams go on; armour and trims keep their own finish.
+  if (look.image && look.imageMode === "fabric" && part.printable !== false && part.tone !== "accent") fabric(ctx, W, H, look.image, L);
   for (const u of L.seams ?? []) seamLine(ctx, u * W, 0, u * W, H, look.base);
   if (L.hem !== false) seamLine(ctx, 0, H * 0.985, W, H * 0.985, look.base, 4, 0.35);
   L.extra?.(ctx, W, H, look);
+  if (look.image && look.imageMode === "fabric") return;
+  if (look.image && look.imageMode === "panel") {
+    if (part.kind !== "body") return;
+    const back = print.placement === "back";
+    const u = back ? L.back : L.front;
+    const v = back ? L.vBack : L.vChest;
+    if (u === undefined || v === undefined) return;
+    panel(ctx, W, H, u * W, (1 - v) * H, (back ? L.backSpan : L.chestSpan) * W, (back ? L.backHeight : L.chestHeight) * H, look.image, L);
+    return;
+  }
   if (print.type === "none") return;
   if (print.placement === "all_over") {
     if (part.printable !== false) pattern(ctx, W, H, look);
@@ -262,7 +310,57 @@ function lathe(keys, { yoke = null, phiStart = Math.PI / 2, phiLength = Math.PI 
   const geo = new THREE.LatheGeometry(pts, segments, phiStart, phiLength);
   const n = pts.length - 1;
   const vOf = (y) => (Math.min(Math.max((y - y0) / (y1 - y0), 0), 1) * steps) / n;
-  return { geo, vOf, y0, y1 };
+  return { geo, vOf, y0, y1, height: ((y1 - y0) * n) / steps };
+}
+
+/** Folds: push a lathe's radius in and out around it, growing from `top` down to `bottom` (a skirt, a cape's hem). */
+function flute(geo, { top, bottom, amp = 0.05, n = 12 }) {
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i += 1) {
+    const y = pos.getY(i);
+    if (y >= top) continue;
+    const k = Math.min(1, (top - y) / Math.max(0.01, top - bottom)) ** 1.4;
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const f = 1 + amp * k * Math.sin(n * Math.atan2(x, z));
+    pos.setXYZ(i, x * f, y, z * f);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * A strip of cloth `width` wide along a path of [angle, y, radius] points around the body (angle 0 faces front):
+ * a saree's pallu, a sash. It lies flat on the shoulder (its normal turns up there) and along the body elsewhere.
+ * u runs across the strip, v along it.
+ */
+function ribbon(points, { width = 0.2, zs = 0.74, segments = 64 } = {}) {
+  const curve = new THREE.CatmullRomCurve3(points.map(([a, y, r]) => new THREE.Vector3(r * Math.sin(a), y, r * Math.cos(a) * zs)));
+  const pos = [];
+  const uv = [];
+  const index = [];
+  const up = new THREE.Vector3(0, 1, 0);
+  for (let i = 0; i <= segments; i += 1) {
+    const t = i / segments;
+    const p = curve.getPointAt(t);
+    const tangent = curve.getTangentAt(t);
+    const lift = THREE.MathUtils.smoothstep(p.y, 1.42, 1.52);
+    const out = new THREE.Vector3(p.x, 0, p.z / zs).normalize().multiplyScalar(1 - lift).addScaledVector(up, lift).normalize();
+    const side = new THREE.Vector3().crossVectors(tangent, out).normalize();
+    for (const j of [0, 1]) {
+      const q = p.clone().addScaledVector(side, (j - 0.5) * width);
+      pos.push(q.x, q.y, q.z);
+      uv.push(j, t);
+    }
+    if (i < segments) index.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(index);
+  geo.computeVertexNormals();
+  return { geo, length: curve.getLength() };
 }
 
 const texture = (canvas, renderer) => {
@@ -275,30 +373,30 @@ const texture = (canvas, renderer) => {
 };
 
 /** A garment part: a mesh with its own canvas texture. */
-function part(renderer, geo, { kind = "body", size = [1024, 1024], layout = null, rib = false, printable = true, repeat = null, position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 1, 1], roughness = 0.85 } = {}) {
+function part(renderer, geo, { kind = "body", size = [1024, 1024], layout = null, rib = false, printable = true, repeat = null, position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 1, 1], roughness = 0.85, metalness = 0, tone = "base", side = THREE.DoubleSide } = {}) {
   const canvas = document.createElement("canvas");
   canvas.width = size[0];
   canvas.height = size[1];
   const ctx = canvas.getContext("2d");
   const tex = texture(canvas, renderer);
   if (repeat) tex.repeat.set(repeat[0], repeat[1]);
-  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: tex, roughness, metalness: 0, side: THREE.DoubleSide });
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: tex, roughness, metalness, side });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(...position);
   mesh.rotation.set(...rotation);
   mesh.scale.set(...scale);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  return { mesh, canvas, ctx, tex, kind, layout, rib, printable };
+  return { mesh, canvas, ctx, tex, kind, layout, rib, printable, tone };
 }
 
 /** A sleeve on side s (+1 right, -1 left), hanging from `top` and tilted outward. Returns the sleeve and the point at its cuff. */
-function sleeve(renderer, s, { r0 = 0.1, r1 = 0.095, len = 0.22, top = [0.185, 1.43], tilt = 0.45, zs = 0.9, cuff = 0 } = {}) {
+function sleeve(renderer, s, { r0 = 0.1, r1 = 0.095, len = 0.22, top = [0.185, 1.43], tilt = 0.45, zs = 0.9, cuff = 0, tone = "base" } = {}) {
   const bx = top[0] + len * Math.sin(tilt);
   const by = top[1] - len * Math.cos(tilt);
   const geo = new THREE.CylinderGeometry(r0, r1, len, 36, 1, true, Math.PI / 2);
-  const p = part(renderer, geo, { kind: "sleeve", size: [512, 512], layout: { seams: [0.5], hem: cuff === 0 }, position: [(s * (top[0] + bx)) / 2, (top[1] + by) / 2, 0], rotation: [0, 0, s * tilt], scale: [1, 1, zs] });
-  const cap = part(renderer, new THREE.SphereGeometry(r0 * 0.98, 28, 18), { kind: "cap", size: [64, 64], printable: false, layout: { seams: [], hem: false }, position: [s * top[0], top[1], 0], scale: [1, 1, zs] });
+  const p = part(renderer, geo, { kind: "sleeve", tone, size: [512, 512], layout: { seams: [0.5], hem: cuff === 0 }, position: [(s * (top[0] + bx)) / 2, (top[1] + by) / 2, 0], rotation: [0, 0, s * tilt], scale: [1, 1, zs] });
+  const cap = part(renderer, new THREE.SphereGeometry(r0 * 0.98, 28, 18), { kind: "cap", tone, size: [64, 64], printable: false, layout: { seams: [], hem: false }, position: [s * top[0], top[1], 0], scale: [1, 1, zs] });
   const parts = [p, cap];
   if (cuff > 0) {
     const d = len / 2 - cuff / 2;
@@ -320,16 +418,20 @@ function sleeve(renderer, s, { r0 = 0.1, r1 = 0.095, len = 0.22, top = [0.185, 1
 }
 
 /** A ribbed ring (hem band, collar, waistband). */
-function ring(renderer, { r0, r1 = r0, h, y, zs = 0.72, thetaStart = Math.PI / 2, thetaLength = Math.PI * 2, rib = true, kind = "trim" } = {}) {
+function ring(renderer, { r0, r1 = r0, h, y, zs = 0.72, thetaStart = Math.PI / 2, thetaLength = Math.PI * 2, rib = true, kind = "trim", tone = "base", roughness = 0.95, metalness = 0, extra = null } = {}) {
   const geo = new THREE.CylinderGeometry(r0, r1, h, 72, 1, true, thetaStart, thetaLength);
-  return part(renderer, geo, { kind, rib, size: rib ? [256, 64] : [512, 128], repeat: rib ? [24, 1] : null, roughness: 0.95, layout: { seams: [], hem: false }, position: [0, y, 0], scale: [1, 1, zs] });
+  return part(renderer, geo, { kind, rib, tone, roughness, metalness, printable: false, size: rib ? [256, 64] : [512, 128], repeat: rib ? [24, 1] : null, layout: { seams: [], hem: false, extra }, position: [0, y, 0], scale: [1, 1, zs] });
 }
 
 /** The torso of a garment: a lathe with a yoke to the neck, chest and back print regions in its texture. */
-function torso(renderer, keys, { yoke = [[0.1, 1.525]], zs = 0.72, phiStart, phiLength, chestY = 1.29, backY = 1.24, chestSpan = 0.25, backSpan = 0.3, front = 0.75, back = 0.25, seams = [0, 0.5], extra = null, markH = 0.22 } = {}) {
-  const { geo, vOf } = lathe(keys, { yoke, phiStart, phiLength });
-  const layout = { front, back, seams, extra, vChest: vOf(chestY), vBack: vOf(backY), chestSpan, backSpan, chestHeight: vOf(chestY + markH / 2) - vOf(chestY - markH / 2), backHeight: vOf(backY + markH * 0.6) - vOf(backY - markH * 0.6), vOf };
-  return part(renderer, geo, { kind: "body", layout, scale: [1, 1, zs] });
+function torso(renderer, keys, { yoke = [[0.1, 1.525]], zs = 0.72, phiStart, phiLength = Math.PI * 2, chestY = 1.29, backY = 1.24, chestSpan = 0.25, backSpan = 0.3, front = 0.75, back = 0.25, seams = [0, 0.5], extra = null, markH = 0.22, folds = null, kind = "body", tone = "base", printable = true, side } = {}) {
+  const { geo, vOf, height } = lathe(keys, { yoke, phiStart, phiLength });
+  if (folds) flute(geo, { bottom: keys[0][1], ...folds });
+  // The cloth's size on the body (an ellipse's perimeter at the chest), so a drawn print can keep its proportions.
+  const rc = radiusAt(keys, chestY);
+  const perimeter = (Math.PI * rc * (1 + zs) * phiLength) / (Math.PI * 2);
+  const layout = { front, back, seams, extra, vChest: vOf(chestY), vBack: vOf(backY), chestSpan, backSpan, chestHeight: vOf(chestY + markH / 2) - vOf(chestY - markH / 2), backHeight: vOf(backY + markH * 0.6) - vOf(backY - markH * 0.6), vOf, perimeter, height };
+  return part(renderer, geo, { kind, tone, printable, layout, scale: [1, 1, zs], ...(side === undefined ? {} : { side }) });
 }
 
 const BUILD = {
@@ -402,6 +504,90 @@ const BUILD = {
       ...sleeve(r, -1, s),
     ];
   },
+  maxi_dress(r) {
+    const s = { r0: 0.1, r1: 0.118, len: 0.12, top: [0.2, 1.46], tilt: 0.72 };
+    return [
+      torso(r, [[0.41, 0.05], [0.35, 0.4], [0.275, 0.78], [0.208, 1.06], [0.2, 1.15], [0.205, 1.3], [0.218, 1.42], [0.226, 1.48]], { chestY: 1.3, chestSpan: 0.2, backSpan: 0.26, markH: 0.18, folds: { top: 1.02, amp: 0.055, n: 14 } }),
+      ring(r, { r0: 0.212, r1: 0.208, h: 0.05, y: 1.12, zs: 0.73, rib: false, tone: "accent", roughness: 0.6 }),
+      ...sleeve(r, 1, s),
+      ...sleeve(r, -1, s),
+    ];
+  },
+  saree(r) {
+    // A fitted blouse in the accent colour, a pleated floor-length skirt with a woven border, and the pallu:
+    // across the front from the hip, over one shoulder, down the back. Prints go all over (buta), never one chest mark.
+    const s = { r0: 0.1, r1: 0.097, len: 0.13, top: [0.2, 1.45], tilt: 0.55, tone: "accent" };
+    const hemBorder = (ctx, W, H, look) => {
+      ctx.fillStyle = look.accent;
+      ctx.fillRect(0, H * 0.92, W, H * 0.06);
+      ctx.fillRect(0, H * 0.895, W, H * 0.008);
+    };
+    const palluBorder = (ctx, W, H, look) => {
+      ctx.fillStyle = look.accent;
+      ctx.fillRect(0, 0, W * 0.08, H);
+      ctx.fillRect(W * 0.92, 0, W * 0.08, H);
+      ctx.fillRect(0, 0, W, H * 0.12);
+      for (let i = 0; i < 3; i += 1) ctx.fillRect(0, H * (0.14 + i * 0.018), W, H * 0.007);
+    };
+    const pallu = ribbon(
+      [[-1.0, 1.0, 0.245], [-0.55, 1.1, 0.24], [-0.05, 1.22, 0.238], [0.45, 1.34, 0.245], [0.95, 1.46, 0.26], [1.45, 1.575, 0.205], [1.95, 1.48, 0.26], [2.25, 1.3, 0.27], [2.42, 1.08, 0.275], [2.52, 0.84, 0.3], [2.57, 0.6, 0.33], [2.6, 0.4, 0.355]],
+      { width: 0.22, zs: 0.74 },
+    );
+    return [
+      torso(r, [[0.198, 1.17], [0.2, 1.3], [0.216, 1.42], [0.226, 1.48]], { tone: "accent", chestY: 1.3, printable: false }),
+      torso(r, [[0.37, 0.03], [0.325, 0.3], [0.275, 0.62], [0.234, 0.9], [0.22, 1.04]], { yoke: null, zs: 0.74, kind: "skirt", folds: { top: 0.98, amp: 0.035, n: 22 }, extra: hemBorder, seams: [] }),
+      part(r, pallu.geo, { kind: "drape", size: [256, 1024], layout: { seams: [], hem: false, extra: palluBorder, perimeter: 0.22, height: pallu.length } }),
+      ...sleeve(r, 1, s),
+      ...sleeve(r, -1, s),
+    ];
+  },
+  cape(r) {
+    // Open at the front, falling in folds to below the knee, lined in the accent colour, a standing collar and a clasp.
+    const gap = 0.42;
+    const keys = [[0.46, 0.4], [0.41, 0.68], [0.365, 0.98], [0.337, 1.2], [0.323, 1.36], [0.302, 1.45]];
+    const shape = { yoke: [[0.22, 1.51], [0.135, 1.55]], zs: 0.8, phiStart: gap, phiLength: Math.PI * 2 - gap * 2, folds: { top: 1.25, amp: 0.06, n: 9 } };
+    const clasp = (x) => part(r, new THREE.SphereGeometry(0.018, 16, 12), { kind: "trim", tone: "accent", size: [32, 32], printable: false, metalness: 0.6, roughness: 0.35, layout: { seams: [], hem: false }, position: [x, 1.535, 0.105] });
+    return [
+      // A cape is seen from behind: a chest or a back print both go on the back.
+      torso(r, keys, { ...shape, front: 0.5, back: 0.5, chestY: 1.18, chestSpan: 0.2, backY: 1.18, backSpan: 0.2, markH: 0.24, seams: [0.25, 0.75], side: THREE.FrontSide }),
+      torso(r, keys.map(([rr, y]) => [rr * 0.985, y]), { ...shape, yoke: [[0.217, 1.505], [0.133, 1.545]], tone: "accent", printable: false, seams: [], side: THREE.BackSide }),
+      ring(r, { r0: 0.15, r1: 0.138, h: 0.075, y: 1.585, zs: 0.82, thetaStart: gap, thetaLength: Math.PI * 2 - gap * 2, rib: false }),
+      clasp(0.055),
+      clasp(-0.055),
+    ];
+  },
+  cosplay_set(r) {
+    // An original costume, not a character's: a fitted long coat with trim down the front, layered shoulder plates,
+    // a belt with a plain buckle and a standing collar. The palette and the crowd's taste set the mood.
+    const gap = 0.14;
+    const s = { r0: 0.105, r1: 0.088, len: 0.46, top: [0.195, 1.43], tilt: 0.3, cuff: 0.06, zs: 0.92 };
+    const trim = (ctx, W, H, look) => {
+      ctx.fillStyle = look.accent;
+      ctx.fillRect(0, 0, W * 0.018, H);
+      ctx.fillRect(W * 0.982, 0, W * 0.018, H);
+      ctx.fillRect(0, H * 0.955, W, H * 0.03);
+    };
+    const plates = [];
+    for (const side of [1, -1]) {
+      [[0.105, 0.235, 1.49, 0.35], [0.112, 0.252, 1.45, 0.53], [0.12, 0.27, 1.41, 0.71]].forEach(([rad, x, y, tilt]) => {
+        const geo = new THREE.SphereGeometry(rad, 32, 12, 0, Math.PI * 2, 0, Math.PI * 0.45);
+        const rim = (ctx, W, H, look) => {
+          ctx.fillStyle = look.accent;
+          ctx.fillRect(0, H * 0.86, W, H * 0.08);
+        };
+        plates.push(part(r, geo, { kind: "armour", tone: "accent", size: [256, 128], printable: false, metalness: 0.55, roughness: 0.35, layout: { seams: [], hem: false, extra: rim }, position: [side * x, y, 0], rotation: [0, 0, -side * tilt], scale: [1, 0.62, 0.95] }));
+      });
+    }
+    return [
+      torso(r, [[0.272, 0.7], [0.257, 0.9], [0.242, 1.05], [0.25, 1.3], [0.262, 1.44], [0.256, 1.49]], { yoke: [[0.12, 1.535]], phiStart: gap, phiLength: Math.PI * 2 - gap * 2, front: 0.9, back: 0.5, chestSpan: 0.09, backSpan: 0.26, chestY: 1.32, markH: 0.13, seams: [0.25, 0.75], extra: trim, folds: { top: 0.95, amp: 0.03, n: 8 } }),
+      ring(r, { r0: 0.128, r1: 0.116, h: 0.08, y: 1.57, zs: 0.8, thetaStart: gap, thetaLength: Math.PI * 2 - gap * 2, rib: false, tone: "accent" }),
+      ring(r, { r0: 0.252, h: 0.065, y: 1.0, zs: 0.745, rib: false, tone: "accent", roughness: 0.5, metalness: 0.25 }),
+      part(r, new THREE.BoxGeometry(0.06, 0.055, 0.014), { kind: "trim", size: [32, 32], printable: false, metalness: 0.7, roughness: 0.3, layout: { seams: [], hem: false }, position: [0, 1.0, 0.252 * 0.745 + 0.006] }),
+      ...plates,
+      ...sleeve(r, 1, s),
+      ...sleeve(r, -1, s),
+    ];
+  },
   shorts(r, { withTop = false } = {}) {
     const hip = lathe([[0.226, 0.8], [0.22, 0.935]], { steps: 4 });
     const legs = [1, -1].map((s) => {
@@ -415,6 +601,12 @@ const BUILD = {
     return [torso(r, [[0.23, 0.94], [0.226, 1.1], [0.232, 1.3], [0.242, 1.44], [0.236, 1.49]]), ...sleeve(r, 1), ...sleeve(r, -1), ...BUILD.shorts(r, { withTop: true })];
   },
 };
+
+/** The parts of one garment, for a renderer (or a stand-in with `capabilities`). Unknown kinds build a tee. */
+export function buildGarment(kind, renderer) {
+  return (BUILD[kind] ?? BUILD.tee)(renderer);
+}
+export { paint as paintPart };
 
 // ---------- the mannequin ----------
 
@@ -582,9 +774,78 @@ export function createGarmentViewer(container, { styles = [], palette = [], labe
     parts = [];
   }
 
+  const drawn = new Map(); // style index -> { image, mode }: a print or fabric OpenAI drew for that style
+  let model = null; // a generated GLB, shown in place of the mannequin and the procedural garment
+
   function lookFor(style, colourway) {
     const base = colourOf(colourway, palette);
-    return { base, accent: accentOf(base, palette), print: printOf(style), label: clean(style?.name) || label || "", garment: garmentOf(style) };
+    const kind = garmentOf(style);
+    const print = printOf(style);
+    // A saree carries its print all over (buta), never as one chest mark.
+    if (kind === "saree" && print.type !== "none") print.placement = "all_over";
+    const art = drawn.get(styles.indexOf(style));
+    return { base, accent: accentOf(base, palette), print, label: clean(style?.name) || label || "", garment: kind, image: art?.image ?? null, imageMode: art?.mode ?? "" };
+  }
+
+  function clearModel() {
+    if (!model) return;
+    scene.remove(model);
+    model.traverse((o) => {
+      o.geometry?.dispose();
+      for (const m of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) {
+        for (const v of Object.values(m)) if (v?.isTexture) v.dispose();
+        m.dispose();
+      }
+    });
+    model = null;
+    form.visible = true;
+    garment.visible = true;
+  }
+
+  /** Show a GLB (a generated 3D model) on the turntable in place of the mannequin, about the garment's size. */
+  async function showModel(url) {
+    const { GLTFLoader } = await import("three/addons/loaders/GLTFLoader.js");
+    const gltf = await new GLTFLoader().loadAsync(url);
+    if (!alive) return false;
+    clearModel();
+    model = gltf.scene;
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    model.scale.setScalar(1.25 / Math.max(size.x, size.y, size.z, 1e-3));
+    box.setFromObject(model);
+    model.position.sub(box.getCenter(new THREE.Vector3())).add(LOOK_AT);
+    model.traverse((o) => {
+      if (o.isMesh) o.castShadow = o.receiveShadow = true;
+    });
+    form.visible = false;
+    garment.visible = false;
+    scene.add(model);
+    wake();
+    return true;
+  }
+
+  /** Back to the procedural garment on the mannequin. */
+  function showGarment() {
+    clearModel();
+    wake();
+  }
+
+  /** Put a drawn print (or fabric) on a style; repaints now if that style is showing. */
+  function setPrintImage(index, src) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => {
+        if (!alive || !styles[index]) return resolve(false);
+        drawn.set(index, { image, mode: printModeOf(styles[index]) });
+        if (index === current.index) {
+          current.look = lookFor(current.style, current.colourway);
+          repaint();
+        }
+        resolve(true);
+      };
+      image.onerror = () => reject(new Error("The print didn't load."));
+      image.src = src;
+    });
   }
 
   function repaint() {
@@ -603,6 +864,7 @@ export function createGarmentViewer(container, { styles = [], palette = [], labe
     const keep = ways.some((w) => w.toLowerCase() === current.colourway.toLowerCase());
     current = { style, index, colourway: keep ? current.colourway : ways[0] ?? "", look: null };
     current.look = lookFor(style, current.colourway);
+    clearModel();
     clearGarment();
     const build = BUILD[current.look.garment] ?? BUILD.tee;
     parts = build(renderer);
@@ -654,6 +916,7 @@ export function createGarmentViewer(container, { styles = [], palette = [], labe
     controls.removeEventListener("start", onStart);
     controls.removeEventListener("end", onEnd);
     controls.dispose();
+    clearModel();
     clearGarment();
     scene.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
@@ -670,5 +933,5 @@ export function createGarmentViewer(container, { styles = [], palette = [], labe
   }
 
   wake();
-  return { show, setColourway, snapshot, destroy, get current() { return { index: current.index, colourway: current.colourway, garment: current.look?.garment }; } };
+  return { show, setColourway, setPrintImage, showModel, showGarment, snapshot, destroy, get current() { return { index: current.index, colourway: current.colourway, garment: current.look?.garment }; } };
 }

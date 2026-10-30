@@ -2265,3 +2265,32 @@ details.raw > summary {
 .music-ask > summary { cursor: pointer; color: var(--link); }
 .music-ask h3 { font-size: var(--step--1); font-weight: 600; margin: 0.8rem 0 0.35rem; color: var(--fg); }
 .music-prompt { margin: 0.6rem 0; padding: 0.6rem 0.8rem; border-left: 2px solid var(--line); white-space: pre-wrap; }
+
+/* ---------- fashion in 3D: drawn prints and generated models under the garment viewer ---------- */
+.garment-extras {
+  display: grid;
+  gap: 0.6rem;
+}
+.garment-extras:empty {
+  display: none;
+}
+.garment-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.8rem;
+  align-items: center;
+}
+.garment-row > .secondary {
+  padding: 0.5rem 0.9rem;
+  font-size: var(--step--1);
+}
+.garment-row .garment-note {
+  flex: 1 1 16rem;
+}
+.garment-note {
+  margin: 0;
+  font-size: var(--step--2);
+  color: var(--fg-mute);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
