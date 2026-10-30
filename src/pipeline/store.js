@@ -82,7 +82,8 @@ export async function findRunBySlug(slug) {
 /** Append an event to the run's log and fan it out to live subscribers. */
 export function emitEvent(run, event) {
   run.events ??= [];
-  const seq = run.events.length + 1;
+  // Counted on from the last event, not the log's length: the log is capped, the numbering must keep rising.
+  const seq = (run.events.at(-1)?.seq ?? 0) + 1;
   const stamped = { seq, at: Date.now(), ...event };
   run.events.push(stamped);
   // Keep the log bounded; the state object holds the durable results.
@@ -98,13 +99,18 @@ export function emitEvent(run, event) {
 export function subscribe(runId, fn) {
   if (!listeners.has(runId)) listeners.set(runId, new Set());
   listeners.get(runId).add(fn);
-  return () => listeners.get(runId)?.delete(fn);
+  return () => {
+    const set = listeners.get(runId);
+    set?.delete(fn);
+    if (set && !set.size) listeners.delete(runId);
+  };
 }
 
 /** A run the server stopped mid-way: the stage it was on fails with a plain reason, so the page says so and can be rerun. */
 function interrupted(run) {
   const message = "The server restarted while this run was working. Start it again.";
-  const at = run.plan?.find((id) => run.stages?.[id]?.status === "running");
+  // The stage at work is saved as "running" only once it starts; before that the first unfinished one was next.
+  const at = run.plan?.find((id) => run.stages?.[id]?.status === "running") ?? run.plan?.find((id) => run.stages?.[id]?.status !== "done");
   if (at) Object.assign(run.stages[at], { status: "error", error: message });
   run.status = "error";
   emitEvent(run, { type: "run", status: "error", at_stage: at, message });

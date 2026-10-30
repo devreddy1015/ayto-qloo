@@ -76,7 +76,7 @@ async function execute(run, fromIndex, keep = []) {
   for (const id of rerun) run.stages[id] = { ...run.stages[id], status: id === run.plan[fromIndex] ? "running" : "stale", output: undefined, error: undefined };
   // The receipts of the stages that run again are replaced by the new ones, not added to (34 became 49).
   run.ledger = (run.ledger ?? []).filter((e) => !rerun.includes(e.stage));
-  emitEvent(run, { type: "run", status: "running", from: run.plan[fromIndex] });
+  emitEvent(run, { type: "run", status: "running", from: run.plan[fromIndex], rerun });
   await saveRun(run);
 
   for (let i = fromIndex; i < run.plan.length; i += 1) {

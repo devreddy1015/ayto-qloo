@@ -44,7 +44,8 @@ async function resolveCity(q, run, input) {
   const hits = env?.results ?? [];
   // The city the maker picked in the confirm step wins; then the country they named; then any country.
   const wanted = input.city?.id && hits.find((r) => r?.entity_id === input.city.id);
-  let hit = wanted || (countryPart && marketFor(countryPart) && pickLocality(hits, { query: cityPart, market: marketFor(countryPart) })) || pickCity(hits, cityPart);
+  // A country AYTO has no market for ("Hyderabad, Pakistan") still narrows the pick by its own name.
+  let hit = wanted || (countryPart && pickLocality(hits, { query: cityPart, market: marketFor(countryPart) ?? countryPart })) || pickCity(hits, cityPart);
   // A typo or an old name ("Hydrabad", "Bangalore"): try the closest known city, and say so.
   let correctedFrom;
   if (!hit) {

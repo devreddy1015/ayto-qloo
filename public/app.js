@@ -375,11 +375,15 @@ async function init() {
 
 function route() {
   const match = location.pathname.match(/^\/run\/([A-Za-z0-9_-]+)/);
+  // A rail link (#stage-gap) also fires popstate: the run on screen stays, the browser just scrolls.
+  if (match && match[1] === state.run?.id && !$("#results").hidden) return;
   if (match) attach(match[1]);
   else showHome();
 }
 
 function showHome() {
+  state.attachTicket = (state.attachTicket ?? 0) + 1; // a run still loading must not draw over the home page
+  state.askAbort?.abort();
   loadGallery();
   state.source?.close();
   state.source = null;
@@ -711,6 +715,9 @@ async function runFromConfirm() {
   try {
     const run = await post("/api/runs", body);
     keepEditKey(run.id, run.editKey);
+    // Ready for the next one when the maker comes back to this card.
+    status.textContent = "";
+    button.disabled = false;
     history.pushState({}, "", `/run/${run.id}`);
     attach(run.id);
   } catch (error) {
@@ -745,8 +752,13 @@ function stageInfo(id, format) {
 function resetResults() {
   state.run = null;
   state.plan = [];
-  for (const map of state.maps.values()) map.remove();
-  state.maps.clear();
+  state.askAbort?.abort();
+  // The run's maps go; the home page's "Where should I make it?" map stays for the way back.
+  for (const [key, map] of state.maps) {
+    if (key === "where") continue;
+    map.remove();
+    state.maps.delete(key);
+  }
   destroyViewer();
   state.garmentPick = null;
   $("#home").hidden = true;
@@ -764,14 +776,20 @@ function resetResults() {
 }
 
 async function attach(runId) {
+  // Only the latest call may draw: two quick clicks (or a click then Back) must not leave the slower run on screen.
+  const ticket = (state.attachTicket = (state.attachTicket ?? 0) + 1);
   resetResults();
   state.source?.close();
-  // The run itself first (so a bad id fails plainly), then the stream, which replays everything.
+  state.source = null;
+  // The run itself first (so a bad id fails plainly), then the stream: a snapshot, then live events.
   try {
     const response = await fetch(`/api/runs/${runId}`);
     if (!response.ok) throw new Error(response.status === 404 ? "No such run. It may have been cleared from this server." : `Couldn't load the run (${response.status}).`);
-    applySnapshot(await response.json());
+    const run = await response.json();
+    if (ticket !== state.attachTicket) return;
+    applySnapshot(run);
   } catch (error) {
+    if (ticket !== state.attachTicket) return;
     $("#stage-cards").replaceChildren();
     $("#run-status").textContent = "";
     showError(error.message);
@@ -836,11 +854,15 @@ function onEvent(event) {
       if (event.publish) state.run.publish = event.publish;
       if (event.status === "running") {
         $("#error-box").hidden = true;
+        // Only the stages the server reruns go stale (new assumptions keep the with/without card), and their old
+        // receipts leave the list: the server replaced them.
         const from = state.plan.findIndex((s) => s.id === event.from);
-        if (from >= 0) state.plan.forEach((s, i) => i > from && (state.run.stages[s.id] = { status: "stale" }));
+        const rerun = event.rerun ?? state.plan.slice(from + 1).map((s) => s.id);
+        for (const id of rerun) if (id !== event.from) state.run.stages[id] = { status: "stale" };
+        for (const item of [...$("#trace-list").children]) if (rerun.includes(item.dataset.stage)) item.remove();
         for (const s of state.plan) renderStage(s.id, state.run.stages[s.id]);
       }
-      if (event.status === "error") showError(`${stageInfo(event.at_stage, state.run.input?.format).label} failed: ${event.message ?? "unknown error"}`);
+      if (event.status === "error") showError(event.at_stage ? `${stageInfo(event.at_stage, state.run.input?.format).label} failed: ${event.message ?? "unknown error"}` : event.message ?? "The run failed.");
       updateStatus();
       if (event.status !== "running") for (const s of state.plan) renderStage(s.id, state.run.stages[s.id]);
       // The written piece is the point: land on it when a live run finishes.
@@ -1039,7 +1061,12 @@ async function loadGallery() {
   if (cards && data?.cards?.length) {
     cards.replaceChildren(
       ...data.cards.map((c) =>
-        el("a", { class: "showing-card", href: `/run/${c.id}`, onclick: (e) => { e.preventDefault(); history.pushState({}, "", `/run/${c.id}`); attach(c.id); } },
+        el("a", { class: "showing-card", href: `/run/${c.id}`, onclick: (e) => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return; // a new tab or window, as the link says
+          e.preventDefault();
+          history.pushState({}, "", `/run/${c.id}`);
+          attach(c.id);
+        } },
           el("span", { class: "kicker", text: c.kicker }),
           el("strong", { class: "showing-title", text: c.title }),
           c.line ? el("p", { class: "sub", text: c.line.length > 120 ? `${c.line.slice(0, 117)}…` : c.line }) : null,
@@ -1057,6 +1084,8 @@ const tag = (text, cls = "") => el("span", { class: `tag ${cls}`, text });
 const typeLabel = (t) => ({ tv_show: "TV shows", movie: "Films", artist: "Music artists", person: "People", videogame: "Video games", podcast: "Podcasts", book: "Books", brand: "Brands", place: "Places" })[t] ?? t;
 const pct = (v) => `${Math.round((v ?? 0) * 100)}`;
 const signed = (v) => (v > 0 ? "+" : "") + String(v);
+// A wide table scrolls inside its card on a phone instead of pushing the card past the screen.
+const tableBox = (...args) => el("div", { class: "table-wrap" }, el(...args));
 const section = (title, ...children) => el("div", { class: "sect" }, h3(title), ...children);
 
 // ---------- renderers, one per stage ----------
@@ -1245,7 +1274,7 @@ const RENDER = {
         ? section(
             "Culture ahead of fashion",
             note("Where the crowd's taste runs hotter than the fashion it favours has landed."),
-            el("table", { class: "table" }, el("thead", {}, el("tr", {}, ["City", "Culture lift", "Fashion lift", "Gap"].map((t) => el("th", { text: t })))), el("tbody", {}, o.gap.slice(0, 8).map((g) => el("tr", {}, [g.name ?? g.key, signed(g.cultureLift), signed(g.fashionLift), el("strong", { text: pct(g.gap) })].map((t) => el("td", {}, t)))))),
+            tableBox("table", { class: "table" }, el("thead", {}, el("tr", {}, ["City", "Culture lift", "Fashion lift", "Gap"].map((t) => el("th", { text: t })))), el("tbody", {}, o.gap.slice(0, 8).map((g) => el("tr", {}, [g.name ?? g.key, signed(g.cultureLift), signed(g.fashionLift), el("strong", { text: pct(g.gap) })].map((t) => el("td", {}, t)))))),
           )
         : null,
     ];
@@ -1303,7 +1332,7 @@ const RENDER = {
             el("p", { class: "lead" }, el("strong", { text: `MRP ${inr(e.mrp)}` }), ` · ${pctOf(e.gstRate)} GST included · ex-GST ${inr(e.exGst)} · unit cost ${inr(e.unitCost)} · landed ${inr(e.landedCost)}${e.tier ? ` · ${e.tier} tier` : ""}`),
             e.gstNote ? note(e.gstNote) : null,
             (e.channels ?? []).length
-              ? el(
+              ? tableBox(
                   "table",
                   { class: "table" },
                   el("thead", {}, el("tr", {}, ["Channel", "Fee", "Net / unit", "Margin / unit", "Margin %", "Break-even units"].map((t) => el("th", { text: t })))),
@@ -1315,7 +1344,7 @@ const RENDER = {
       (o.styles ?? []).length
         ? section(
             "Styles and quantities",
-            el(
+            tableBox(
               "table",
               { class: "table" },
               el("thead", {}, el("tr", {}, ["SKU", "Style", "Colourways", "Per colour", "Total", "Sizes"].map((t) => el("th", { text: t })))),
@@ -1350,7 +1379,7 @@ const RENDER = {
                       ["Sizes", (p.sizes ?? []).join(" · ")],
                     ]),
                     (p.pointsOfMeasure ?? []).length
-                      ? el(
+                      ? tableBox(
                           "table",
                           { class: "table pom" },
                           el("thead", {}, el("tr", {}, [["Point of measure", ""], ...(p.sizes ?? []).map((sz) => [sz, "cm"])].map(([t, u]) => el("th", {}, t, u ? el("span", { class: "sub small", text: u }) : null)))),
@@ -1655,8 +1684,9 @@ function planText(o) {
     add("Logline", p.logline);
     add("Theme", p.theme);
     for (const [i, k] of ["act1", "act2", "act3"].entries()) add(`Act ${i + 1}`, p.synopsis?.[k]);
-    (p.beats ?? []).forEach((b, i) => add(`Beat ${i + 1}`, [b.title, b.what, b.where?.name && `at ${b.where.name}`, b.after?.title && `after ${b.after.title}`].filter(Boolean).join(". ")));
-    for (const c of p.characters ?? []) add(c.name ?? c.role, [c.name && c.role, c.wants && `wants ${c.wants}`, c.hides && `hides ${c.hides}`, c.look && `look: ${c.look}`, c.arc && `arc: ${c.arc}`, c.note].filter(Boolean).join("; "));
+    // A beat or a character the model wrote as plain text is copied as that text.
+    (p.beats ?? []).forEach((b, i) => add(`Beat ${i + 1}`, typeof b === "string" ? b : [b.title, b.what, b.where?.name && `at ${b.where.name}`, b.after?.title && `after ${b.after.title}`].filter(Boolean).join(". ")));
+    for (const c of p.characters ?? []) typeof c === "string" ? add("Character", c) : add(c.name ?? c.role, [c.name && c.role, c.wants && `wants ${c.wants}`, c.hides && `hides ${c.hides}`, c.look && `look: ${c.look}`, c.arc && `arc: ${c.arc}`, c.note].filter(Boolean).join("; "));
     add("References", names(p.references, (r) => `${r.title}${r.borrow || r.take ? ` (borrow: ${r.borrow || r.take})` : ""}`));
     add("Cast ideas", names(p.cast_ideas, (c) => `${c.name}${c.role ? ` as ${c.role}` : ""}`));
     add("Shoot base", p.shoot_base?.name && `${p.shoot_base.name}${p.shoot_base.why ? ` — ${p.shoot_base.why}` : ""}`);
@@ -1989,6 +2019,8 @@ function croquis(style, hex, palette) {
 
 function drawMap(key, box, points, home) {
   if (!window.L || !box.isConnected) return;
+  // A card redraws several times as a run streams; the last drawing of this map goes first.
+  state.maps.get(key)?.remove();
   const map = L.map(box, { scrollWheelZoom: false });
   // OpenStreetMap's own tiles, inverted to the dark canvas in CSS.
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 10, className: "tiles-dark" }).addTo(map);
@@ -2011,9 +2043,14 @@ function upsertCall(entry) {
   const trace = $("#trace-list");
   let item = trace.querySelector(`[data-call="${CSS.escape(entry.id)}"]`);
   if (!item) {
-    item = el("li", { class: "trace-item", "data-call": entry.id });
+    item = el("li", { class: "trace-item", "data-call": entry.id, "data-stage": entry.stage ?? "" });
     trace.append(item);
   }
+  // A later update of the same call may come without its title (the analyst's "done"): keep the first one.
+  const title = entry.title ?? item.dataset.title ?? entry.tool;
+  item.dataset.title = title ?? "";
+  entry = { ...entry, title, args: entry.args ?? (item.dataset.args ? JSON.parse(item.dataset.args) : undefined) };
+  if (entry.args) item.dataset.args = JSON.stringify(entry.args);
   item.className = `trace-item ${entry.status}`;
   const meta = entry.status === "running" ? "…" : entry.status === "error" ? "failed" : `${entry.count ?? 0} · ${entry.ms ?? 0}ms`;
   const requests = entry.provenance?.requests ?? [];
@@ -2066,8 +2103,11 @@ async function ask(question) {
   const steps = el("ul", { class: "qa-steps" });
   const answer = el("div", { class: "qa-a" }, el("div", { class: "skeleton", style: "width:60%" }));
   $("#ask-thread").prepend(el("div", { class: "qa" }, el("p", { class: "qa-q", text: question }), steps, answer));
+  // An answer belongs to this run: leaving it (another run, the home page) stops the stream and its receipts.
+  state.askAbort?.abort();
+  const abort = (state.askAbort = new AbortController());
   try {
-    const response = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question, context: askContext(), ...(credential() ? { llm: credential() } : {}) }) });
+    const response = await fetch("/api/ask", { method: "POST", signal: abort.signal, headers: { "content-type": "application/json" }, body: JSON.stringify({ question, context: askContext(), ...(credential() ? { llm: credential() } : {}) }) });
     if (!response.ok || !response.body) throw new Error((await response.json().catch(() => ({}))).error ?? `Request failed (${response.status}).`);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -2097,7 +2137,8 @@ async function ask(question) {
       }
     }
   } catch (error) {
-    answer.replaceChildren(el("strong", { text: "Couldn't answer. " }), error.message);
+    if (error.name === "AbortError") answer.replaceChildren(el("span", { class: "sub", text: "Stopped: a newer question or another page took over." }));
+    else answer.replaceChildren(el("strong", { text: "Couldn't answer. " }), error.message);
   }
 }
 

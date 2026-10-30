@@ -216,14 +216,16 @@ app.get("/api/runs/:id", async (req, res) => {
   res.json(publicRun(run));
 });
 
-/** Live events, resumable: the browser sends Last-Event-ID and gets everything after it. */
+/**
+ * Live events: the run as it is now (a snapshot), then every new event. Past events are not replayed on top of the
+ * snapshot, which already holds their result: replaying them flashed finished stages back to "running", marked
+ * kept stages stale and brought back receipts a rerun had replaced. A reconnect (Last-Event-ID) gets a fresh snapshot.
+ */
 app.get("/api/runs/:id/events", async (req, res) => {
   const run = await loadRun(req.params.id);
   if (!run) return res.status(404).json({ error: "No such run." });
   const send = sse(res);
-  const after = Number(req.headers["last-event-id"] ?? req.query.after ?? 0) || 0;
   send({ type: "snapshot", run: publicRun(run) });
-  for (const event of run.events ?? []) if (event.seq > after) send(event);
   if (!isRunning(run.id)) {
     send({ type: "end" });
     return res.end();
