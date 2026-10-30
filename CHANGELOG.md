@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: showcases in London, Las Vegas and Paris
+## PR #41 (31 Oct, 04:05): showcases in London, Las Vegas and Paris
 
 - **The home page leads with the cities Qloo knows best:**
   - a **crime short film in London**: lanes Autobiographical, Tragedy and Indietronica, specific to London; the look is
