@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: a security check of the live site
+## PR #28 (31 Oct, 00:47): a security check of the live site
 
 - **Per-visitor limits work on Render.** Behind Cloudflare and Render's proxy, the address Express saw changed with
   every request: 21 requests to a 20-an-hour route all passed live, so one visitor could spend the day's budget (150
