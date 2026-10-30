@@ -147,8 +147,9 @@ Without Qloo there is no lane, no list and no map: only a prompt.
 - A provider table for 12 LLM providers, OpenAI-compatible plus an Anthropic adapter. Keys stay in memory for one run and are redacted from errors.
 - A stateless MCP server.
 - A three.js garment viewer for the fashion drop.
+- Claude Sonnet 5.5 writes on the live site, and OpenAI's image API (`gpt-image-2.5-flare`) draws the concept images.
 - One Docker image, deployed on Render.
-- 121 tests, including every showcase end to end on synthetic data, and a security pass on the live site (rate limits keyed on the real visitor, security headers, patched dependencies).
+- 126 tests, including every showcase end to end on synthetic data, and a security pass on the live site (rate limits keyed on the real visitor, security headers, patched dependencies).
 
 ## Challenges we ran into
 
@@ -221,3 +222,4 @@ Ten 3:2 JPEGs in `submission/gallery/` (kept out of git), named in upload order.
 | 8 | `08-compare-cities.jpg` | "Where should I make it?" Ten cities, each against the other nine. |
 | 9 | `09-the-look.jpg` | The look Hyderabad's crime crowd leans to, from Qloo's own style tags. |
 | 10 | `10-locations.jpg` | Locations from the places this crowd goes, and a shoot base. |
+| 11 | `11-concept-image.jpg` | A concept image OpenAI drew from the Hyderabad brief: the look, the palette and the place, with no real names. |
