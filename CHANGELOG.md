@@ -3,6 +3,29 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: fashion in 3D (dresses, sarees, capes, cosplay; drawn prints; real 3D models)
+
+- **Four new garments in the 3D viewer**, thirteen in all: a floor-length maxi dress with folds and a sash, a saree
+  (a blouse in the accent colour, a pleated skirt with a woven border, the pallu across the front and over one shoulder),
+  an open cape with a lining, a standing collar and a clasp, and a cosplay set (a long coat with trim, layered shoulder
+  plates, a belt). The fashion writer picks them when the crowd leans that way, for example a fandom crowd riding
+  KPop Demon Hunters. Cosplay stays original: the silhouette, materials and palette of the crowd's taste, never a
+  character's costume, emblem or likeness. Check, the tech-pack fallback and the flat croquis know the new garments.
+- **Draw the print:** under the viewer, one click asks OpenAI to draw the selected style's print (a square panel for a
+  chest, back or sleeve print) or its fabric (a seamless tile for all-over prints, stripes, plain styles and sarees), and
+  the viewer wraps it onto the garment. Downloadable. One per style, 8 an hour per visitor, 30 a day for the site
+  (`MAX_PRINTS_PER_DAY`). On with `OPENAI_API_KEY`, like the concept image.
+- **Make a 3D model** (hero styles): OpenAI draws a product shot of the style on a ghost mannequin, Stability's
+  Stable Fast 3D lifts it into a GLB, and the viewer shows it on the turntable with a `.glb` download. OpenAI's API has
+  no 3D model (checked in its docs, 31 Oct), so this needs `STABILITY_API_KEY`; without it there is no button. One per
+  hero style, 3 an hour per visitor, 10 a day for the site (`MAX_MODELS_PER_DAY`); `MODEL_3D=stable-point-aware-3d`
+  switches to the cheaper SPAR3D.
+- **Every prompt drops every Qloo name** (the same scrub as the concept image) and asks for no text, logos, real people
+  or existing characters. Never a stage: a run never waits on these. New module `src/fashion3d.js`; routes
+  `GET /api/runs/:id/garment`, `POST|GET /api/runs/:id/styles/:index/print|model`, and the `print.jpg` / `model.glb`
+  files. Tests build every garment headless (three.js as a dev dependency) and run the routes against fake OpenAI and
+  Stability servers: one per style, the caps, off without a key, and no Qloo name in any prompt.
+
 ## PR #33 (31 Oct, 03:40): a music tone for every brief
 
 - **One click under any finished brief composes a music tone:** a 30-second original instrumental from Google's Lyria

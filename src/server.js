@@ -7,6 +7,7 @@ import { discovery, mcpHandler } from "./mcp.js";
 import { imageAvailable, imageBudget, imageFile, imageStatus, startImage } from "./image.js";
 import { deckHtml, shotBudget, shotFile, shotPlan, shotsAvailable, shotsPerHour, shotStatus, startShots } from "./shots.js";
 import { musicAvailable, musicBudget, musicFile, musicStatus, startMusic } from "./music.js";
+import { fashion3dBudget, fashion3dFile, fashion3dJob, fashion3dRun, fashion3dStatus, modelsAvailable, printsAvailable, startFashion3d } from "./fashion3d.js";
 import { mosaic, worldWall } from "./mosaic.js";
 import { gallery } from "./gallery.js";
 import { candidates, heuristicParse, parseInput } from "./parse.js";
@@ -147,7 +148,7 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.get("/api/presets", (_req, res) => {
-  res.json({ showcases: SHOWCASES.map(({ id, label, text, format }) => ({ id, label, text, format })), formats: formatList(), markets: MARKETS, providers: providerList(), mode: config.mode, llm: llmStatus(), images: imageAvailable(), shotDeck: shotsAvailable(), music: musicAvailable() });
+  res.json({ showcases: SHOWCASES.map(({ id, label, text, format }) => ({ id, label, text, format })), formats: formatList(), markets: MARKETS, providers: providerList(), mode: config.mode, llm: llmStatus(), images: imageAvailable(), shotDeck: shotsAvailable(), music: musicAvailable(), garment3d: fashion3dStatus() });
 });
 
 app.get("/api/llm/providers", (_req, res) => res.json({ providers: providerList() }));
@@ -440,6 +441,51 @@ app.get(/^\/api\/runs\/([A-Za-z0-9_-]{3,40})\/music\.(mp3|wav)$/, async (req, re
   if (!file) return res.status(404).send("No music yet.");
   res.sendFile(file.path, { headers: { "cache-control": "public, max-age=3600" } });
 });
+
+// ---------- fashion in 3D: a drawn print per style (OpenAI) and a GLB per hero style (Stability), on demand ----------
+
+const STYLE_INDEX = /^\d{1,2}$/;
+const KIND_3D = { print: { on: printsAvailable, perHour: 8, off: "Drawn prints aren't switched on for this site.", many: "You've drawn a lot of prints this hour. Try again later.", spent: "The demo has drawn today's prints. Try again tomorrow." }, model: { on: modelsAvailable, perHour: 3, off: "3D models aren't switched on for this site.", many: "You've made a lot of 3D models this hour. Try again later.", spent: "The demo has made today's 3D models. Try again tomorrow." } };
+app.get("/api/runs/:id/garment", async (req, res) => {
+  if (!RUN_ID.test(req.params.id)) return res.status(404).json({ error: "No such run." });
+  const run = await loadRun(req.params.id);
+  if (!run) return res.status(404).json({ error: "No such run." });
+  res.json(await fashion3dRun(run));
+});
+for (const kind of Object.keys(KIND_3D)) {
+  const rule = KIND_3D[kind];
+  app.post(`/api/runs/:id/styles/:index/${kind}`, async (req, res) => {
+    if (!rule.on()) return res.status(503).json({ error: rule.off });
+    if (!RUN_ID.test(req.params.id) || !STYLE_INDEX.test(req.params.index)) return res.status(404).json({ error: "No such style." });
+    const run = await loadRun(req.params.id);
+    if (!run) return res.status(404).json({ error: "No such run." });
+    if (run.status !== "done") return res.status(409).json({ error: "Wait for the run to finish." });
+    const index = Number(req.params.index);
+    const now = await fashion3dJob(run.id, index, kind);
+    if (now.status === "drawing" || now.status === "done") return res.json(now); // one per style: never pay twice
+    if (!allow(clientIp(req), { perHour: rule.perHour, bucket: `garment-${kind}` })) return res.status(429).json({ error: rule.many });
+    if (!fashion3dBudget(kind)) return res.status(503).json({ error: rule.spent });
+    try {
+      await startFashion3d(run, index, kind);
+    } catch (error) {
+      return res.status(error.status ?? 400).json({ error: publicError(error) });
+    }
+    fashion3dBudget(kind, { take: true });
+    res.status(202).json({ status: "drawing" });
+  });
+  app.get(`/api/runs/:id/styles/:index/${kind}`, async (req, res) => {
+    if (!RUN_ID.test(req.params.id) || !STYLE_INDEX.test(req.params.index)) return res.status(404).json({ error: "No such style." });
+    res.json(await fashion3dJob(req.params.id, Number(req.params.index), kind));
+  });
+  app.get(`/api/runs/:id/styles/:index/${kind === "model" ? "model.glb" : "print.jpg"}`, async (req, res) => {
+    if (!RUN_ID.test(req.params.id) || !STYLE_INDEX.test(req.params.index)) return res.status(404).send("Not found");
+    try {
+      res.type(kind === "model" ? "model/gltf-binary" : "jpeg").set("cache-control", "public, max-age=3600").send(await fashion3dFile(req.params.id, Number(req.params.index), kind));
+    } catch {
+      res.status(404).send("Not made yet.");
+    }
+  });
+}
 
 app.post("/api/ask", async (req, res) => {
   const { question, context } = req.body ?? {};

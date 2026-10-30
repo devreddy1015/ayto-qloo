@@ -16,7 +16,7 @@ Return JSON:
  "channels":["2-3 channels, e.g. Instagram + WhatsApp, own site, boutiques"],
  "avoid":["flavour names copied exactly from flavours_the_city_cares_less_about"]}
 Give 3-5 styles with 1-2 hero, 3-5 palette colours. Every style needs non-empty from_tags.
-Pick each garment from what the evidence leans to, not from habit: dress is an A-line knee dress, maxi_dress floor-length, saree a draped saree with a blouse. When the crowd leans to anime, K-pop, fantasy, gaming, superhero or other fandom flavours, one style may be a cosplay_set (a long coat, layered shoulder plates, a belt) or a cape. Cosplay here means in the spirit of the crowd's taste (silhouette, materials, palette, mood): an original design, never a named character's costume, emblem, logo or likeness, and no character or franchise name in any field.
+Pick each garment from what the evidence leans to, not from habit: dress is an A-line knee dress, maxi_dress floor-length, saree a draped saree with a blouse. When the crowd leans to anime, K-pop, fantasy, gaming, superhero or other fandom flavours, one style may be a cosplay_set (a long coat, layered shoulder plates, a belt) or a cape. Cosplay here means in the spirit of the crowd's taste (silhouette, materials, palette, mood): an original design, never a named character's costume, emblem, logo or likeness, and no character or franchise name in a style's name, cues or print motif.
 When the evidence has a "look": take cues (materials, surface, silhouette, mood) only from its aesthetics, personal styles, materials and motifs; avoid what it lists as the country's preference; respect its age groups; and if it carries a note, say in the positioning whose taste the read describes.`,
   evidence: digest,
   fallback(ev) {

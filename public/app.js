@@ -2049,6 +2049,8 @@ function garmentSection(p) {
   const caption = el("p", { class: "garment-caption", text: "3D preview, not a cloth simulation. The shapes are procedural; the colours come from the palette and the print from the plan." });
   const box = el("div", { class: "sect garment" }, h3("See it in 3D"), tabs, stage, el("div", { class: "garment-foot" }, ways, snap), caption);
   let viewer = null;
+  const extras = garmentExtras(styles, () => viewer, () => pick.index);
+  if (extras) box.insertBefore(extras.node, caption);
 
   const renderTabs = () =>
     tabs.replaceChildren(...styles.map((s, i) => el("button", { type: "button", class: "chip", "aria-pressed": String(i === pick.index), onclick: () => select(i) }, s.name || `Style ${i + 1}`, s.hero ? el("span", { class: "chip-mark", text: "hero" }) : null)));
@@ -2065,6 +2067,7 @@ function garmentSection(p) {
       viewer.show(pick.index);
       viewer.setColourway(pick.colourway);
     } else stage.replaceChildren(croquis(style, paletteHex(pick.colourway, palette), palette));
+    extras?.update({ redrawn: true });
   };
   const select = (i) => {
     pick.index = i;
@@ -2105,17 +2108,124 @@ function garmentSection(p) {
       viewer = mod.createGarmentViewer(stage, { styles, palette, label: p.drop_name ?? "" });
       state.viewer = viewer;
       snap.disabled = false;
+      extras?.mount();
     } catch (error) {
       console.warn("3D preview unavailable; showing the flat croquis.", error);
       viewer = null;
       box.classList.add("flat");
       snap.hidden = true;
       caption.textContent = "Flat preview: 3D isn't available in this browser. The colours come from the palette and the print from the plan.";
+      extras?.node.remove();
     }
     stage.removeAttribute("aria-busy");
     draw();
   }, 0);
   return box;
+}
+
+/**
+ * Under the 3D preview, for the style on show: OpenAI draws its print (or its fabric) and the viewer wraps it onto the
+ * garment; for a hero style, Stable Fast 3D lifts an OpenAI product shot into a model to turn around and download.
+ * On demand, one of each per style, every Qloo name kept out of the prompts. No key on the server, no button.
+ */
+function garmentExtras(styles, getViewer, getIndex) {
+  const run = state.run;
+  const on = state.presets.garment3d ?? {};
+  if (!run?.id || run.status !== "done" || !(on.prints || on.models)) return null;
+  const node = el("div", { class: "garment-extras" });
+  const status = styles.map(() => ({ print: { status: "none" }, model: { status: "none" } }));
+  const timers = {};
+  let shown = -1; // the style whose generated model is on the turntable
+  const route = (i, kind) => `/api/runs/${run.id}/styles/${i}/${kind}`;
+  const fabricOf = (style) => garmentKind(style) === "saree" || ["none", "stripe"].includes(printSpec(style).type) || printSpec(style).placement === "all_over";
+  const note = (...children) => el("p", { class: "garment-note" }, ...children);
+
+  function set(i, kind, s) {
+    status[i][kind] = s;
+    clearTimeout(timers[`${kind}${i}`]);
+    if (s.status === "drawing")
+      timers[`${kind}${i}`] = setTimeout(async () => {
+        if (!node.isConnected) return; // the card was redrawn; its own extras take over
+        try {
+          set(i, kind, await fetch(route(i, kind)).then((r) => r.json()));
+        } catch {
+          set(i, kind, { status: "error", error: "Lost the connection. Try again." });
+        }
+      }, 4000);
+    if (kind === "print" && s.status === "done") getViewer()?.setPrintImage(i, s.url).catch(() => {});
+    if (i === getIndex()) update();
+  }
+  async function start(i, kind, button) {
+    button.disabled = true;
+    try {
+      set(i, kind, await post(route(i, kind), {}));
+    } catch (error) {
+      set(i, kind, { status: "error", error: error.message });
+    }
+  }
+  function update({ redrawn = false } = {}) {
+    if (redrawn) shown = -1; // showing a style rebuilds the procedural garment and puts any model away
+    const i = getIndex();
+    const style = styles[i];
+    if (!style) return node.replaceChildren();
+    const rows = [];
+    if (on.prints) {
+      const s = status[i].print;
+      const what = fabricOf(style) ? "fabric" : "print";
+      if (s.status === "done") rows.push(note(`OpenAI drew this ${what}; it's on the garment above. `, el("a", { href: s.url, download: `${slug(style.name)}-${what}.jpg`, text: `Download the ${what}` })));
+      else if (s.status === "drawing") rows.push(note(`Drawing the ${what}… about 20 to 40 seconds.`));
+      else {
+        const b = el("button", { type: "button", class: "secondary", text: s.status === "error" ? "Try again" : `Draw the ${what}` });
+        b.onclick = () => start(i, "print", b);
+        rows.push(el("div", { class: "garment-row" }, b, note(s.error ? `Couldn't draw it: ${s.error}` : `OpenAI draws ${what === "fabric" ? "a repeating fabric" : "the print"} for this style from its cues and the palette, and it goes onto the garment. Original art: no text, logos or characters.`)));
+      }
+    }
+    if (on.models && style.hero) {
+      const s = status[i].model;
+      if (s.status === "done") {
+        const toggle = el("button", { type: "button", class: "secondary", text: shown === i ? "Back to the preview" : "Show the 3D model" });
+        toggle.onclick = async () => {
+          const viewer = getViewer();
+          if (!viewer) return;
+          toggle.disabled = true;
+          try {
+            if (shown === i) {
+              viewer.showGarment();
+              shown = -1;
+            } else {
+              await viewer.showModel(s.url);
+              shown = i;
+            }
+          } catch (error) {
+            console.warn("3D model", error);
+            toggle.textContent = "Couldn't load the model";
+            return;
+          }
+          update();
+        };
+        rows.push(el("div", { class: "garment-row" }, toggle, note("A 3D model made by Stable Fast 3D from a product shot OpenAI drew of this style: a concept model, not a pattern. ", el("a", { href: s.url, download: `${slug(style.name)}.glb`, text: "Download .glb" }))));
+      } else if (s.status === "drawing") rows.push(note("Making the 3D model: OpenAI draws a product shot, then Stable Fast 3D lifts it. About a minute."));
+      else {
+        const b = el("button", { type: "button", class: "secondary", text: s.status === "error" ? "Try again" : "Make a 3D model" });
+        b.onclick = () => start(i, "model", b);
+        rows.push(el("div", { class: "garment-row" }, b, note(s.error ? `Couldn't make it: ${s.error}` : "A real 3D model of this hero style (.glb) to turn around and download: OpenAI draws a product shot, Stable Fast 3D lifts it.")));
+      }
+    }
+    node.replaceChildren(...rows);
+  }
+  /** Once the viewer is up: restore what was already made for this run and put the drawn prints on. */
+  async function mount() {
+    try {
+      const saved = await fetch(`/api/runs/${run.id}/garment`).then((r) => r.json());
+      (saved.styles ?? []).forEach((s, i) => {
+        if (!status[i]) return;
+        for (const kind of ["print", "model"]) if (s[kind]?.status && s[kind].status !== "none") set(i, kind, s[kind]);
+      });
+    } catch {}
+    update();
+  }
+  update();
+  return { node, update, mount };
 }
 
 // The flat fallback: a front-view outline per garment in a 200×260 box, filled with the colourway and marked with the print.
