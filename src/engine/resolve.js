@@ -1,7 +1,7 @@
 // Stage 1: everything the user typed, as Qloo knows it. A run never goes on
 // with a city Qloo cannot place; a theme Qloo cannot tag is kept as plain
 // words and the read falls back to the loves.
-import { CANDIDATE_CITIES, COUNTRY_ALIASES, closestKnownCity, displayName, localityName, pickLocality } from "../cities.js";
+import { CANDIDATE_CITIES, COUNTRY_ALIASES, closestKnownCity, displayName, localityName, pickLocality, rankLocalities } from "../cities.js";
 import { CATEGORY_FILTERS, FORMATS } from "../formats.js";
 import { evidenceFor, registerEntity, registerName } from "../pipeline/evidence.js";
 
@@ -31,24 +31,9 @@ export const toCity = (hit, countryHint) => {
   return { id: hit.entity_id, name: displayName(localityName(hit)), state: stateOf(hit), lat: hit.location?.lat, lon: hit.location?.lon, country, market: marketFor(country) ?? countryHint, level: hit.properties?.admin_level, popularity: hit.popularity, qlooName: hit.disambiguation ?? hit.name };
 };
 
-/** Rank locality hits for a free query: exact name, city-sized, popular. */
+/** Rank locality hits for a free query, in any country: the one the maker picked, else rankLocalities' best. */
 export function pickCity(results = [], query, { wantedId } = {}) {
-  const needle = lower(query).split(",")[0].trim();
-  const scored = results
-    .filter((r) => r?.entity_id && r?.location?.lat !== undefined)
-    .map((r) => {
-      const names = [r.name, ...(r.properties?.akas ?? []).map((a) => a?.value)].map((n) => lower(n).split(",")[0].trim());
-      const level = r.properties?.admin_level;
-      return {
-        r,
-        wanted: wantedId && r.entity_id === wantedId ? 1 : 0,
-        exact: names.includes(needle) ? 2 : names.some((n) => n.includes(needle)) ? 1 : 0,
-        city: level === undefined || (level >= 4 && level <= 8) ? 1 : 0,
-        popularity: r.popularity ?? 0,
-      };
-    })
-    .sort((a, b) => b.wanted - a.wanted || b.exact - a.exact || b.city - a.city || b.popularity - a.popularity);
-  return scored[0]?.exact || scored[0]?.wanted ? scored[0].r : undefined;
+  return rankLocalities(results, query, { wantedId });
 }
 
 async function resolveCity(q, run, input) {
@@ -57,7 +42,9 @@ async function resolveCity(q, run, input) {
   const [cityPart, countryPart] = query.split(",").map((s) => s.trim());
   const env = await q.trySearch(`Find “${cityPart}” among Qloo's localities`, { query: cityPart, type: "locality", take: 8 });
   const hits = env?.results ?? [];
-  let hit = (countryPart && marketFor(countryPart) && pickLocality(hits, { query: cityPart, market: marketFor(countryPart) })) || pickCity(hits, cityPart, { wantedId: input.city?.id });
+  // The city the maker picked in the confirm step wins; then the country they named; then any country.
+  const wanted = input.city?.id && hits.find((r) => r?.entity_id === input.city.id);
+  let hit = wanted || (countryPart && marketFor(countryPart) && pickLocality(hits, { query: cityPart, market: marketFor(countryPart) })) || pickCity(hits, cityPart);
   // A typo or an old name ("Hydrabad", "Bangalore"): try the closest known city, and say so.
   let correctedFrom;
   if (!hit) {
@@ -79,7 +66,7 @@ async function resolveContrast(q, run, city) {
   const list = CANDIDATE_CITIES[city.market] ?? [];
   const name = list.find((n) => lower(n) !== lower(city.name) && !lower(city.qlooName).includes(lower(n)));
   if (!name) return undefined;
-  const env = await q.trySearch(`Contrast city: find “${name}” (the country's largest other city)`, { query: name, type: "locality", take: 6 });
+  const env = await q.trySearch(`Contrast city: find “${name}” (the country's largest other city)`, { query: name, type: "locality", take: 8 });
   const hit = pickLocality(env?.results ?? [], { query: name, market: city.market });
   if (!hit) return undefined;
   const contrast = toCity(hit, city.market);
@@ -127,7 +114,7 @@ export async function resolveTheme(q, run, input) {
 // remake) resolves to the one this city watches. India's film industries follow the state; elsewhere the market.
 const LANG_BY_STATE = {
   telangana: ["Telugu"], "andhra pradesh": ["Telugu"], "tamil nadu": ["Tamil"], puducherry: ["Tamil"], kerala: ["Malayalam"], karnataka: ["Kannada"],
-  maharashtra: ["Marathi", "Hindi"], "west bengal": ["Bengali"], punjab: ["Punjabi"], gujarat: ["Gujarati"], odisha: ["Odia"], assam: ["Assamese"],
+  maharashtra: ["Marathi", "Hindi"], "west bengal": ["Bengali"], punjab: ["Punjabi"], chandigarh: ["Punjabi", "Hindi"], gujarat: ["Gujarati"], odisha: ["Odia"], assam: ["Assamese"],
   delhi: ["Hindi"], "national capital territory of delhi": ["Hindi"], "uttar pradesh": ["Hindi"], bihar: ["Hindi", "Bhojpuri"], rajasthan: ["Hindi"], "madhya pradesh": ["Hindi"], haryana: ["Hindi"], uttarakhand: ["Hindi"], jharkhand: ["Hindi"], chhattisgarh: ["Hindi"], goa: ["Konkani", "Hindi"],
 };
 const LANG_BY_MARKET = {
@@ -141,7 +128,7 @@ const STATE_BY_CITY = Object.fromEntries(
     maharashtra: ["mumbai", "pune", "nagpur", "nashik"], delhi: ["delhi", "new delhi"], karnataka: ["bengaluru", "bangalore", "mysuru", "mangaluru"], telangana: ["hyderabad", "warangal", "secunderabad"],
     "andhra pradesh": ["visakhapatnam", "vijayawada", "guntur", "tirupati", "nellore"], "tamil nadu": ["chennai", "coimbatore", "tiruppur", "madurai"], kerala: ["kochi", "thiruvananthapuram", "kozhikode"],
     "west bengal": ["kolkata"], gujarat: ["ahmedabad", "surat", "vadodara"], rajasthan: ["jaipur", "jodhpur"], "uttar pradesh": ["lucknow", "kanpur", "agra"], "madhya pradesh": ["indore", "bhopal"],
-    bihar: ["patna"], punjab: ["ludhiana", "amritsar", "chandigarh"], assam: ["guwahati"], odisha: ["bhubaneswar"], uttarakhand: ["dehradun"], chhattisgarh: ["raipur"], jharkhand: ["ranchi"],
+    bihar: ["patna"], punjab: ["ludhiana", "amritsar"], chandigarh: ["chandigarh"], assam: ["guwahati"], odisha: ["bhubaneswar"], uttarakhand: ["dehradun"], chhattisgarh: ["raipur"], jharkhand: ["ranchi"],
   }).flatMap(([state, cities]) => cities.map((c) => [c, state])),
 );
 export function cityLanguages(city) {
@@ -150,10 +137,16 @@ export function cityLanguages(city) {
 }
 
 const norm = (s) => lower(s).normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
-/** "HIT: The First Case (2020)" → { name, year }. */
+/**
+ * "HIT: The First Case (2020)" or "Drishyam, 2015" → { name, year }. A bare number at the end may be the title's
+ * own ("Blade Runner 2049", "Wonder Woman 1984"), so it stays in the name and comes back as `bare`, a second reading.
+ */
 export function splitYear(text) {
-  const m = String(text ?? "").match(/^(.*?)[\s,]*\(?((?:19|20)\d\d)\)?\s*$/);
-  return m && m[1].trim() ? { name: m[1].trim(), year: Number(m[2]) } : { name: String(text ?? "").trim(), year: undefined };
+  const s = String(text ?? "").trim();
+  const marked = s.match(/^(.*?)\s*(?:\(((?:19|20)\d\d)\)|,\s*((?:19|20)\d\d))\s*$/);
+  if (marked && marked[1].trim()) return { name: marked[1].trim(), year: Number(marked[2] ?? marked[3]) };
+  const bare = s.match(/^(.*?\S)\s+((?:19|20)\d\d)$/);
+  return bare ? { name: s, year: undefined, bare: { name: bare[1], year: Number(bare[2]) } } : { name: s, year: undefined };
 }
 const languageOf = (r) => String(r?.properties?.description ?? "").match(/\b([A-Z][a-z]+)-language\b/)?.[1];
 const isRemake = (r) => /\bremake of\b/i.test(String(r?.properties?.description ?? ""));
@@ -190,9 +183,11 @@ export function rankTitleOptions(results = [], { name, year, languages = [], kin
 
 /** Search Qloo for one love and rank what comes back (used by the confirm step and by resolve). */
 export async function loveOptions(search, love, city, { format } = {}) {
-  const { name, year } = splitYear(love.name);
-  const env = await search({ query: name, ...(love.type ? { type: love.type } : {}), take: 8 });
-  return rankTitleOptions(env?.results ?? [], { name, year, languages: cityLanguages(city), kinds: love.type ? [] : FORMATS[format]?.types ?? [] });
+  const { name, year, bare } = splitYear(love.name);
+  const rank = async (n, y) => rankTitleOptions((await search({ query: n, ...(love.type ? { type: love.type } : {}), take: 8 }))?.results ?? [], { name: n, year: y, languages: cityLanguages(city), kinds: love.type ? [] : FORMATS[format]?.types ?? [] });
+  const options = await rank(name, year);
+  // "HIT 2020" finds nothing by that name: then it was the title and its year.
+  return options.length || !bare ? options : rank(bare.name, bare.year);
 }
 
 async function resolveLove(q, run, love, city) {

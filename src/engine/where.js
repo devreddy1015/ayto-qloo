@@ -31,12 +31,16 @@ export function peerLift(flavour, others = [], { take = TAKE, pct = PEERS } = {}
 }
 const lower = (s) => String(s ?? "").toLowerCase();
 
-/** The market a sentence names ("…in India", "in the US"), else undefined. */
+/**
+ * The market a sentence names ("…in India", "in the US"), else undefined. A country named in full comes first, and
+ * "US" counts only in capitals: "help us pick a city in India" is India.
+ */
 export function marketFrom(text) {
-  const t = ` ${lower(text).replace(/[^a-zÀ-ɏ\s]/g, " ")} `;
-  if (/\s(us|usa|america)\s/.test(t)) return "United States";
-  if (/\s(uk|britain|england)\s/.test(t)) return "United Kingdom";
+  const raw = String(text ?? "");
+  const t = ` ${lower(raw).replace(/[^a-zÀ-ɏ\s]/g, " ")} `;
   for (const [market, aliases] of Object.entries(COUNTRY_ALIASES)) if (aliases.some((a) => t.includes(` ${a} `)) || t.includes(` ${lower(market)} `)) return market;
+  if (/\b(?:US|USA|U\.S\.A?\.?)(?![\w.])/.test(raw) || /(?<!(?:latin|south|central|north)\s)\bamerica\b/i.test(raw)) return "United States";
+  if (/\s(uk|britain|england)\s/.test(t)) return "United Kingdom";
   return undefined;
 }
 
@@ -61,7 +65,7 @@ export async function whereToMake({ format = "film", theme, market = "India", te
   const places = (
     await Promise.all(
       names.map(async (name) => {
-        const env = await q.trySearch(`Find ${name} among Qloo's localities`, { query: name, type: "locality", take: 6 });
+        const env = await q.trySearch(`Find ${name} among Qloo's localities`, { query: name, type: "locality", take: 8 });
         const hit = pickLocality(env?.results ?? [], { query: name, market }) ?? pickCity(env?.results ?? [], name);
         return hit ? toCity(hit, market) : undefined;
       }),
