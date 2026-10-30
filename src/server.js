@@ -18,7 +18,8 @@ import { closeQloo, qlooStatus } from "./qloo.js";
 
 const app = express();
 app.disable("x-powered-by");
-// One proxy hop (Render's): req.ip is the address that proxy saw, not a client-supplied X-Forwarded-For.
+// One proxy hop: req.ip is the address the nearest proxy saw, not a client-supplied X-Forwarded-For. (The limits
+// read clientIp below, which on Render is Cloudflare's header.)
 // TRUST_PROXY may be a hop count, true/false, or addresses; anything Express refuses (empty, "yes") means one hop.
 const trust = String(process.env.TRUST_PROXY ?? "").trim();
 try {
@@ -27,6 +28,13 @@ try {
   console.error(`TRUST_PROXY "${trust.slice(0, 40)}" isn't a hop count, true/false or an address list; trusting one hop.`);
   app.set("trust proxy", 1);
 }
+// The visitor's address for the per-address limits. On Render, Cloudflare and Render's own proxy sit in front and the
+// address Express sees changed with every request (checked live on 31 Oct: 21 requests to a 20-an-hour route all
+// passed), so no limit ever tripped. Cloudflare sets CF-Connecting-IP to the visitor and refuses a request that sends
+// its own, so on Render that header is the address. CLIENT_IP_HEADER names another header; leave it unset wherever a
+// visitor could reach the app without such a proxy, and req.ip (trust proxy above) is used.
+const CLIENT_IP_HEADER = String(process.env.CLIENT_IP_HEADER ?? (process.env.RENDER ? "cf-connecting-ip" : "")).trim().toLowerCase();
+const clientIp = (req) => (CLIENT_IP_HEADER && String(req.get(CLIENT_IP_HEADER) ?? "").split(",")[0].trim().slice(0, 64)) || req.ip;
 
 // Express 4 lets a rejected async handler escape, and Node then exits: one bad request would take the server down.
 // Every handler registered below is guarded, so its errors reach the error handler at the end instead.
@@ -41,6 +49,11 @@ for (const method of ["get", "post", "delete"]) {
   const register = app[method].bind(app);
   app[method] = (path, ...handlers) => (handlers.length ? register(path, ...handlers.map(guard)) : register(path));
 }
+// Every response: no MIME sniffing, no framing by another site (clickjacking), and only the origin in a Referer.
+app.use((_req, res, next) => {
+  res.set({ "x-content-type-options": "nosniff", "x-frame-options": "DENY", "content-security-policy": "frame-ancestors 'none'", "referrer-policy": "strict-origin-when-cross-origin" });
+  next();
+});
 app.use(express.json({ limit: "64kb" }));
 // Pages, scripts and styles revalidate on every load (an ETag makes that a cheap 304), so a deploy is never
 // half old and half new in someone's browser; images and data may be cached for five minutes.
@@ -153,7 +166,7 @@ app.get("/api/mosaic", async (req, res) => {
 
 /** One tiny call with the user's key, so a bad key fails before a run. The key is not kept. */
 app.post("/api/llm/check", async (req, res) => {
-  if (!allow(req.ip, { perHour: 20, bucket: "check" })) return res.status(429).json({ error: "Too many key checks this hour." });
+  if (!allow(clientIp(req), { perHour: 20, bucket: "check" })) return res.status(429).json({ error: "Too many key checks this hour." });
   const body = req.body?.llm ? req.body : { llm: req.body };
   const credential = credentialOf(body, res);
   if (credential === null) return;
@@ -163,7 +176,7 @@ app.post("/api/llm/check", async (req, res) => {
 
 /** Sentence → structured input plus what Qloo makes of it. Nothing runs yet. */
 app.post("/api/parse", async (req, res) => {
-  if (!allow(req.ip, { perHour: 40, bucket: "parse" })) return res.status(429).json({ error: "Too many requests this hour." });
+  if (!allow(clientIp(req), { perHour: 40, bucket: "parse" })) return res.status(429).json({ error: "Too many requests this hour." });
   try {
     const input = await parseInput(req.body ?? {});
     const found = await candidates(input);
@@ -179,7 +192,7 @@ app.post("/api/parse", async (req, res) => {
  * country or city named in the sentence, else India.
  */
 app.post("/api/where", async (req, res) => {
-  if (!allow(req.ip, { perHour: 20, bucket: "where" })) return res.status(429).json({ error: "You've compared a lot of cities this hour. Try again later." });
+  if (!allow(clientIp(req), { perHour: 20, bucket: "where" })) return res.status(429).json({ error: "You've compared a lot of cities this hour. Try again later." });
   try {
     const body = req.body ?? {};
     const text = String(body.text ?? "").slice(0, 600);
@@ -204,7 +217,7 @@ app.post("/api/runs", async (req, res) => {
   const credential = credentialOf(body, res);
   if (credential === null) return;
   // Showcases skip the daily budget (their Qloo reads are cached) but not the per-address limit.
-  if (showcase ? !allow(req.ip, { perHour: 30, bucket: "showcase" }) : !allow(req.ip)) return res.status(429).json({ error: "You've started a lot of runs this hour. Try again later." });
+  if (showcase ? !allow(clientIp(req), { perHour: 30, bucket: "showcase" }) : !allow(clientIp(req))) return res.status(429).json({ error: "You've started a lot of runs this hour. Try again later." });
   try {
     const input = await parseInput(showcase ?? body);
     // Counted only once the input is a real run, so empty or broken requests can't use up the day.
@@ -254,7 +267,7 @@ app.get("/api/runs/:id/events", async (req, res) => {
 app.post("/api/runs/:id/edit", async (req, res) => {
   const original = await loadRun(req.params.id);
   if (!original) return res.status(404).json({ error: "No such run." });
-  if (!allow(req.ip)) return res.status(429).json({ error: "Too many reruns this hour." });
+  if (!allow(clientIp(req))) return res.status(429).json({ error: "Too many reruns this hour." });
   const { stage, edits } = req.body ?? {};
   if (stage !== "gap") return res.status(400).json({ error: "Only the lane order can be changed." });
   const first = edits?.lanes?.[0];
@@ -277,7 +290,7 @@ app.post("/api/runs/:id/edit", async (req, res) => {
 app.post("/api/runs/:id/assumptions", async (req, res) => {
   const original = await loadRun(req.params.id);
   if (!original) return res.status(404).json({ error: "No such run." });
-  if (!allow(req.ip, { perHour: 30, bucket: "assumptions" })) return res.status(429).json({ error: "Too many recomputes this hour." });
+  if (!allow(clientIp(req), { perHour: 30, bucket: "assumptions" })) return res.status(429).json({ error: "Too many recomputes this hour." });
   const a = req.body?.assumptions;
   if (!a || typeof a !== "object") return res.status(400).json({ error: "Send assumptions." });
   const num = (v, lo, hi) => (typeof v === "number" && Number.isFinite(v) && v >= lo && v <= hi ? v : undefined);
@@ -307,7 +320,7 @@ app.post("/api/runs/:id/assumptions", async (req, res) => {
 app.post("/api/runs/:id/regenerate", async (req, res) => {
   const original = await loadRun(req.params.id);
   if (!original) return res.status(404).json({ error: "No such run." });
-  if (!allow(req.ip)) return res.status(429).json({ error: "Too many reruns this hour." });
+  if (!allow(clientIp(req))) return res.status(429).json({ error: "Too many reruns this hour." });
   const credential = credentialOf(req.body, res);
   if (credential === null) return;
   if (!credential && !llmAvailable()) return res.status(400).json({ error: "Add a key to write again." });
@@ -328,7 +341,7 @@ app.post("/api/runs/:id/regenerate", async (req, res) => {
 app.post("/api/ask", async (req, res) => {
   const { question, context } = req.body ?? {};
   if (typeof question !== "string" || !question.trim()) return res.status(400).json({ error: "Ask a question." });
-  if (!allow(req.ip, { perHour: 20, bucket: "ask" })) return res.status(429).json({ error: "You've asked a lot this hour. Try again later." });
+  if (!allow(clientIp(req), { perHour: 20, bucket: "ask" })) return res.status(429).json({ error: "You've asked a lot this hour. Try again later." });
   const credential = credentialOf(req.body, res);
   if (credential === null) return;
   if (!credential && !llmAvailable()) return res.status(400).json({ error: "The analyst needs a language model. Add your key in the drawer." });
@@ -382,7 +395,7 @@ app.post(
     const id = req.body?.id ?? null;
     const call = req.body?.method === "tools/call" ? req.body.params ?? {} : undefined;
     // Tool calls run the engine: 30 an hour. Handshakes and listings are cheap, so a reconnecting client isn't shut out.
-    if (!allow(req.ip, call ? { perHour: 30, bucket: "mcp" } : { perHour: 300, bucket: "mcp-meta" })) return res.status(429).json({ jsonrpc: "2.0", error: { code: -32000, message: "Too many MCP calls this hour." }, id });
+    if (!allow(clientIp(req), call ? { perHour: 30, bucket: "mcp" } : { perHour: 300, bucket: "mcp-meta" })) return res.status(429).json({ jsonrpc: "2.0", error: { code: -32000, message: "Too many MCP calls this hour." }, id });
     // A tool call runs the engine against Qloo: it counts against the same daily budget as a web run, and a write
     // without the caller's own provider and key spends the server's model too.
     const serverModel = call?.name === "ayto_write" && !(call.arguments?.key && call.arguments?.provider) && llmAvailable();
