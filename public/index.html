@@ -13,7 +13,7 @@
     <meta name="theme-color" content="#0b0b0d" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <link rel="stylesheet" href="/styles.css" />
     <!-- Three.js for the 3D garment preview, one pinned version; app.js loads it only on a fashion run. -->
@@ -27,6 +27,28 @@
     </script>
   </head>
   <body>
+    <!-- Intro, once per visit on the home page: the ring (what a city loves) draws itself, leaving its opening (what it
+         isn't getting), and the dot (you) settles into the gap. Any click or key skips it. -->
+    <div id="intro" class="intro" aria-hidden="true">
+      <svg class="intro-mark" viewBox="4 4 24 24"><path class="intro-ring" d="M25.487 15.503A9.5 9.5 0 1 1 16.497 6.513" pathLength="1" /><circle class="intro-dot" cx="22.718" cy="9.282" r="2.7" /></svg>
+      <span class="intro-word">AYTO</span>
+    </div>
+    <script>
+      (() => {
+        const intro = document.getElementById("intro");
+        let seen = false;
+        try {
+          seen = sessionStorage.getItem("ayto-intro") === "1";
+          sessionStorage.setItem("ayto-intro", "1");
+        } catch {}
+        if (seen || location.pathname !== "/") return intro.remove();
+        const done = () => intro.remove();
+        intro.classList.add("play");
+        intro.addEventListener("animationend", (e) => e.target === intro && done());
+        for (const type of ["pointerdown", "keydown", "wheel", "touchstart"]) addEventListener(type, done, { once: true, passive: true });
+        setTimeout(done, 2500); // a backstop: the intro never outlives this, whatever the animation does
+      })();
+    </script>
     <div id="canvas" class="canvas" aria-hidden="true">
       <div id="canvas-grid" class="canvas-grid"></div>
       <div class="canvas-vignette"></div>
