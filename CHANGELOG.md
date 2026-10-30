@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: v0.2.0, ready for the deploy (bug hunt, batch 5)
+## PR #24 (30 Oct, 22:59): v0.2.0, ready for the deploy (bug hunt, batch 5)
 
 Version 0.2.0: batches 1 to 5 of the bug hunt (30 Oct), about 75 bugs, each reproduced before it was fixed.
 
@@ -61,7 +61,7 @@ Version 0.2.0: batches 1 to 5 of the bug hunt (30 Oct), about 75 bugs, each repr
   Kochi, a game in Seoul, a club night in Bengaluru, a novel in Chennai, a film in Hyderabad and a drop in Mumbai
   all finish with every name traced.
 
-## Unreleased: every name traces, whatever shape the model writes it in (bug hunt, batch 4)
+## PR #23 (30 Oct, 22:59): every name traces, whatever shape the model writes it in (bug hunt, batch 4)
 
 The writers had never met a real model. A fake one sending the shapes real models send found these.
 
@@ -93,7 +93,7 @@ The writers had never met a real model. A fake one sending the shapes real model
   after it, and a reply cut off at "fal" or "1e" keeps what came before. "Write again" without a key no longer
   says the brief was written on your key.
 
-## Unreleased: the engine on bad days (bug hunt, batch 3)
+## PR #22 (30 Oct, 22:59): the engine on bad days (bug hunt, batch 3)
 
 - **A failed country read made everything "this city's".** When Qloo's country read timed out or came back empty,
   every city flavour looked far above the country (lanes at +30, "specific to this city"), every pick was "only
@@ -115,7 +115,7 @@ The writers had never met a real model. A fake one sending the shapes real model
 - Looked at and left: the control cities skip the next-largest city after the contrast (Delhi for Hyderabad).
   CLAUDE.md doesn't say whether that is meant, and changing it would move the showcase lanes.
 
-## Unreleased: the sentence reads right and the city is the city (bug hunt, batch 2)
+## PR #21 (30 Oct, 22:59): the sentence reads right and the city is the city (bug hunt, batch 2)
 
 - **Big cities resolved to villages that share their name.** Qloo lists "Jaipur" the city only as "Jaipur
   Municipal Corporation", next to a village called exactly "Jaipur" in Jharkhand (popularity 0.50), and the exact
@@ -146,7 +146,7 @@ The writers had never met a real model. A fake one sending the shapes real model
   city in India" is India, not the United States. Chandigarh offers Hindi as well as Punjabi.
 - The "Crowded everywhere" line no longer breaks before its full stop.
 
-## Unreleased: the public server holds up (bug hunt, batch 1)
+## PR #20 (30 Oct, 22:59): the public server holds up (bug hunt, batch 1)
 
 Found by a review of the server, the parser, the engine and the pipeline (30 Oct), each bug reproduced first.
 
