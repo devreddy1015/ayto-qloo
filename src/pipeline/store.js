@@ -1,7 +1,7 @@
 // Run store: one JSON document per run, kept in memory and written to disk
 // after every change so a run survives a restart and can be resumed.
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 import { config } from "../config.js";
 
@@ -23,6 +23,17 @@ function evict() {
 
 export const newId = (prefix = "r") => `${prefix}_${randomBytes(5).toString("base64url")}`;
 
+/** A run's edit key: handed to whoever started it, never sent with the run itself. */
+export const newEditKey = () => randomBytes(18).toString("base64url");
+
+/** Does this key open the run for changes? Runs from before edit keys have none, so nobody owns them. */
+export function ownsRun(run, key) {
+  if (typeof key !== "string" || typeof run?.editKey !== "string") return false;
+  const a = Buffer.from(key);
+  const b = Buffer.from(run.editKey);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export async function saveRun(run) {
   run.updatedAt = new Date().toISOString();
   runs.set(run.id, run);
@@ -38,6 +49,8 @@ export async function loadRun(id) {
   if (!/^[A-Za-z0-9_-]{3,40}$/.test(id)) return undefined;
   try {
     const run = JSON.parse(await readFile(join(DIR, `${id}.json`), "utf8"));
+    // A live run is always in memory, so one on disk that says "running" was cut off by a restart.
+    if (run.status === "running") interrupted(run);
     runs.set(id, run);
     if (run.publish?.slug) slugs.set(run.publish.slug, run.id);
     evict();
@@ -55,9 +68,9 @@ export async function findRunBySlug(slug) {
       for (const file of await readdir(DIR)) {
         if (!file.endsWith(".json")) continue;
         try {
-          const text = await readFile(join(DIR, file), "utf8");
-          const m = text.match(/"slug":"([a-z0-9-]{3,60})"/);
-          if (m && !slugs.has(m[1])) slugs.set(m[1], file.replace(/\.json$/, ""));
+          // The run's own published slug, not the first "slug" in the text: a plan can carry one too.
+          const s = JSON.parse(await readFile(join(DIR, file), "utf8"))?.publish?.slug;
+          if (typeof s === "string" && /^[a-z0-9-]{3,60}$/.test(s) && !slugs.has(s)) slugs.set(s, file.replace(/\.json$/, ""));
         } catch {}
       }
     } catch {}
@@ -88,9 +101,18 @@ export function subscribe(runId, fn) {
   return () => listeners.get(runId)?.delete(fn);
 }
 
-/** A view of the run safe to send to the browser (no internals). */
+/** A run the server stopped mid-way: the stage it was on fails with a plain reason, so the page says so and can be rerun. */
+function interrupted(run) {
+  const message = "The server restarted while this run was working. Start it again.";
+  const at = run.plan?.find((id) => run.stages?.[id]?.status === "running");
+  if (at) Object.assign(run.stages[at], { status: "error", error: message });
+  run.status = "error";
+  emitEvent(run, { type: "run", status: "error", at_stage: at, message });
+}
+
+/** A view of the run safe to send to the browser (no internals, never the edit key). */
 export function publicRun(run) {
-  const { events, ...rest } = run;
+  const { events, editKey, ...rest } = run;
   return rest;
 }
 
