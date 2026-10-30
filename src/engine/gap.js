@@ -204,8 +204,8 @@ export async function gap(run) {
     lanes,
     avoid,
     avoidSkipped,
-    coverage: cityTags.length === 0 ? "none" : cityTags.length < 10 ? "thin" : "ok",
+    coverage: cityTags.length === 0 || countryTags.length === 0 ? "none" : cityTags.length < 10 ? "thin" : "ok",
     controls: controls.slice(0, controlLifts.length),
-    summary: lanes.length ? `Lane 1: ${lanes[0].name} (${r.city.name} #${lanes[0].cityRank} vs ${country} #${lanes[0].countryRank ?? "–"}${typeof lanes[0].specific === "number" ? `, ${lanes[0].scope}` : ""}${lanes[0].supplyRead ? `, ${lanes[0].supplyCount} recent of ${supply[lanes[0].id]?.total ?? 0} titles` : ", demand only"}).` : `No flavour ranks higher in ${r.city.name} than in ${country}.`,
+    summary: !countryTags.length ? `Qloo's flavour read for ${country} came back empty, so there is no baseline to measure ${r.city.name} against. Run it again in a minute.` : lanes.length ? `Lane 1: ${lanes[0].name} (${r.city.name} #${lanes[0].cityRank} vs ${country} #${lanes[0].countryRank ?? "–"}${typeof lanes[0].specific === "number" ? `, ${lanes[0].scope}` : ""}${lanes[0].supplyRead ? `, ${lanes[0].supplyCount} recent of ${supply[lanes[0].id]?.total ?? 0} titles` : ", demand only"}).` : `No flavour ranks higher in ${r.city.name} than in ${country}.`,
   };
 }

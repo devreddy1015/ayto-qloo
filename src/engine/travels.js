@@ -40,7 +40,8 @@ export async function travels(run) {
   const places = await marketPlaces(q, run, market, [r.city.name]);
   const culture = await heat(q, `Where this taste runs hot across ${market}`, ids, market, places);
   const lifted = liftPoints(culture.points).sort((a, b) => b.lift - a.lift);
-  const home = lifted.find((p) => p.name?.toLowerCase().includes(r.city.name.toLowerCase().split(" ")[0]));
+  // The home city by its locality id, else its exact name: "Las" must not find Dallas.
+  const home = lifted.find((p) => p.key === r.city.id) ?? lifted.find((p) => p.name?.toLowerCase() === r.city.name.toLowerCase());
   let gap;
   if (format(run).id === "fashion") {
     const brands = (run.stages.read?.output?.columns?.brand?.rows ?? []).filter((b) => b.onlyHere || b.hiddenGem).slice(0, 5).map((b) => b.id);

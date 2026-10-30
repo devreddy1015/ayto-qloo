@@ -14,12 +14,17 @@ const NOT_PUBLIC = /\b(apartment building|apartment complex|apartments|residenti
 const ADULT = /\b(gentlemen'?s club|strip club|showgirls|adult (entertainment|club|store)|sex shop|erotic|cabaret club)\b/i;
 const tidy = (name) => String(name ?? "").replace(/^ward\s*(no\.?\s*)?\d+\s*/i, "").replace(/\s+/g, " ").replace(/\b(\w+)( \1\b)+/gi, "$1").trim();
 const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// The first word of a city named after another (New Delhi, North Las Vegas, Navi Mumbai), never an area itself.
+const COMPOUND = /^(new|north|south|east|west|navi|greater|old|upper|lower|central)$/i;
 
 /** The area a venue sits in: the last "<area> <City>" segment of its address, else Qloo's geocode name. */
 export function areaOf(v, city) {
   const addr = String(v?.properties?.address ?? v?.address ?? "");
   const matches = [...addr.matchAll(new RegExp(`,\\s*([^,]+?),?\\s+${escapeRe(city)}\\b`, "gi"))];
-  let area = matches.at(-1)?.[1]?.trim();
+  const m = matches.at(-1);
+  let area = m?.[1]?.trim();
+  // "Connaught Place, New Delhi, Delhi": "New" is part of a city's name, so the area is the segment before it.
+  if (area && COMPOUND.test(area)) area = addr.slice(0, m.index).split(",").map((s) => s.trim()).filter(Boolean).at(-1);
   if (area && (/\d/.test(area) || area.split(/\s+/).length > 4 || /\b(road|rd|floor|street|st|lane|plot|no)\b\.?$/i.test(area))) area = undefined;
   area = area ? tidy(area) : tidy(v?.properties?.geocode?.name);
   return area && area.toLowerCase() !== String(city).toLowerCase() && !ADMIN.test(area) ? area : undefined;
