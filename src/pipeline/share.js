@@ -25,6 +25,7 @@ export async function share(run) {
       ledgerCount: run.ledger?.length ?? 0,
       llm: w.llm,
       fallback: w.fallback,
+      language: w.fallback ? undefined : w.language,
       usage: run.usage ? { calls: run.usage.calls, input: run.usage.input, output: run.usage.output, byok: run.usage.byok, provider: run.usage.provider, model: run.usage.model } : undefined,
     },
   };

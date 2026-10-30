@@ -46,7 +46,8 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: "Archivo", system-ui, sans-serif;
+  /* Indian scripts for briefs written in the city's language; each web font loads only when a brief uses it (useFont). */
+  font-family: "Archivo", "Noto Sans Telugu", "Noto Sans Tamil", "Noto Sans Devanagari", "Noto Sans Kannada", "Noto Sans Malayalam", "Noto Sans Bengali", "Noto Sans Gujarati", "Noto Sans Gurmukhi", "Noto Sans Oriya", system-ui, sans-serif;
   font-size: var(--step-0);
   line-height: 1.55;
   font-variation-settings: "wdth" 100;
@@ -1755,6 +1756,19 @@ details.raw > summary {
   align-items: center;
   padding-top: 1rem;
   border-top: 1px solid var(--line);
+}
+.write-language {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--fg-mute);
+  white-space: nowrap;
+}
+.write-language select {
+  padding: 0.45rem 0.6rem;
+  font-size: var(--step--1);
 }
 .edit-status {
   font-size: var(--step--1);

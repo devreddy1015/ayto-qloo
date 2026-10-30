@@ -1,6 +1,7 @@
 // Stage: write. The format's writer turns the evidence digest into the thing.
 // The user's own credential wins; the server default is capped and cached.
 import { getRunCredential } from "../keys.js";
+import { languageRule, languagesFor, WRITE_LANGUAGES, writeLanguage } from "../languages.js";
 import { chatJson, llmAvailable, PROVIDERS, redact, serverCredential } from "../llm.js";
 import { memo } from "../qloo.js";
 import { WRITERS } from "../writers/index.js";
@@ -15,7 +16,8 @@ export async function writeWith(run, { forbid = [] } = {}) {
   const evidence = writer.evidence(run);
   const credential = getRunCredential(run.id);
   const canWrite = Boolean(credential) || llmAvailable();
-  const system = forbid.length ? `${writer.system}\n\nA check found these names are NOT in the evidence. Do not use them, and do not replace them with anything that is not in the evidence either: ${forbid.join("; ")}.` : writer.system;
+  const language = writeLanguage(run.input.language);
+  const system = [writer.system, languageRule(language), forbid.length ? `A check found these names are NOT in the evidence. Do not use them, and do not replace them with anything that is not in the evidence either: ${forbid.join("; ")}.` : ""].filter(Boolean).join("\n\n");
   let plan;
   let error;
   if (canWrite) {
@@ -47,11 +49,13 @@ export async function writeWith(run, { forbid = [] } = {}) {
     canWrite,
     filled,
     repaired,
+    language: language ?? "English",
+    languageCode: WRITE_LANGUAGES[language ?? "English"].code,
+    languageFont: WRITE_LANGUAGES[language ?? "English"].font,
+    languages: languagesFor(run.stages.resolve?.output?.city),
     summary: fallback
-      ? canWrite
-        ? "Model failed; template shown."
-        : "No language model: template from the evidence. Add a key to write."
-      : `Written by ${llm.provider}${llm.model ? ` (${llm.model})` : ""}.${repaired ? " The reply was cut off; the complete part was kept." : ""}${filled.length ? ` ${filled.length} section${filled.length === 1 ? "" : "s"} the model left empty came from the evidence (${filled.join(", ").replace(/_/g, " ")}).` : ""}`,
+      ? `${canWrite ? "Model failed; template shown." : "No language model: template from the evidence. Add a key to write."}${language ? ` The template is in English; ${language} needs a language model.` : ""}`
+      : `Written by ${llm.provider}${llm.model ? ` (${llm.model})` : ""}${language ? ` in ${language}` : ""}.${repaired ? " The reply was cut off; the complete part was kept." : ""}${filled.length ? ` ${filled.length} section${filled.length === 1 ? "" : "s"} the model left empty came from the evidence (${filled.join(", ").replace(/_/g, " ")}).` : ""}`,
   };
 }
 

@@ -536,6 +536,18 @@ function makeItHere(c, out) {
   $("#confirm").scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "start" });
 }
 
+// ---------- languages ----------
+
+/** "Telugu · తెలుగు": a language as the pickers show it. */
+const languageLabel = (l) => (l.native && l.native !== l.name ? `${l.name} · ${l.native}` : l.name);
+const fontsLoaded = new Set();
+/** Load one script's web font (Noto Sans Telugu…) the first time a brief or a picker needs it. */
+function useFont(family) {
+  if (!family || fontsLoaded.has(family)) return;
+  fontsLoaded.add(family);
+  document.head.append(el("link", { rel: "stylesheet", href: `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, "+")}:wght@400..700&display=swap` }));
+}
+
 // ---------- confirm ----------
 
 async function parseSentence() {
@@ -599,6 +611,20 @@ function renderConfirm(found) {
   });
   const fmt = input.format || "film";
   const budgetSelect = ["film", "reel"].includes(fmt) ? el("label", { class: "confirm-item" }, el("span", { class: "confirm-key", text: "Budget" }), el("select", { id: "confirm-budget", "aria-label": "Budget" }, [["", "not stated (indie)"], ["shoestring", "Shoestring"], ["indie", "Indie"], ["premium", "Premium"]].map(([v, t]) => el("option", { value: v, text: t, selected: v === (input.budget ?? "") })))) : null;
+  // The language the brief is written in: English, or the picked city's own (Telugu for Hyderabad).
+  const languageSelect = el("select", { id: "confirm-language", "aria-label": "Write the brief in" });
+  const languageItem = el("label", { class: "confirm-item" }, el("span", { class: "confirm-key", text: "Write in" }), languageSelect);
+  const fillLanguages = () => {
+    const city = cities.find((c) => c.id === citySelect.value) ?? cities[0];
+    const list = [...(city?.languages?.length ? city.languages : [{ name: "English" }])];
+    if (input.language && !list.some((l) => l.name === input.language)) list.push({ name: input.language });
+    const keep = languageSelect.value || input.language || "English";
+    for (const l of list) useFont(l.font);
+    languageSelect.replaceChildren(...list.map((l) => el("option", { value: l.name, text: languageLabel(l), selected: l.name === keep })));
+    languageItem.hidden = list.length < 2;
+  };
+  citySelect.addEventListener("change", fillLanguages);
+  fillLanguages();
   const runButton = el("button", { id: "confirm-run", type: "button", class: "primary run", text: "Run", disabled: !found.cityFound, onclick: runFromConfirm });
   box.replaceChildren(el(
     "div",
@@ -614,6 +640,7 @@ function renderConfirm(found) {
       el("label", { class: "confirm-item" }, el("span", { class: "confirm-key", text: "Format" }), formatSelect),
       ...loveItems,
       budgetSelect,
+      found.cityFound ? languageItem : null,
     ),
     el("div", { class: "confirm-actions" }, runButton, el("span", { id: "confirm-stale", class: "confirm-note", hidden: true, text: "You changed the sentence. Check with Qloo again." }), el("span", { id: "confirm-status", class: "confirm-note" })),
   ));
@@ -640,6 +667,7 @@ async function runFromConfirm() {
   const budgetBox = $("#confirm-budget");
   const budget = budgetBox ? budgetBox.value : input.budget;
   if (budget) body.budget = budget;
+  body.language = $("#confirm-language")?.value || "English";
   const c = credential();
   if (c) body.llm = c;
   const status = $("#confirm-status");
@@ -1190,16 +1218,29 @@ const RENDER = {
     const writer = WRITE[o.writer] ?? WRITE.generic;
     const llm = o.llm ?? run?.llm ?? {};
     const canRegenerate = run?.status !== "running";
+    const written = o.language ?? "English";
+    // The written parts carry the brief's language, so the browser picks the right script font (useFont loads it).
+    const body = writer(plan, run);
+    if (!o.fallback && o.languageCode && o.languageCode !== "en") {
+      useFont(o.languageFont);
+      for (const node of body) node?.setAttribute?.("lang", o.languageCode);
+    }
+    const languages = o.languages ?? [];
+    const again = el("button", { type: "button", class: "primary", text: "Write again", disabled: !canRegenerate, onclick: (e) => regenerate(e.target) });
+    const languagePick = languages.length > 1
+      ? el("label", { class: "write-language" }, el("span", { text: "Write in" }), el("select", { id: "write-language", "aria-label": "Write it in", onchange: (e) => { useFont(languages.find((l) => l.name === e.target.value)?.font); again.textContent = e.target.value === written ? "Write again" : `Write it in ${e.target.value}`; } }, languages.map((l) => el("option", { value: l.name, text: languageLabel(l), selected: l.name === written }))))
+      : null;
     return [
       o.fallback
         ? el("div", { class: "banner" }, el("strong", { text: "No language model wrote this. " }), "What you see is the evidence laid out as a template. Add a key in the drawer and press Write again.", o.error ? el("span", { class: "sub", text: ` (${o.error})` }) : null)
-        : el("p", { class: "footnote", text: `Written by ${llm.byok ? `your ${providerInfo(llm.provider)?.label ?? llm.provider} key` : llm.provider ?? "the server's model"}${llm.model ? ` · ${llm.model}` : ""}. Names marked Qloo came from a request in this run.` }),
-      ...writer(plan, run),
+        : el("p", { class: "footnote", text: `Written by ${llm.byok ? `your ${providerInfo(llm.provider)?.label ?? llm.provider} key` : llm.provider ?? "the server's model"}${llm.model ? ` · ${llm.model}` : ""}${written !== "English" ? ` in ${written}` : ""}. Names marked Qloo came from a request in this run${written !== "English" ? " and keep Qloo's spelling" : ""}.` }),
+      ...body,
       el(
         "div",
         { class: "write-actions" },
         el("button", { type: "button", class: "secondary", text: "Copy", onclick: (e) => copyPlan(o, e.target) }),
-        el("button", { type: "button", class: "primary", text: "Write again", disabled: !canRegenerate, onclick: (e) => regenerate(e.target) }),
+        languagePick,
+        again,
         run?.publish?.url ? el("a", { class: "secondary-link", href: run.publish.url, target: "_blank", rel: "noopener", text: "Open share page" }) : null,
         run?.publish?.url ? el("a", { class: "secondary-link", href: `${run.publish.url}.md`, download: "", text: "Download brief (.md)" }) : null,
         el("span", { class: "edit-status", id: "write-status" }),
@@ -1642,10 +1683,11 @@ async function regenerate(button) {
     status.textContent = "No language model on the server. Add your key in the drawer on the home page, then press Write again.";
     return;
   }
+  const language = $("#write-language")?.value;
   button.disabled = true;
-  status.textContent = "Writing again…";
+  status.textContent = language && language !== (state.run.stages?.write?.output?.language ?? "English") ? `Writing it in ${language}…` : "Writing again…";
   try {
-    await post(`/api/runs/${state.run.id}/regenerate`, c ? { llm: c } : {});
+    await post(`/api/runs/${state.run.id}/regenerate`, { ...(c ? { llm: c } : {}), ...(language ? { language } : {}) });
     attach(state.run.id);
   } catch (error) {
     status.textContent = error.message;

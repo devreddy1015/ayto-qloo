@@ -29,6 +29,9 @@ server default is Groq. MCP door in src/mcp.js. Hackathon host: https://hackatho
 - src/writers/: one prompt per format + evidence digest + grounding paths (shared.js). src/pipeline/produce.js: fashion production path.
 - src/pipeline/: runner (per-run plan, edit-and-rerun, regenerate), store, evidence (ledger), write, check, diff, share, page.
 - src/llm.js (providers, redactor, boot probe), src/keys.js (per-run credentials, memory only), src/mcp.js, src/server.js.
+- src/languages.js: the brief's language (input.language; English when unset). languagesFor(city) = English + cityLanguages;
+  languageRule() is appended to the writer's system prompt (empty for English); Qloo names stay in Latin letters, and the
+  check reads a bracketed Latin spelling ("హిట్ (HIT)"). regenerate(run, cred, { language }) switches without new Qloo reads.
 - src/analysis.js: heat/lift maths from the first build + threeColumns, demandLift, laneGap, averageSkew, cleanPlaceName.
 - src/fake-qloo.js: synthetic data for CULTURE_GAP_MODE=fake (labelled, never real Qloo data).
 - test/: node --test; pipeline.test.js runs all showcases end to end in fake mode.

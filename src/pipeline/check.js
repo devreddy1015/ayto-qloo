@@ -41,6 +41,9 @@ function prune(node) {
 }
 
 const nameOf = (item) => (typeof item === "string" ? item : item?.title ?? item?.artist ?? item?.name ?? item?.city ?? item?.flavour ?? item?.partner);
+// A brief written in Telugu may give a Qloo name in its own script with Qloo's spelling in brackets ("హిట్ (HIT)"):
+// the bracketed Latin spelling is the one checked.
+const latinOf = (name) => (/[^\p{Script=Latin}\p{Script=Common}\p{Script=Inherited}]/u.test(name) ? name.match(/\(([^()]*\p{Script=Latin}[^()]*)\)\s*$/u)?.[1]?.trim() : undefined);
 
 export function checkEvidence(run) {
   const output = run.stages.write?.output;
@@ -53,7 +56,8 @@ export function checkEvidence(run) {
       walk(output, path, (item, replace) => {
         const name = nameOf(item);
         if (!name) return;
-        const ok = isKnownName(run, name);
+        const latin = latinOf(String(name));
+        const ok = isKnownName(run, name) || Boolean(latin && isKnownName(run, latin));
         checked.push({ kind, name, ok });
         if (ok) grounded += 1;
         else {

@@ -135,9 +135,18 @@ const LANG_BY_MARKET = {
   France: ["French"], Spain: ["Spanish"], Mexico: ["Spanish"], Argentina: ["Spanish"], Colombia: ["Spanish"], Brazil: ["Portuguese"], Portugal: ["Portuguese"],
   Germany: ["German"], Italy: ["Italian"], Japan: ["Japanese"], "South Korea": ["Korean"], Indonesia: ["Indonesian"], Turkey: ["Turkish"], Nigeria: ["English"],
 };
+// The state of each Indian city AYTO compares, for a locality Qloo returns without its parent chain.
+const STATE_BY_CITY = Object.fromEntries(
+  Object.entries({
+    maharashtra: ["mumbai", "pune", "nagpur", "nashik"], delhi: ["delhi", "new delhi"], karnataka: ["bengaluru", "bangalore", "mysuru", "mangaluru"], telangana: ["hyderabad", "warangal", "secunderabad"],
+    "andhra pradesh": ["visakhapatnam", "vijayawada", "guntur", "tirupati", "nellore"], "tamil nadu": ["chennai", "coimbatore", "tiruppur", "madurai"], kerala: ["kochi", "thiruvananthapuram", "kozhikode"],
+    "west bengal": ["kolkata"], gujarat: ["ahmedabad", "surat", "vadodara"], rajasthan: ["jaipur", "jodhpur"], "uttar pradesh": ["lucknow", "kanpur", "agra"], "madhya pradesh": ["indore", "bhopal"],
+    bihar: ["patna"], punjab: ["ludhiana", "amritsar", "chandigarh"], assam: ["guwahati"], odisha: ["bhubaneswar"], uttarakhand: ["dehradun"], chhattisgarh: ["raipur"], jharkhand: ["ranchi"],
+  }).flatMap(([state, cities]) => cities.map((c) => [c, state])),
+);
 export function cityLanguages(city) {
   if (!city) return [];
-  return LANG_BY_STATE[lower(city.state)] ?? LANG_BY_MARKET[city.market] ?? (city.market === "India" ? ["Hindi"] : []);
+  return LANG_BY_STATE[lower(city.state)] ?? (city.market === "India" ? LANG_BY_STATE[STATE_BY_CITY[lower(city.name)]] : undefined) ?? LANG_BY_MARKET[city.market] ?? (city.market === "India" ? ["Hindi"] : []);
 }
 
 const norm = (s) => lower(s).normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();

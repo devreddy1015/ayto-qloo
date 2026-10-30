@@ -4,6 +4,7 @@
 import { loveOptions, pickCity, pickTags, toCity, marketFor } from "./engine/resolve.js";
 import { closestKnownCity } from "./cities.js";
 import { FORMAT_HINTS, FORMAT_IDS } from "./formats.js";
+import { languageFrom, languagesFor, WRITE_LANGUAGES, writeLanguage } from "./languages.js";
 import { chatJson, llmAvailable } from "./llm.js";
 import { qlooSearch, qlooTool } from "./qloo.js";
 
@@ -30,18 +31,21 @@ export function heuristicParse(text) {
   const t = clean(text);
   const format = FORMAT_HINTS.find(([, re]) => re.test(t))?.[0] ?? "film";
   let city = "";
-  const m = t.match(/\b(?:in|at|around|from)\s+([A-Za-z][\w.'-]*(?:\s+[A-Za-z][\w.'-]*){0,3})/);
-  if (m) {
+  // The words are read in a lookahead, so "in Telugu set in Hyderabad" still reaches the second "in".
+  for (const m of t.matchAll(/\b(?:in|at|around|from)\s+(?=([A-Za-z][\w.'-]*(?:\s+[A-Za-z][\w.'-]*){0,3}))/g)) {
     const words = m[1].split(" ");
     const kept = [];
     for (const w of words) {
       if (STOP.has(w.toLowerCase()) || /^(i|we|you)$/i.test(w)) break;
       kept.push(w);
+      // "Las Vegas. Nightlife and food": a sentence ends the city ("St. Louis" does not).
+      if (/[,;!?]$/.test(w) || (/\.$/.test(w) && !/^(?:st|ste|mt|ft|[nsew])\.$/i.test(w))) break;
     }
     city = title(kept.join(" ").replace(/[.,;!?]+$/, ""));
-    // "in a café", "in the office", "in crime": a format, genre or everyday-place word is never a city.
+    // "in a café", "in the office", "in crime", "in Telugu": a format, genre, language or everyday-place word is never a city.
     const word = city.toLowerCase();
-    if (!word || GENRES.includes(word) || NOT_A_CITY.has(word) || FORMAT_HINTS.some(([, re]) => re.test(word))) city = "";
+    if (!word || GENRES.includes(word) || NOT_A_CITY.has(word) || WRITE_LANGUAGES[city] || FORMAT_HINTS.some(([, re]) => re.test(word))) city = "";
+    if (city) break;
   }
   let theme = "";
   const a = t.match(/\b(?:about|theme(?:d)?(?:\s+(?:is|will be|would be|of))?|genre(?:\s+is)?)\s+([a-z][\w' -]{2,40}?)(?=[,.;!?]|\s+(?:in|for|with|that|which|set|after|inspired|on)\b|$)/i);
@@ -107,8 +111,11 @@ export async function parseInput(body) {
     theme: { query: clean(themeIn.query).slice(0, 60), ids: Array.isArray(themeIn.ids) ? themeIn.ids.filter((x) => typeof x === "string").slice(0, 3) : undefined },
     loves: (Array.isArray(body.loves) ? body.loves : []).slice(0, 3).map((w) => (typeof w === "string" ? { name: clean(w).slice(0, 80) } : { name: clean(w?.name).slice(0, 80), type: ENTITY_TYPES.includes(w?.type) ? w.type : undefined, id: typeof w?.id === "string" && /^[A-Za-z0-9-]{8,60}$/.test(w.id) ? w.id : undefined })).filter((w) => w.name),
     budget: BUDGETS.includes(body.budget) ? body.budget : budgetFrom(body.text),
+    // The language the brief is written in; a picker's "English" wins over a sentence that named another.
+    language: typeof body.language === "string" ? writeLanguage(body.language) : languageFrom(body.text),
   };
   if (!input.budget) delete input.budget;
+  if (!input.language) delete input.language;
   if (text && (!input.format || !input.city.query)) {
     const x = await extract(text);
     input.format ||= x.format;
@@ -146,7 +153,7 @@ export async function candidates(input) {
     .filter((r) => r?.entity_id && r?.location && !seen.has(r.entity_id) && seen.add(r.entity_id))
     .slice(0, 5)
     .map((r) => toCity(r, countryPart && marketFor(countryPart)))
-    .map((c) => ({ id: c.id, name: c.name, qlooName: c.qlooName, country: c.country, market: c.market }));
+    .map((c) => ({ id: c.id, name: c.name, qlooName: c.qlooName, country: c.country, market: c.market, languages: languagesFor(c) }));
   const words = input.theme.query ? input.theme.query.split(/\s*(?:,|\band\b|\/|\+)\s*/i).map((w) => w.trim()).filter(Boolean).slice(0, 3) : [];
   const themes = [];
   for (const word of words) {
