@@ -3,6 +3,27 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: three pages on the run page
+
+- **The run page is three tabs now, not one long page.** **The brief** has the written piece (the story, simply,
+  then the treatment), the check, with vs without Qloo and the share link. **The evidence** has resolve, read, gap,
+  look, audio, spots, audience and travels, with the receipts column beside them: what a judge opens to see that Qloo
+  is the reason. **Make it** is the studio: the concept image, the shot deck, the music tone and the spoken story,
+  and for a fashion drop the 3D garment and the produce card, with Ask the analyst at the foot.
+- **It opens where you need it.** A run still working opens on the evidence, so you watch Qloo read, and moves to the
+  brief when it's done (unless you picked a page meanwhile). A finished run opens on the brief. Write again, an edit
+  or a recompute keeps you on the page you were on.
+- **Every page has a link:** `/run/:id#brief`, `#evidence`, `#make`, and a stage's own `#stage-gap` opens its page at
+  its card. Back and Forward move between pages. The rail opens a stage's page and jumps to the card.
+- **The tabs say what's there:** the receipts count on the evidence tab, and the yellow running dot on any page with a
+  stage at work. A proper tablist: arrow keys, Home and End, a visible focus ring. Tab switches are instant, the tab
+  bar stays at the top as you scroll, and it fits a 375 px phone with no sideways scroll.
+- **A thin layer** (`public/pages.js`): app.js still draws every card; pages.js moves each one to its page by its
+  stage, and each on-demand extra out of the write card into the studio, by class or because it comes after the write
+  card's actions row, so the next extra lands in the studio unchanged. A map drawn on a page that isn't open fits
+  itself when the page opens. The share page `/s/:slug` stays one printable page. New test: the stage-to-page mapping
+  for every format, and what each hash opens.
+
 ## PR #45 (31 Oct, 04:20): no rupee costing for a drop outside India
 
 - **The Paris showcase was costed in rupees with Indian GST.** The production stage (tech packs, unit economics,

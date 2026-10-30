@@ -49,6 +49,10 @@ server default is Groq; the live site runs DeepSeek (LLM_PROVIDER=deepseek, mode
   POST/GET /api/runs/:id/voice (GET names the language + a hint, or `nothing` hides the button), /voice.mp3|wav?v=. music.js: a 403/429 with
   limit: 0 / billing / free tier turns music off for the day (presets music:false, MUSIC_UNAVAILABLE), back after a restart.
 - src/llm.js (providers, redactor, boot probe), src/keys.js (per-run credentials, memory only), src/mcp.js, src/server.js.
+- public/pages.js: the run page as three tabs (#brief, #evidence, #make). app.js still draws every card into #stage-cards
+  and appends its extras to the write card; pages.js moves cards by data-stage (pageOf) and the extras into Make it by
+  class (MAKE_BLOCKS) or because they come after the write card's .write-actions row, so a new extra needs no change.
+  app.js calls pages.reset() in resetResults and pages.sync(run) in updateStatus. The share page /s/:slug has no tabs.
 - src/languages.js: the brief's language (input.language; English when unset). languagesFor(city) = English + cityLanguages;
   languageRule() is appended to the writer's system prompt (empty for English); Qloo names stay in Latin letters, and the
   check reads a bracketed Latin spelling ("హిట్ (HIT)"). regenerate(run, cred, { language }) switches without new Qloo reads.

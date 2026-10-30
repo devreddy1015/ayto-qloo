@@ -2383,3 +2383,33 @@ details.raw > summary {
 @media (prefers-reduced-motion: reduce) {
   .ref-track { animation: none; }
 }
+
+/* Run pages: the brief, the evidence (Qloo) and Make it (the studio), as tabs over the run (public/pages.js).
+   Tab switches are instant: tabs get clicked often. */
+.page-tabs { position: sticky; top: 0.5rem; z-index: 5; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.25rem; padding: 0.3rem; background: var(--glass); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: var(--radius-md); }
+.page-tab { display: grid; gap: 0.05rem; min-width: 0; padding: 0.5rem 0.75rem; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--fg-soft); font: inherit; text-align: left; cursor: pointer; transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out); }
+.page-tab:hover { color: var(--fg); background: var(--well); }
+.page-tab[aria-selected="true"] { color: var(--fg); background: var(--well-2); box-shadow: inset 0 -2px 0 var(--fg); }
+.page-tab:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+.page-tab-label { font-size: var(--step--1); font-weight: 700; display: inline-flex; align-items: center; gap: 0.45rem; }
+.page-tab-meta { font-size: var(--step--2); color: var(--fg-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.page-tab.running .page-tab-label::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--tape); animation: pulse 1.1s ease-in-out infinite; }
+.page, .page-stages, .page-blocks { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.2rem; min-width: 0; pointer-events: none; }
+.page > *, .page-stages > *, .page-blocks > * { pointer-events: auto; }
+.page:focus-visible { outline-offset: 4px; border-radius: var(--radius); }
+#stage-cards:empty, .page-stages:empty, .page-blocks:empty, .page-blocks > :empty { display: none; }
+.page .stage { scroll-margin-top: 5.5rem; }
+.page-switch .stage { transition: none; }
+.page-note { margin: 0 0.2rem; }
+/* The studio: each extra from the write card, and the analyst, in a glass card of its own. */
+.page-blocks > *, .page > .ask { margin: 0; padding: 1.1rem 1.3rem 1.2rem; background: var(--glass); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: var(--radius); }
+.page-blocks > .sect.garment, .page-blocks > .sect.refs { display: grid; gap: 0.5rem; }
+/* The receipts are evidence: on the other pages the run is two columns, the rail and the page. */
+.results[data-page="brief"] > .trace, .results[data-page="make"] > .trace { display: none; }
+@media (min-width: 1101px) { .results[data-page="brief"], .results[data-page="make"] { grid-template-columns: 220px minmax(0, 1fr); } }
+@media (max-width: 720px) {
+  .page-tabs { top: 0.35rem; padding: 0.25rem; gap: 0.15rem; }
+  .page-tab { padding: 0.45rem 0.5rem; }
+  .page-tab-unit { display: none; }
+  .page-blocks > *, .page > .ask { padding: 0.9rem 1rem 1rem; }
+}
