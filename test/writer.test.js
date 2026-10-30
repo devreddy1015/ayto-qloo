@@ -74,7 +74,8 @@ async function showcaseRun(format) {
   const { parseInput } = await import("../src/parse.js");
   const { createRun, startRun } = await import("../src/pipeline/runner.js");
   const { SHOWCASES } = await import("../src/presets.js");
-  const showcase = SHOWCASES.find((s) => s.format === format);
+  // A drop is costed only for India, so the fashion run here is Tiruppur's; the other formats use their showcase.
+  const showcase = format === "fashion" ? { text: "I run a small kidswear unit in Tiruppur. KPop Demon Hunters is everywhere.", format: "fashion", city: { query: "Tiruppur, India" }, theme: { query: "" }, loves: [{ name: "KPop Demon Hunters", type: "movie" }] } : SHOWCASES.find((s) => s.format === format);
   const run = await createRun(await parseInput(showcase), {});
   await startRun(run, 0);
   return run;

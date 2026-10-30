@@ -1536,6 +1536,7 @@ const RENDER = {
   },
 
   produce(o) {
+    if (o.notCosted) return [note(o.summary)];
     const e = o.economics ?? {};
     const inr = (v) => (typeof v === "number" ? `₹${Math.round(v).toLocaleString("en-IN")}` : "—");
     const pctOf = (v) => (typeof v === "number" ? `${Math.round(v * 100)}%` : "—");

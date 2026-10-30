@@ -81,6 +81,13 @@ function defaultPack(style) {
 }
 
 export async function produce(run) {
+  // The costing is India's: rupees, GST slabs, Legal Metrology and India's marketplaces. A drop for another market gets
+  // its styles, look and 3D, and an honest line instead of a rupee price for Paris.
+  const city = run.stages.resolve?.output?.city;
+  const market = city?.market ?? city?.country;
+  if (market && market !== "India") {
+    return { packs: [], economics: {}, styles: [], allocation: [], market, notCosted: true, summary: `The first production run is costed for India's marketplaces (rupees, GST, Flipkart, Myntra, Meesho). A costing for ${market} isn't built yet, so this drop shows its styles, look and 3D without one.` };
+  }
   const plan = run.stages.write?.output?.plan ?? {};
   // A model can send a style's name as a number, its cues or colourways as one string: read them as text and lists.
   const text = (v) => (typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : v && typeof v === "object" && !Array.isArray(v) ? text(v.name ?? v.title ?? "") : "");
