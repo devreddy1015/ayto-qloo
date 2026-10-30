@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: the submission covers all eight formats
+## PR #29 (31 Oct, 01:20): the submission covers all eight formats
 
 - **The pitch is for anyone making something for a city**, not only filmmakers: "An agent with taste for anyone making
   something for a city. Tell AYTO what and where: Qloo finds what that city loves and isn't getting, and your AI writes
