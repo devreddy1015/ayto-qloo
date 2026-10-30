@@ -15,7 +15,7 @@ Return JSON:
  "runsheet":[{"time":"","what":""}],
  "promo_hook":"one line for the poster",
  "audience":{"who":"from the skew","note":""},
- "avoid":["from the flavours the city cares less about"]}
+ "avoid":["flavour names copied exactly from flavours_the_city_cares_less_about"]}
 Give 3-4 lineup slots, 4-6 runsheet rows. Leave venue empty if the evidence has no places.`,
   evidence: digest,
   fallback(ev) {

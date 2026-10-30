@@ -81,7 +81,7 @@ function coerce(v, t) {
       .flat(Infinity)
       .filter((x) => !isEmpty(x))
       .map((x) => (key && typeof x === "string" ? { [key]: x } : x))
-      .map((x) => (item && x && typeof x === "object" && !Array.isArray(x) ? shapeLike(x, item) : !item && t.length && x && typeof x === "object" && typeof t[0] === "string" ? textOf(x) : x));
+      .map((x) => (item && x && typeof x === "object" && !Array.isArray(x) ? shapeLike(x, item) : !item && t.length && x && typeof x === "object" && typeof t[0] === "string" ? nameText(x) : x));
   }
   if (typeof t === "string") return typeof v === "string" ? v : textOf(v);
   if (t && typeof t === "object") {
@@ -92,6 +92,14 @@ function coerce(v, t) {
   }
   return v;
 }
+
+// Where the template lists plain names, an object item stands for the name it carries ({ city: "Pune", why: "…" } is
+// "Pune"), never all its values joined, which would no longer match Qloo's name.
+const NAME_FIELDS = ["title", "name", "city", "artist", "brand", "place", "flavour", "venue"];
+const nameText = (x) => {
+  const k = NAME_FIELDS.find((f) => typeof x[f] === "string" && x[f].trim());
+  return k ? x[k] : textOf(x);
+};
 
 /** One list item in the shape of the template's items: only the keys the model gave, each in the template's shape. */
 function shapeLike(x, item) {

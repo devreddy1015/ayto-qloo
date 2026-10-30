@@ -19,7 +19,8 @@ import { closeQloo, qlooStatus } from "./qloo.js";
 const app = express();
 app.disable("x-powered-by");
 // One proxy hop (Render's): req.ip is the address that proxy saw, not a client-supplied X-Forwarded-For.
-app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 1));
+const trust = String(process.env.TRUST_PROXY ?? "1").trim();
+app.set("trust proxy", /^\d+$/.test(trust) ? Number(trust) : trust === "true" ? true : trust === "false" ? false : trust);
 
 // Express 4 lets a rejected async handler escape, and Node then exits: one bad request would take the server down.
 // Every handler registered below is guarded, so its errors reach the error handler at the end instead.
@@ -283,6 +284,8 @@ app.post("/api/runs/:id/assumptions", async (req, res) => {
     for (const k of ["fabric", "cmt", "print", "trimsAndPacking"]) if (num(a.unitCost[k], 0, 1e5) !== undefined) clean.unitCost[k] = Math.round(a.unitCost[k]);
   }
   if (!original.plan?.includes("produce")) return res.status(400).json({ error: "This run has no production stage." });
+  const before = original.plan[original.plan.indexOf("produce") - 1];
+  if (original.stages?.[before]?.status !== "done") return res.status(400).json({ error: "The stages before it must finish first." });
   if (isRunning(original.id)) return res.status(400).json({ error: "This run is still working. Wait for it to finish." });
   try {
     const { run, forked } = await ownRun(original, req);

@@ -75,7 +75,7 @@ const POPULAR_WITHIN = 0.003;
  * of them, then the best form (the name, the city's own form, its metro, its district), city-sized, popular.
  * With a market, only hits inside that country (or, where Qloo gives no parent chain, a famous exact one).
  */
-export function rankLocalities(results = [], query, { market, wantedId, levels = [4, 8] } = {}) {
+export function rankLocalities(results = [], query, { market, within, wantedId, levels = [4, 8] } = {}) {
   const needle = fold(query);
   const hits = results.filter((r) => r?.entity_id && r?.location?.lat !== undefined && r?.location?.lon !== undefined);
   const wanted = wantedId && hits.find((r) => r.entity_id === wantedId);
@@ -97,7 +97,7 @@ export function rankLocalities(results = [], query, { market, wantedId, levels =
       // Weaker readings, used only when nothing carries the name properly: "New Delhi" for Delhi, "Leicestershire" for Leicester.
       word: names.some((n) => new RegExp(`(^|\\s)${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s|$)`).test(n)) ? 1 : 0,
       part: needle.length >= 5 && names.some((n) => n.includes(needle)) ? 1 : 0,
-      country: market ? (inCountry(r, market) ? 1 : 0) : 1,
+      country: market ? (inCountry(r, market) ? 1 : 0) : within ? (isWithin(r, within) ? 1 : 0) : 1,
       orphan: !(r.properties?.ancestors ?? []).length,
       cityLevel: level === undefined || (level >= levels[0] && level <= levels[1]) ? 1 : 0,
       popularity: r.popularity ?? 0,
@@ -121,6 +121,13 @@ export function inCountry(entity, market) {
   const aliases = COUNTRY_ALIASES[market] ?? [lower(market)];
   const chain = [...(entity?.properties?.ancestors ?? []).map((a) => a?.name), entity?.disambiguation].map(lower);
   return chain.some((n) => n && aliases.some((a) => n === a || n.includes(a)));
+}
+
+/** Is this place inside the one named ("Maine", "Pakistan")? A whole name in its parent chain, never part of one. */
+export function isWithin(entity, place) {
+  const want = fold(place);
+  const chain = [...(entity?.properties?.ancestors ?? []).map((a) => a?.name), ...String(entity?.disambiguation ?? "").split(",").slice(1)];
+  return Boolean(want) && chain.some((n) => fold(n) === want);
 }
 
 /** The English name when Qloo lists one, else Qloo's own name. */

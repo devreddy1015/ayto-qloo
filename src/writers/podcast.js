@@ -16,7 +16,7 @@ Return JSON:
  "references":[{"title":"a podcast from the evidence","take":"what to borrow"}],
  "audience":{"who":"from the skew","note":""},
  "travels_next":["cities from the evidence"],
- "avoid":["from the flavours the city cares less about"]}
+ "avoid":["flavour names copied exactly from flavours_the_city_cares_less_about"]}
 Give 5 episodes, 2-4 guests, 2-3 references. Leave guests empty if the evidence has no people.`,
   evidence: digest,
   fallback(ev) {

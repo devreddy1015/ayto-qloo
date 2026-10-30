@@ -68,3 +68,16 @@ test("what the city cares less about is checked too: an invented flavour in avoi
     assert.deepEqual(run.stages.write.output.plan.avoid, ["Horror"], writer);
   }
 });
+
+test("the key a path names is the one checked, and object items in name lists keep their name", async () => {
+  const { normalizePlan } = await import("../src/pipeline/write.js");
+  const names = { "sid sriram": { name: "Sid Sriram" }, gritty: { name: "Gritty" }, pune: { name: "Pune" } };
+  const run = { names, stages: { write: { output: { writer: "film", plan: { soundtrack: [{ artist: "Sid Sriram", title: "Srivalli" }], lane: { name: "The gritty lane", flavour: "Gritty" } } } } } };
+  const out = checkEvidence(run);
+  assert.equal(out.removed, 0, JSON.stringify(out.items));
+  const { plan } = normalizePlan({ travels_next: [{ city: "Pune", why: "leans the same way" }] }, { travels_next: ["Mysuru"] });
+  assert.deepEqual(plan.travels_next, ["Pune"]);
+  // A registered name with no letters doesn't let every other symbol string through.
+  const odd = { names: { "": { name: "!!!" } }, stages: { write: { output: { writer: "film", plan: { travels_next: ["???"] } } } } };
+  assert.equal(checkEvidence(odd).removed, 1);
+});

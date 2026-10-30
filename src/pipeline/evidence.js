@@ -57,10 +57,12 @@ export function registerName(run, name, kind, extra = {}) {
 
 /** Is this name something Qloo actually returned (entity, brand, tag, city)? */
 export function isKnownName(run, name) {
-  if (run.names?.[nameKey(name)]) return true;
-  // Runs saved before keys were folded: compare folded spellings directly.
   const want = nameKey(name);
-  return Boolean(want) && Object.values(run.names ?? {}).some((n) => nameKey(n?.name) === want);
+  // A name with no letters or digits ("!!!") folds to nothing: it must match as written, never by its empty key.
+  if (!want) return Object.values(run.names ?? {}).some((n) => String(n?.name ?? "").trim() === String(name ?? "").trim() && String(name ?? "").trim());
+  if (run.names?.[want]) return true;
+  // Runs saved before keys were folded: compare folded spellings directly.
+  return Object.values(run.names ?? {}).some((n) => nameKey(n?.name) === want);
 }
 
 /**

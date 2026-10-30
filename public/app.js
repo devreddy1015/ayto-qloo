@@ -28,16 +28,20 @@ const post = async (url, body) => {
 
 // Edit keys of the runs started in this browser. A change to any other run (a showcase someone else opened, a page
 // from the gallery) comes back as the visitor's own copy.
+// Kept in memory too, for a browser that blocks storage: its own changes then don't make a copy each time.
+const sessionKeys = new Map();
 const editKeyOf = (id) => {
   try {
-    return localStorage.getItem(`ayto-edit:${id}`) || undefined;
+    return localStorage.getItem(`ayto-edit:${id}`) || sessionKeys.get(id);
   } catch {
-    return undefined;
+    return sessionKeys.get(id);
   }
 };
 const keepEditKey = (id, key) => {
+  if (!id || !key) return;
+  sessionKeys.set(id, key);
   try {
-    if (id && key) localStorage.setItem(`ayto-edit:${id}`, key);
+    localStorage.setItem(`ayto-edit:${id}`, key);
   } catch {}
 };
 

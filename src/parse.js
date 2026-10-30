@@ -2,7 +2,7 @@
 // before anything runs. Two paths: the model when it is there, plain rules
 // when it is not. Both end at the same confirm step.
 import { loveOptions, pickCity, pickTags, toCity, marketFor } from "./engine/resolve.js";
-import { CANDIDATE_CITIES, closestKnownCity } from "./cities.js";
+import { CANDIDATE_CITIES, closestKnownCity, pickLocality, rankLocalities } from "./cities.js";
 import { FORMAT_HINTS, FORMAT_IDS, formatFrom } from "./formats.js";
 import { languageFrom, languagesFor, WRITE_LANGUAGES, writeLanguage } from "./languages.js";
 import { chatJson, llmAvailable } from "./llm.js";
@@ -32,38 +32,56 @@ const clean = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 const title = (s) => clean(s).split(" ").map((w) => (w.length > 3 && w === w.toUpperCase() ? w[0] + w.slice(1).toLowerCase() : w)).join(" ").replace(/(^|\s)(\p{Ll})/gu, (_, a, c) => a + c.toUpperCase());
 const WORD = "[\\p{L}][\\p{L}\\p{M}\\w.'’-]*";
 
-/** The city a sentence names: after "in" first ("at Charminar in Hyderabad" is Hyderabad), then "at", "from", "near". */
+/**
+ * The city a sentence names: after "set in" / "based in" first, then "in" ("at Charminar in Hyderabad"
+ * is Hyderabad), then "at", "from", "near". An "in X" straight after a capitalised word inside the sentence is part
+ * of a title ("Lost in Translation", "Midnight in Paris") and gives way to a later one, unless that word ends the
+ * city just read ("Midnight in Paris in Pune" is Pune).
+ */
 function cityFrom(t) {
-  for (const preps of ["in", "at|around|from|near"]) {
+  for (const preps of ["set in|based in|located in", "in", "at|around|from|near"]) {
+    const found = [];
     // The words are read in a lookahead, so "in Telugu set in Hyderabad" still reaches the second "in".
     for (const m of t.matchAll(new RegExp(`(?<![\\p{L}])(?:${preps})\\s+(?=(${WORD}(?:\\s+${WORD}){0,3}))`, "giu"))) {
-      const kept = [];
-      for (const w of m[1].split(/\s+/)) {
-        const bare = w.replace(/[.,;!?]+$/, "");
-        const low = bare.toLowerCase();
-        if (STOP.has(low) || /^(i|we|you)$/i.test(bare) || /^\d/.test(bare)) break;
-        // A genre, language, format or scene word after the first ends it; as the first word it is no city at all.
-        if (kept.length && (SCENE.has(low) || (GENRES.includes(low) && low !== "beach") || WRITE_LANGUAGES[title(bare)] || formatFrom(low))) break;
-        // "Hyderabad's Old City": the possessive ends the city.
-        if (/['’]s$/i.test(bare)) {
-          kept.push(bare.replace(/['’]s$/i, ""));
-          break;
-        }
-        kept.push(w);
-        // "Las Vegas. Nightlife and food": a sentence ends the city ("St. Louis" does not).
-        if (/[,;!?]$/.test(w) || (/\.$/.test(w) && !/^(?:st|ste|mt|ft|[nsew])\.$/i.test(w))) break;
-      }
-      let city = title(kept.join(" ").replace(/[.,;!?]+$/, ""));
-      // "Hyderabad city" is Hyderabad; "Kansas City" and "Mexico City" are cities of their own.
-      const bare = city.replace(/\s+city$/i, "");
-      if (bare !== city && CITY_NAMES.has(bare.toLowerCase()) && !CITY_NAMES.has(city.toLowerCase())) city = bare;
-      // "in a café", "in the office", "in crime", "in Telugu": a format, genre, language or everyday-place word is never a city.
-      const word = city.toLowerCase();
-      if (!word || GENRES.includes(word) || NOT_A_CITY.has(word) || WRITE_LANGUAGES[city] || FORMAT_HINTS.some(([, re]) => re.test(word))) continue;
-      return city;
+      const city = cityAt(m[1]);
+      if (!city) continue;
+      const before = t.slice(0, m.index).trimEnd();
+      const prev = before.split(/\s+/).at(-1) ?? "";
+      const titled = Boolean(prev) && /^\p{Lu}/u.test(prev) && !/[.!?]$/.test(prev) && prev !== "I" && !found.some((f) => f.end === before.length);
+      found.push({ city, titled, end: m.index + m[0].length + city.length });
     }
+    const pick = found.find((f) => !f.titled) ?? found[0];
+    if (pick) return pick.city;
   }
   return "";
+}
+
+/** The city in the words after a preposition, or "" when they name none. */
+function cityAt(phrase) {
+  const kept = [];
+  for (const w of phrase.split(/\s+/)) {
+    const bare = w.replace(/[.,;!?]+$/, "");
+    const low = bare.toLowerCase();
+    if (STOP.has(low) || /^(i|we|you)$/i.test(bare) || /^\d/.test(bare)) break;
+    // A genre, language, format or scene word after the first ends it; as the first word it is no city at all.
+    if (kept.length && (SCENE.has(low) || (GENRES.includes(low) && low !== "beach") || WRITE_LANGUAGES[title(bare)] || formatFrom(low))) break;
+    // "Hyderabad's Old City": the possessive ends the city, when what comes before it is a city ("Cox's Bazar" stays).
+    if (/['’]s$/i.test(bare) && CITY_NAMES.has([...kept, bare.replace(/['’]s$/i, "")].join(" ").toLowerCase())) {
+      kept.push(bare.replace(/['’]s$/i, ""));
+      break;
+    }
+    kept.push(w);
+    // "Las Vegas. Nightlife and food": a sentence ends the city ("St. Louis" does not).
+    if (/[,;!?]$/.test(w) || (/\.$/.test(w) && !/^(?:st|ste|mt|ft|[nsew])\.$/i.test(w))) break;
+  }
+  let city = title(kept.join(" ").replace(/[.,;!?]+$/, ""));
+  // "Hyderabad city" is Hyderabad; "Kansas City" and "Mexico City" are cities of their own.
+  const bare = city.replace(/\s+city$/i, "");
+  if (bare !== city && CITY_NAMES.has(bare.toLowerCase()) && !CITY_NAMES.has(city.toLowerCase())) city = bare;
+  // "in a café", "in the office", "in crime", "in Telugu": a format, genre, language or everyday-place word is never a city.
+  const word = city.toLowerCase();
+  if (!word || GENRES.includes(word) || NOT_A_CITY.has(word) || WRITE_LANGUAGES[city] || FORMAT_HINTS.some(([, re]) => re.test(word))) return "";
+  return city;
 }
 
 /** Rules only: format from keywords, city after "in", theme after "about" or a known genre word, loves after "love". */
@@ -87,11 +105,15 @@ export function heuristicParse(text) {
   };
   // "I love Bad Bunny", "fans of Drishyam", "I'm into K-dramas"; never "a love story", never "getting into filmmaking".
   const l = t.match(/\b(?:loves?|fans? of|(?:i'm|i am|we're|we are|really) into|obsessed with)\s+(?!(?:story|stories|song|songs|triangle|affair|letters?|life)\b)([^.!?]{2,80})/i);
-  // A love ends where the sentence moves on to the place: "fans of Drishyam in Hyderabad" is Drishyam.
-  if (l) for (const part of l[1].replace(/\s+(?:set in|in|at|from|for|near)\s+.*$/i, "").split(/\s*(?:,|\band\b|&)\s*/i)) if (clean(part)) push(title(part));
+  // A love ends where the sentence moves on to the city it named ("fans of Drishyam in Hyderabad" is Drishyam), or to
+  // "a/an/the" something; a title's own "in" stays ("Lost in Translation", "In the Mood for Love").
+  const cityTail = city ? new RegExp(`\\s+(?:set in|in|at|from|near)\\s+${city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b.*$`, "i") : undefined;
+  const trim = (x) => (cityTail ? x.replace(cityTail, "") : x).replace(/\s+(?:on|with|for|in|set|about)\s+(?:a|an|the)\b.*$/i, "");
+  // "…for Love in Mumbai" read as a love "in Mumbai" is a place, not a title (a title would be capitalised).
+  if (l) for (const part of trim(l[1]).split(/\s*(?:,|\band\b|&)\s*/i)) if (clean(part) && !/^(?:in|at|from|near|set in)\s/.test(part)) push(title(part));
   // "after HIT: The First Case", "inspired by Drishyam", "in the style of Wong Kar-wai": a reference title, kept as typed.
   const after = t.match(/\b(?:after|inspired by|in the (?:style|vein|spirit) of|à la|a la)\s+([A-Z0-9][^,.!?;]{1,60})/);
-  if (after) push(after[1].replace(/\s+(?:on|with|for|in|set|about|at|from)\s+.*$/i, ""));
+  if (after) push(trim(after[1]));
   // "for Sid Sriram fans"
   const fans = t.match(/\b([A-Z][\w.'&-]*(?:\s+[A-Z][\w.'&-]*){0,3})\s+fans\b/);
   if (fans && !/^(I|We|My|Our|The)$/.test(fans[1])) push(fans[1]);
@@ -167,7 +189,10 @@ export async function parseInput(body) {
 export async function candidates(input) {
   const [cityPart, countryPart] = input.city.query.split(",").map((s) => s.trim());
   const cityEnv = await qlooSearch({ query: cityPart, type: "locality", take: 8 }).catch(() => ({ results: [] }));
-  let best = pickCity(cityEnv.results ?? [], cityPart, { wantedId: input.city.id });
+  // The same narrowing a run makes: "Portland, Maine" offers Portland, Maine first, "Miami, US" Miami, Florida.
+  const hits = cityEnv.results ?? [];
+  const market = countryPart && marketFor(countryPart);
+  let best = (input.city.id && hits.find((r) => r?.entity_id === input.city.id)) || (countryPart && (market ? pickLocality(hits, { query: cityPart, market }) : rankLocalities(hits, cityPart, { within: countryPart }))) || pickCity(hits, cityPart);
   // A typo or an old name: offer the closest known city instead of a dead end.
   let corrected;
   if (!best) {

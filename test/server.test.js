@@ -116,11 +116,12 @@ test("a route that throws answers 500 and the server stays up", async () => {
   // A run on disk with a plan the share page can't render (as an old bug could leave behind).
   const dir = join(process.env.CACHE_DIR, "runs");
   await mkdir(dir, { recursive: true });
-  const bad = { id: "r_badplan", status: "done", input: { format: "film" }, plan: ["write"], stages: { write: { status: "done", output: { plan: { beats: 5 } } } }, publish: { slug: "bad-plan-zzzzz", url: "/s/bad-plan-zzzzz", page: { format: "film", plan: { beats: "x", camera: 7 }, lanes: "x" } }, ledger: [], events: [] };
+  // A fashion page whose allocation isn't a list: the page's renderer throws on it.
+  const bad = { id: "r_badplan", status: "done", input: { format: "fashion" }, plan: ["write"], stages: { write: { status: "done", output: { plan: {} } } }, publish: { slug: "bad-plan-zzzzz", url: "/s/bad-plan-zzzzz", page: { format: "fashion", city: "X", plan: {}, produce: { mrp: 499, totalUnits: 10, allocation: "oops" } } }, ledger: [], events: [] };
   const { saveRun } = await import("../src/pipeline/store.js");
   await saveRun(bad);
   const page = await call("GET", "/s/bad-plan-zzzzz");
-  assert.ok([200, 500].includes(page.status), `got ${page.status}`);
+  assert.equal(page.status, 500, `got ${page.status}: the renderer should have thrown`);
   assert.ok(!page.text.includes("TypeError"), "no stack to the browser");
   assert.equal((await call("GET", "/api/presets")).status, 200, "still serving");
 });

@@ -32,7 +32,7 @@ Return JSON:
  "soundtrack":[{"artist":"from the evidence","use":"score|title track|montage|end credits|needle drop","beat":1}],
  "audience":{"who":"from the audience skew","note":"one sentence"},
  "travels_next":["cities from the evidence that lean the same way"],
- "avoid":["2-3 things the evidence argues against, from the flavours the city cares less about"]}
+ "avoid":["2-3 flavour names copied exactly from flavours_the_city_cares_less_about"]}
 Give 3 titles, 5-6 beats, 2-4 characters, 3-5 references, 2-4 cast ideas (only people from the evidence; leave empty if there are none), 2-4 locations (only places from the evidence; empty if none), 5-6 palette colours, 2-4 soundtrack artists. Beat numbers start at 1.`,
   evidence: (run) => ({ ...digest(run), budget: run.input.budget ?? "indie (not stated)", budget_note: BUDGET_NOTES[run.input.budget ?? "indie"] }),
   fallback(ev) {

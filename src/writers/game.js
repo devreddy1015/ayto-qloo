@@ -18,7 +18,7 @@ Return JSON:
  "platforms":["PC|mobile|console"],
  "audience":{"who":"from the skew","note":""},
  "travels_next":["cities from the evidence"],
- "avoid":["from the flavours the city cares less about"]}
+ "avoid":["flavour names copied exactly from flavours_the_city_cares_less_about"]}
 Give 3-5 references.`,
   evidence: digest,
   fallback(ev) {

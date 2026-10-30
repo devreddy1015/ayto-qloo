@@ -36,6 +36,17 @@ Version 0.2.0: batches 1 to 5 of the bug hunt (30 Oct), about 75 bugs, each repr
   inside their card on a phone; event numbers keep rising past the log's cap; a restart's error names its stage.
 - Small engine ones: a country outside AYTO's markets still narrows the city pick; Coney Island and Dupont Circle
   are neighbourhoods, not admin units.
+- **A review of the bug hunt's own diff** found seven regressions it had introduced, now fixed and tested:
+  "Miami, US" went to Miami on the Gold Coast ("US" was read as a place, and "Australia" contains "us"; short
+  codes are markets now, and any other place after the comma, "Portland, Maine", narrows by a whole name); an
+  object in a list of names (`{ city: "Pune", why }`) was flattened to "Pune · why" and removed; the check read the
+  first name key instead of the one its path names (`{ artist, title }` was checked by its title); the rules
+  reader cut "Lost in Translation" to "Lost" and read "a film festival" as a film (the last format word of the
+  first phrase names the thing now: festival, café, podcast); lowercase "usa" stopped meaning the US; a receipt
+  said `take: 6` for requests of 8; and the 500 test passed without reaching the error path.
+- The writers are asked for "avoid" flavour names copied exactly from the evidence, now that the list is checked.
+  `TRUST_PROXY` accepts `true`, a hop count or addresses; edit keys survive a browser that blocks storage; new
+  assumptions are refused before a copy is made when the stages before haven't finished.
 - **"Avoid" is checked.** Every format's brief lists flavours the city cares less about, shown with the Qloo mark,
   but the check never looked at them, so an invented one stayed. They are checked now, and the gap stage
   registers them (many come from the country's own read), so the template's list traces in full. Found by running

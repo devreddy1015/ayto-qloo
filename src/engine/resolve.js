@@ -8,10 +8,17 @@ import { evidenceFor, registerEntity, registerName } from "../pipeline/evidence.
 const TAG_PREFERENCE = ["urn:tag:genre:qloo", "urn:tag:genre:media", "urn:tag:subgenre:qloo", "urn:tag:theme:qloo", "urn:tag:category:qloo", "urn:tag:category:place", "urn:tag:plot:qloo", "urn:tag:keyword:qloo", "urn:tag:keyword:media"];
 const lower = (s) => String(s ?? "").toLowerCase();
 
-/** Our market name for a Qloo country name ("United States of America" → "United States"). */
+// Short forms people type after a city. Matched whole only: "us" is inside "Australia".
+const SHORT_MARKETS = { us: "United States", usa: "United States", america: "United States", uk: "United Kingdom", britain: "United Kingdom", "great britain": "United Kingdom", england: "United Kingdom", scotland: "United Kingdom", wales: "United Kingdom", "northern ireland": "United Kingdom", uae: "United Arab Emirates", emirates: "United Arab Emirates", korea: "South Korea" };
+
+/** Our market name for a Qloo country name ("United States of America" → "United States", "US" → "United States"). */
 export function marketFor(countryName) {
-  const c = lower(countryName);
-  for (const [market, aliases] of Object.entries(COUNTRY_ALIASES)) if (aliases.some((a) => c === a || c.includes(a))) return market;
+  const c = lower(countryName).replace(/\./g, "").trim();
+  if (!c) return undefined;
+  if (SHORT_MARKETS[c]) return SHORT_MARKETS[c];
+  // Whole words: "United States of America" holds "united states"; "Indiana" doesn't hold "india".
+  const words = ` ${c.replace(/[^\p{L}\p{N}]+/gu, " ")} `;
+  for (const [market, aliases] of Object.entries(COUNTRY_ALIASES)) if (aliases.some((a) => c === a || words.includes(` ${a} `))) return market;
   return undefined;
 }
 
@@ -44,8 +51,9 @@ async function resolveCity(q, run, input) {
   const hits = env?.results ?? [];
   // The city the maker picked in the confirm step wins; then the country they named; then any country.
   const wanted = input.city?.id && hits.find((r) => r?.entity_id === input.city.id);
-  // A country AYTO has no market for ("Hyderabad, Pakistan") still narrows the pick by its own name.
-  let hit = wanted || (countryPart && pickLocality(hits, { query: cityPart, market: marketFor(countryPart) ?? countryPart })) || pickCity(hits, cityPart);
+  // A market ("India", "US") narrows the pick to that country; anything else after the comma ("Maine", "Pakistan")
+  // to the hits with that whole name in their parent chain.
+  let hit = wanted || (countryPart && (marketFor(countryPart) ? pickLocality(hits, { query: cityPart, market: marketFor(countryPart) }) : rankLocalities(hits, cityPart, { within: countryPart }))) || pickCity(hits, cityPart);
   // A typo or an old name ("Hydrabad", "Bangalore"): try the closest known city, and say so.
   let correctedFrom;
   if (!hit) {
