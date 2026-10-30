@@ -3,6 +3,23 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: the story, simply, and a shot deck for films
+
+- **Every film brief opens with the story, simply**: 120 to 200 plain words in the present tense on who wants what,
+  what stands in the way, how it turns and how it ends, at the top of the write card, the share page and its Markdown.
+  The model writes it naming only its invented characters and the city. A plan without one gets its own logline and
+  acts in a row; with no model it is the shape the evidence gives (lane, look, where it would be shot), never invented.
+- **Build the shot deck** under a finished film draws one storyboard frame per beat (up to six) with OpenAI
+  (`gpt-image-2.5-flare`, falling back to `gpt-image-2`) at low quality, two at a time, in about a minute. Under each
+  frame: the beat, a shot line (size, lens, light, movement) from the server's model or the plan's camera notes, and the
+  film to study for it, only ever a title the check traced to Qloo, with its borrow note.
+- **Every Qloo name is scrubbed out of every frame's prompt**, which asks for no text, logos, real people or stills from
+  real films. No still is ever fetched from a real film or a site like ShotDeck: real films appear only as named references.
+- **The whole deck downloads as one HTML file** with the frames inside, no scripts, ready to print to PDF.
+- **Never a stage**: a run never waits on it or fails because of it. One deck per run; 3 an hour per visitor
+  (`SHOT_DECKS_PER_IP_PER_HOUR`) and 15 a day for the site (`MAX_SHOT_DECKS_PER_DAY`, 0 switches it off); off, with no
+  button, without `OPENAI_API_KEY`. Tests run against a fake model and a fake image API.
+
 ## PR #34 (31 Oct, 03:25): an intro from the mark, and one simple type style
 
 - **An intro animation from the AYTO mark**, once per visit on the home page:
