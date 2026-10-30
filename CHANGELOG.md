@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: a concept image for every brief
+## PR #31 (31 Oct, 02:59): a concept image for every brief
 
 - **One click under any finished brief draws a concept image** with OpenAI (`gpt-image-2.5-flare`, falling back to
   `gpt-image-2` for an account without it): a film's mood still, a café's room from the doorway, a drop's hero garment, a
