@@ -97,7 +97,7 @@ test("the analyst stops at its Qloo budget however many lookups the model asks f
 });
 
 test("a run whose titles came as objects still leaves the gallery up", async () => {
-  const started = await fetch(`${base}/api/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ showcase: "hyderabad-crime-film" }) }).then((r) => r.json());
+  const started = await fetch(`${base}/api/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ showcase: "london-crime-film" }) }).then((r) => r.json());
   for (let i = 0; i < 200; i += 1) {
     const run = await fetch(`${base}/api/runs/${started.id}`).then((r) => r.json());
     if (run.status !== "running") break;

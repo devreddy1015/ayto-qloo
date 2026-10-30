@@ -101,7 +101,7 @@ test("names in any shape are checked: invented ones go, Qloo's stay, extra keys 
   // The with/without card reads names from objects and nested lists, and asks with the city.
   const d = run.stages.diff.output;
   assert.equal(d.benchmark.withoutQloo.named, 5);
-  assert.match(d.question, /Hyderabad/);
+  assert.match(d.question, /London/);
 });
 
 test("a real name copied with its year, its accents dropped, or with a script bracket still traces", async () => {

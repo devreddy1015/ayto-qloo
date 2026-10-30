@@ -193,7 +193,7 @@ app.post("/api/parse", async (req, res) => {
 /**
  * "Where should I make it?": one theme across a market's largest cities, each measured against the country and
  * against the other cities. Qloo only (no model), so it works with no key. The market comes from the request, a
- * country or city named in the sentence, else India.
+ * country or city named in the sentence, else the United States.
  */
 app.post("/api/where", async (req, res) => {
   if (!allow(clientIp(req), { perHour: 20, bucket: "where" })) return res.status(429).json({ error: "You've compared a lot of cities this hour. Try again later." });
@@ -206,7 +206,7 @@ app.post("/api/where", async (req, res) => {
     if (!theme) return res.status(400).json({ error: "Say what it's about (crime, romance, nightlife) so AYTO knows what to compare." });
     const cityText = String(body.city || h.city || "").split(",")[0].trim().toLowerCase();
     const cityMarket = cityText ? Object.entries(CANDIDATE_CITIES).find(([, list]) => list.some((n) => n.toLowerCase() === cityText))?.[0] ?? closestKnownCity(cityText)?.market : undefined;
-    const market = (typeof body.market === "string" && CANDIDATE_CITIES[body.market] ? body.market : undefined) ?? marketFrom(`${text} ${body.city ?? ""}`) ?? cityMarket ?? "India";
+    const market = (typeof body.market === "string" && CANDIDATE_CITIES[body.market] ? body.market : undefined) ?? marketFrom(`${text} ${body.city ?? ""}`) ?? cityMarket ?? "United States";
     res.json(await whereToMake({ format, theme, market, text }));
   } catch (error) {
     res.status(400).json({ error: publicError(error) });

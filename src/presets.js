@@ -4,11 +4,11 @@ import { FORMATS, STAGE_LABELS } from "./formats.js";
 
 export const SHOWCASES = [
   {
-    id: "hyderabad-crime-film",
-    label: "Crime film · Hyderabad",
-    text: "I'm making a crime short film in Hyderabad.",
+    id: "london-crime-film",
+    label: "Crime film · London",
+    text: "I'm making a crime short film in London.",
     format: "film",
-    city: { query: "Hyderabad, India" },
+    city: { query: "London, United Kingdom" },
     theme: { query: "crime" },
     loves: [],
   },
@@ -22,16 +22,16 @@ export const SHOWCASES = [
     loves: [],
   },
   {
-    id: "tiruppur-kidswear",
-    label: "Kidswear · Tiruppur",
-    text: "I run a small kidswear unit in Tiruppur. KPop Demon Hunters is everywhere.",
+    id: "paris-streetwear",
+    label: "Streetwear drop · Paris",
+    text: "I'm making a streetwear drop in Paris.",
     format: "fashion",
-    city: { query: "Tiruppur, India" },
+    city: { query: "Paris, France" },
     theme: { query: "" },
-    loves: [{ name: "KPop Demon Hunters", type: "movie" }],
+    loves: [],
   },
 ];
 
-export const MARKETS = ["India", "United States", "United Kingdom", "Canada", "Brazil", "Mexico", "Spain", "France", "Germany", "Japan", "South Korea", "Indonesia", "Philippines", "Nigeria", "United Arab Emirates", "Australia"];
+export const MARKETS = ["United States", "United Kingdom", "France", "Germany", "Spain", "Canada", "Australia", "Japan", "South Korea", "Brazil", "Mexico", "India", "Indonesia", "Philippines", "Nigeria", "United Arab Emirates"];
 
 export const formatList = () => Object.values(FORMATS).map((f) => ({ id: f.id, label: f.label, noun: f.noun, plan: f.plan.map((id) => ({ id, ...STAGE_LABELS[id] })) }));

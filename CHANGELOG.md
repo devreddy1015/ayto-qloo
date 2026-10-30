@@ -3,6 +3,29 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: showcases in London, Las Vegas and Paris
+
+- **The home page leads with the cities Qloo knows best:**
+  - a **crime short film in London**: lanes Autobiographical, Tragedy and Indietronica, specific to London; the look is
+    Naturalistic, Intimate, Documentary-like and Gritty; the shoot base is Westminster;
+  - the **Las Vegas reel** (kept);
+  - a **streetwear drop in Paris**: lanes Artistic Community, Avant-Garde Artists and Intellectual; the look is
+    Creative, Minimalist Silhouettes and Neutral Palettes in Leather and Wool; labels Maison Kitsuné, Ami, A.P.C. and
+    Acne Studios.
+
+  These replace the Hyderabad crime film and the Tiruppur kidswear drop, picked from live reads on 31 Oct. New York's
+  crime lanes were too generic ("Fiction", "Travel"), and Glasgow's ("Consequences of Crime" +26) is a fine second
+  choice.
+- **Defaults follow:**
+  - the sentence placeholder reads "a crime short film in London";
+  - the city hint reads "London, United Kingdom";
+  - "Where should I make it?" reads the United States when a sentence names no market;
+  - the market list starts with the US, the UK and Europe.
+
+  India and every other market still work as before, Telugu briefs included.
+- **Fake mode** gains Paris, Marseille and Lyon. Tests follow the new showcases. The Telugu test builds its own
+  Hyderabad run.
+
 ## PR #38 (31 Oct, 03:57): references from Qloo under a drop's 3D preview
 
 - **Three or four pictures under "See it in 3D", in a strip that slides left** (swipe, scroll-snap, or the arrows; a
