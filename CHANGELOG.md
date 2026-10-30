@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: DeepSeek back on the model that writes
+## PR #27 (31 Oct, 00:29): DeepSeek back on the model that writes
 
 - **`deepseek-chat` again.** After #26 switched the live site to `deepseek-flash` (V4.1, thinking off), a fresh
   Hyderabad run came back with every written section empty: no titles, no beats, no characters, 10 sections filled from
