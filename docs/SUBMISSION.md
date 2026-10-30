@@ -12,7 +12,7 @@ The app must stay up, free and with no login, until judging ends on **5 Nov 2026
 | An open-source licence visible in the repo's About section | Done: MIT, shown in About |
 | A text description of the features and what makes it Qloo-powered | Done: "About the project" below |
 | Video (optional, but judges may score on text, images and video alone) | Script ready: [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md) |
-| Gallery images | Done: 12 frames in `submission/frames/` (kept out of git), including the live write and with-vs-without cards |
+| Gallery images | Done: 10 images in `submission/gallery/` (kept out of git), film, reel and fashion drop, all from the live site |
 
 **Once the live URL exists, put it in:**
 1. the README's "Live demo" line;
@@ -45,7 +45,7 @@ AYTO — Are You The One
 
 ## Elevator pitch (200 characters max)
 
-An agent with taste for filmmakers. Tell AYTO what you're making and where: Qloo finds what that city loves and isn't getting, and your AI writes the film into the gap.
+An agent with taste for anyone making something for a city. Tell AYTO what and where: Qloo finds what that city loves and isn't getting, and your AI writes it into the gap.
 
 ## About the project
 
@@ -55,13 +55,30 @@ Paste everything between the lines into Devpost's "About the project" box.
 
 ## Inspiration
 
-In 2025 India released 1,972 films, 313 of them in Telugu, and only six Telugu releases succeeded. Producers say on record that they no longer know what "commercial" means. The audience research they can buy today starts after a film is announced. So a filmmaker in Hyderabad starts the way every maker starts: a blank page and a guess.
+Everyone who makes something for a place starts from a blank page and a guess. That covers a filmmaker, a reel creator, a small clothing label, a podcaster, a game studio, a café, a promoter and a writer.
 
-They know crime does well. Nobody can tell them which kind of crime film Hyderabad loves and isn't getting. Qloo knows the first half. AYTO does the second.
+Film shows the cost most sharply. In 2025 India released 1,972 films, 313 of them in Telugu, and only six Telugu releases succeeded. Producers say on record that they no longer know what "commercial" means, and the audience research they can buy starts after a film is announced. A filmmaker in Hyderabad knows crime does well. Nobody can tell them which kind of crime film Hyderabad loves and isn't getting.
+
+Qloo knows what a city loves. AYTO finds what it isn't getting, and writes your idea into that gap.
 
 ## What it does
 
-AYTO is an agent with taste. You give it one sentence: *"A crime short film in Hyderabad, after HIT, on a shoestring."*
+AYTO is an agent with taste. You tell it, in one sentence, what you're making and where. It reads the city through Qloo, finds the gap, and writes your thing into it. Eight formats run on the same engine:
+
+| You're making | AYTO writes |
+|---|---|
+| **A film** (short, feature, series) | a treatment you can shoot: titles, logline, three acts, beats, characters, films to study with the shot to borrow, cast ideas, locations, camera notes, palette |
+| **A reel** | the hook, beats, song, spots and caption |
+| **A fashion drop** | styles you can turn in 3D, a palette, brands to study, and a first production run (tech packs, costing, sizes, city split) |
+| **A podcast** | premise, episodes, guests, intro music |
+| **An indie game** | pitch, core loop, mechanics, art style, soundtrack, platforms |
+| **A café** | concept, menu, brands to stock, playlist, neighbourhood |
+| **A live event night** | concept, lineup, venue, run sheet, promo hook |
+| **A book or web novel** | premise, logline, chapters, comparable titles |
+
+Every format gets the same Qloo read underneath: the city against the country and control cities, the gap, the look, the audience, artists, places, and where the taste travels next.
+
+Here is one run, start to finish, for the sentence *"A crime short film in Hyderabad, after HIT, on a shoestring."*
 
 **1. It confirms what Qloo found, before anything runs.**
 - The city: a typo like "Hydrabad" still finds Hyderabad, and AYTO says so.
@@ -85,7 +102,7 @@ It can write in the city's own language (Telugu for Hyderabad), with every Qloo 
 
 **4. It checks itself.** Every name in the output is looked up in what Qloo returned during the run. Anything made up is removed, and the writer tries once more with those names banned. Every name on the page opens the Qloo request it came from. In the live Hyderabad run, 25 of 25 names trace to Qloo.
 
-**5. It proves Qloo is the difference.** The with-vs-without card asks the same model the same question with no Qloo evidence, and counts how many of its names trace to anything.
+**5. It proves Qloo is the difference.** The with-vs-without card asks the same model the same question with no Qloo evidence, and counts how many of its names trace to anything. On the live site, 17 of 17 names traced with Qloo. Without Qloo, 4 of 10 did, and the model guessed *Pulp Fiction* and A.R. Rahman.
 
 **Not sure where yet?** Say "a crime short film in India" and click *Let AYTO compare cities*. AYTO reads the theme across India's ten largest cities. Each city is measured against the country and against the other nine, so a lane counts only where few others share it. The map shows where the widest open lane is:
 - Kolkata's open lane is Crime Lord, Bengaluru's is Documentary, Mumbai's is Gender Violence.
@@ -93,14 +110,11 @@ It can write in the city's own language (Telugu for Hyderabad), with every Qloo 
 
 One click runs the full treatment for the city you pick.
 
-**The same engine runs seven more formats:**
-- a reel (hook, beats, song, spots, caption);
-- a fashion drop you can turn in 3D, with a first production run costed as editable assumptions;
-- a podcast, an indie game, a café, a live event night, and a book.
+**The other showcases** run the same way: a Las Vegas reel about nightlife and food, and a Tiruppur kidswear drop riding KPop Demon Hunters that you can turn in 3D, with its first production run costed.
 
 **Agents can use it too.** AYTO is an MCP server at `/mcp` with four tools: `ayto_where_to_make`, `ayto_read_city`, `ayto_find_gap` and `ayto_write`. Claude, or any other MCP client, can ask where to make something and get back lanes with receipts.
 
-**How to try it:** open the live link (no login) and click the Hyderabad crime film showcase, or type your own sentence.
+**How to try it:** open the live link (no login) and click a showcase (the Hyderabad film, the Las Vegas reel or the Tiruppur drop), or type your own sentence for any of the eight formats.
 
 ## How it's agentic
 
@@ -132,7 +146,7 @@ Without Qloo there is no lane, no list and no map: only a prompt.
 - A stateless MCP server.
 - A three.js garment viewer for the fashion drop.
 - One Docker image, deployed on Render.
-- 118 tests, including every showcase end to end on synthetic data.
+- 121 tests, including every showcase end to end on synthetic data, and a security pass on the live site (rate limits keyed on the real visitor, security headers, patched dependencies).
 
 ## Challenges we ran into
 
@@ -168,6 +182,7 @@ Without Qloo there is no lane, no list and no map: only a prompt.
 - A supply read across a market's full release slate, not just the themed catalogue.
 - Momentum, once Qloo's trend data moves.
 - A team view, where a production house compares lanes across its cities.
+- Supply for the formats Qloo gives no release years (reels, drops, cafés, nights), so their lanes weigh what's already out there too.
 - A deeper casting read, with each actor's recent work.
 
 ---
@@ -189,16 +204,18 @@ Without Qloo there is no lane, no list and no map: only a prompt.
 
 ## Image gallery (in this order)
 
-Devpost recommends 3:2 images under 5 MB. Crop the frames to 3:2 on a dark background.
+Ten 3:2 JPEGs in `submission/gallery/` (kept out of git), named in upload order. Every one is from the live site on
+31 Oct, written by DeepSeek. Use `01-the-gap.jpg` as the thumbnail too.
 
-| # | File (`submission/frames/`) | Caption |
+| # | File | Caption |
 |---|---|---|
-| 1 | `04-gap.png` | The gap: Folk, Finance, Revenge and Justice. Loved in Hyderabad, not in India's top 30, and no recent film carries them. |
-| 2 | `02-confirm.png` | One sentence. AYTO shows what Qloo found: the city, the Crime tag, and HIT (2020, Telugu) over its Hindi remake. |
-| 3 | `05-look.png` | The look Hyderabad's crime crowd leans to, from Qloo's own style tags: Cinematic, Moody, Atmospheric, Gritty. |
-| 4 | `11-write.png` | The Clock Tower Ledger: a treatment written by DeepSeek into the gap, with beats, characters, the films to study and a palette. |
-| 5 | `12-diff.png` | The same question without Qloo: 4 of 10 names trace. With Qloo: 17 of 17. |
-| 6 | `10-where.png` | "Where should I make it?" Ten cities, each against the other nine. |
-| 7 | `06-spots.png` | Locations from the places this crowd goes, and a shoot base. |
-
-The home frame (`01-home.png`) shows real film posters in the background wall. Leave it out of the gallery, or blur the wall.
+| 1 | `01-the-gap.jpg` | The gap: Folk, Finance, Revenge and Justice. Loved in Hyderabad, not in India's top 30, and no recent film carries them. |
+| 2 | `02-one-sentence.jpg` | One sentence. AYTO shows what Qloo found: the city, the Crime tag, and HIT (2020, Telugu) over its Hindi remake. |
+| 3 | `03-film-treatment.jpg` | The Clock Tower Ledger: a film treatment written into the gap, every name traced to Qloo. |
+| 4 | `04-with-vs-without-qloo.jpg` | The same question without Qloo: 4 of 10 names trace. With Qloo: 17 of 17. |
+| 5 | `05-reel.jpg` | Vegas After Dark: a reel for Las Vegas, every venue and artist from Qloo. |
+| 6 | `06-fashion-drop.jpg` | Kinetic Kin: a kidswear drop for Tiruppur's buyers, with styles you can turn in 3D. |
+| 7 | `07-production-run.jpg` | The drop's first production run: 1,500 units across 5 styles, costed as editable assumptions. |
+| 8 | `08-compare-cities.jpg` | "Where should I make it?" Ten cities, each against the other nine. |
+| 9 | `09-the-look.jpg` | The look Hyderabad's crime crowd leans to, from Qloo's own style tags. |
+| 10 | `10-locations.jpg` | Locations from the places this crowd goes, and a shoot base. |
