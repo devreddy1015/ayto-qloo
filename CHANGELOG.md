@@ -3,6 +3,15 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: the shot deck fits a phone
+
+- **On a phone, the "Make it" tab ran 51 px wider than the screen** (441 px on a 390 px phone), found in a layout pass
+  on the live site at desktop and phone width. The shot deck's grid column sized itself to its widest content (407 px)
+  instead of the screen, and its download link didn't wrap. The deck's column is now pinned to the available width,
+  its frames shrink below 240 px when the screen does, and the link wraps.
+- Every other page checked at 1440 px and 390 px: the home page, the brief, the evidence, Make it (London and Paris)
+  and the share page. No overflow, no script errors, no failed requests.
+
 ## PR #46 (31 Oct, 04:42): the write-up leads with London and Paris
 
 - **Devpost text (`docs/SUBMISSION.md`), README and video script** now walk through the live London crime film, using
