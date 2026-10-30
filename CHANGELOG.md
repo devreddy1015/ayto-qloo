@@ -3,6 +3,26 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: hear the story with Sarvam; music steps aside when the key has no quota
+
+- **Hear the story.** One click under any finished brief has Sarvam's Bulbul (`bulbul:v3`) read it aloud: a film reads
+  its story ("the story, simply"), a drop its positioning, a café or a night its concept, a book its premise, each after
+  the title. It reads the brief's own words, with markup the only thing taken out, in the brief's own language: write
+  it in Telugu and Hyderabad hears Telugu; an English brief is read in Indian English, and the card says how to hear it
+  in the city's language. A story longer than Bulbul takes in one request is read in pieces and joined into one file.
+  A "What it reads" fold shows the text.
+- **Same rules as the image and the music:** never a stage, one reading per brief (a brief written again is read
+  again), 6 an hour per visitor and `MAX_VOICE_PER_DAY` (30) for the site, and no button without `SARVAM_API_KEY` or
+  when a template brief (no model) has nothing to read. Routes: `POST /api/runs/:id/voice` (202),
+  `GET /api/runs/:id/voice` (status; before a click it names the language), `GET /api/runs/:id/voice.mp3` (or `.wav`).
+- **Music steps aside when the key has no Lyria quota.** On the live site Lyria answered "429 … limit: 0": the Gemini
+  key's project has no billing, and Lyria isn't on the free tier. Now a quota or billing answer turns music off for the
+  rest of the day: `/api/presets` says `music: false`, so the button goes, and a page loaded before it says plainly
+  "Music isn't available on this site right now." instead of Google's message. Billing switched on brings it back
+  after a restart or the next day.
+- Tests run against a fake Sarvam API (read once in its own words, read again in Telugu after a rewrite, a long story
+  in joined pieces, hidden with nothing to read, off without a key) and a fake Lyria 429.
+
 ## PR #41 (31 Oct, 04:05): showcases in London, Las Vegas and Paris
 
 - **The home page leads with the cities Qloo knows best:**
