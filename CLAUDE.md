@@ -31,7 +31,7 @@ server default is Groq; the live site runs DeepSeek (LLM_PROVIDER=deepseek, mode
   diff (fashion) also asks the no-evidence model for its hero piece (garment, print, palette): lookWithout() cleans it into
   output.withoutLook, kept out of the name counts; app.js compare3d() shows it beside the plan's hero style in two small viewers.
 - src/shots.js: shot deck on demand for a finished film (one frame per beat, max 6, 2 OpenAI calls at a time, quality low; shot line from
-  the server model or the plan's camera notes; reference = a Qloo-traced plan.references title; prompts scrubbed with image.js scrub()); never a stage;
+  the server model or the plan's camera notes; reference = a Qloo-traced plan.references title, spread() so beats don't repeat one film; prompts scrubbed with image.js scrub()); never a stage;
   POST/GET /api/runs/:id/shots, /shots/:n.jpg, /shots.html (one-file download). The film writer's finish() fills plan.story ("the story, simply").
 - public/references.js: pickReferences(run), 3-4 Qloo pictures for the strip under the fashion 3D preview (resolved love first,
   then look.labels, onlyHere first; https only; none if fewer than 2). No web search: every picture came from this run's reads.

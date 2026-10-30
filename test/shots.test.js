@@ -217,3 +217,25 @@ test("without a model the shot line comes from the plan's camera notes", async (
   assert.equal(frames[2].title, "Beat 3", "a beat written as plain text still gets a frame");
   assert.equal(shotPlan({ ...run, input: { format: "reel" } }), undefined);
 });
+
+test("the films to study spread across the brief's references instead of repeating one beat after another", async () => {
+  const { shotPlan, spread } = await import("../src/shots.js");
+  const ref = (title) => ({ title, borrow: `Borrow from ${title}.` });
+  const titles = (list) => list.map((r) => r?.title);
+  // Three beats after A and three after B, as Claude wrote them live: each beat's own film first, then the unused ones.
+  assert.deepEqual(titles(spread(["A", "A", "A", "B", "B", "B"].map(ref), ["A", "B", "C", "D"].map(ref))), ["A", "C", "D", "B", "A", "B"]);
+  assert.deepEqual(titles(spread(["A", "A", "A", "B", "B", "B"].map(ref), ["A", "B"].map(ref))), ["A", "B", "A", "B", "A", "B"], "two films alternate");
+  assert.deepEqual(titles(spread([undefined, undefined, undefined], ["A", "B"].map(ref))), ["A", "B", "A"]);
+  assert.deepEqual(titles(spread([undefined], [])), [undefined], "no reference, no film to study");
+  const run = {
+    input: { format: "film" },
+    names: Object.fromEntries(["Carry On Jatta 2", "To All the Boys I've Loved Before", "Pelli Choopulu"].map((name, i) => [i, { name, kind: "movie" }])),
+    stages: { write: { output: { writer: "film", plan: {
+      beats: [0, 1, 2, 3].map((i) => ({ title: `Beat ${i + 1}`, what: "x", after: { title: i < 2 ? "Carry On Jatta 2" : "To All the Boys I've Loved Before" } })),
+      references: [{ title: "Carry On Jatta 2", borrow: "Farce in one wide room." }, { title: "To All the Boys I've Loved Before", borrow: "Held silence." }, { title: "Pelli Choopulu", borrow: "Two people talking on a terrace." }],
+    } } } },
+  };
+  const frames = shotPlan(run);
+  assert.deepEqual(frames.map((f) => f.reference.title), ["Carry On Jatta 2", "Pelli Choopulu", "To All the Boys I've Loved Before", "Carry On Jatta 2"]);
+  assert.equal(frames[1].reference.borrow, "Two people talking on a terrace.", "a spread film carries its own borrow note");
+});
