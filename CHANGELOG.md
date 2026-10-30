@@ -3,6 +3,22 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: an intro from the mark, and one simple type style
+
+- **An intro animation from the AYTO mark**, once per visit on the home page:
+  - the ring (what a city loves) draws itself, leaving its opening (what it isn't getting);
+  - the dot (you) settles into the gap;
+  - the wordmark follows, and the page shows.
+
+  It lasts about 1.2 s. Any click, key, scroll or touch skips it, and a 2.5 s backstop removes it whatever happens.
+  Reduced motion gets a still mark that fades quickly. It's plain CSS keyframes (strong ease-out) and a few lines of
+  inline script, and it never shows on a run page or share link.
+- **One type style everywhere.** Archivo at its normal width only (the wide and narrow cuts are gone), three weights
+  (400, 600, 700), one letter-spacing for uppercase labels, and one size scale (a new `--step--2` replaces about ten
+  hard-coded small sizes). The font request asks for just those three weights.
+- **The share page uses the same font** instead of Fraunces and Instrument Sans: no italics, the same weights, and the
+  same small set of sizes.
+
 ## PR #31 (31 Oct, 02:59): a concept image for every brief
 
 - **One click under any finished brief draws a concept image** with OpenAI (`gpt-image-2.5-flare`, falling back to
