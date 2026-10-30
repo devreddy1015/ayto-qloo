@@ -7,6 +7,7 @@ process.env.ANTHROPIC_API_KEY = "";
 process.env.CACHE_DIR = `/tmp/ayto-server-test-${process.pid}`;
 process.env.PORT = String(20000 + (process.pid % 20000));
 process.env.SCANS_PER_IP_PER_HOUR = "100";
+process.env.CLIENT_IP_HEADER = "cf-connecting-ip";
 import assert from "node:assert/strict";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -152,4 +153,22 @@ test("keys never leak: control characters are refused and the redactor catches b
   const r = await call("POST", "/api/runs", { showcase: "vegas-reel", llm: { provider: "mistral", key: "FAKEsecretPART1\u0000x" } });
   assert.equal(r.status, 400);
   assert.ok(!r.text.includes("FAKEsecret"));
+});
+
+test("limits count the visitor the proxy names, and a forged X-Forwarded-For doesn't reset them", async () => {
+  // The key-check route allows 20 an hour and answers an empty request 400 without calling anyone.
+  const check = (headers) => call("POST", "/api/llm/check", {}, headers).then((r) => r.status);
+  for (let i = 0; i < 20; i += 1) assert.equal(await check({ "cf-connecting-ip": "203.0.113.5" }), 400);
+  assert.equal(await check({ "cf-connecting-ip": "203.0.113.5" }), 429);
+  assert.equal(await check({ "cf-connecting-ip": "203.0.113.5", "x-forwarded-for": "198.51.100.1" }), 429);
+  assert.equal(await check({ "cf-connecting-ip": "203.0.113.6" }), 400, "another visitor has their own count");
+});
+
+test("every response forbids sniffing and framing", async () => {
+  for (const path of ["/", "/api/health", "/s/no-such-page"]) {
+    const res = await fetch(`${base}${path}`);
+    assert.equal(res.headers.get("x-content-type-options"), "nosniff", path);
+    assert.equal(res.headers.get("x-frame-options"), "DENY", path);
+    assert.match(res.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/, path);
+  }
 });

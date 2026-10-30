@@ -3,6 +3,22 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: a security check of the live site
+
+- **Per-visitor limits work on Render.** Behind Cloudflare and Render's proxy, the address Express saw changed with
+  every request: 21 requests to a 20-an-hour route all passed live, so one visitor could spend the day's budget (150
+  runs, 100 written) and the demo would refuse every new sentence until midnight UTC. Limits now read
+  `CF-Connecting-IP`, which Cloudflare sets and won't take from a client (a forged one gets a 403). Elsewhere,
+  `CLIENT_IP_HEADER` names the header, and without it `req.ip` is used as before.
+- **Security headers on every response:** `nosniff`, no framing (`X-Frame-Options: DENY`, `frame-ancestors 'none'`),
+  and `strict-origin-when-cross-origin` referrers.
+- **Dependencies:** Express 4.21.2 → 4.22.3 (body-parser, qs and path-to-regexp denial-of-service advisories), MCP SDK
+  1.30.1 → 1.32.2. The four advisories left (undici, brace-expansion) sit inside Qloo's harness, which talks only to
+  Qloo, and have no fix yet.
+- **Checked and fine:** no XSS sink in the front end (no `innerHTML`); the share page escapes every field and carries a
+  CSP with no scripts; run ids and slugs are validated before any file read; `.env`, `.git` and the source aren't
+  served; the container runs as an unprivileged user; keys stay in memory and are redacted from errors.
+
 ## PR #27 (31 Oct, 00:29): DeepSeek back on the model that writes
 
 - **`deepseek-chat` again.** After #26 switched the live site to `deepseek-flash` (V4.1, thinking off), a fresh
