@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: no rupee costing for a drop outside India
+## PR #45 (31 Oct, 04:20): no rupee costing for a drop outside India
 
 - **The Paris showcase was costed in rupees with Indian GST.** The production stage (tech packs, unit economics,
   channels, Legal Metrology) is built for India's marketplaces. A drop for another market now gets one plain line:
