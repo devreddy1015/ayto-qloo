@@ -61,6 +61,18 @@ export function serverCredential() {
 }
 
 /** Normalise and validate a user credential. Throws on a bad provider; never logs the key. */
+/**
+ * The server's backup writer: DeepSeek, when DEEPSEEK_API_KEY is set and the server's own model is something else.
+ * It answers only for the server's own key (never a visitor's) and only after that model has failed.
+ * DEEPSEEK_MODEL picks the model; DEEPSEEK_BASE_URL is for tests.
+ */
+export function backupCredential(primary = serverCredential()) {
+  const key = String(process.env.DEEPSEEK_API_KEY ?? "").trim();
+  if (key.length < 12 || !primary?.server || primary.backup || primary.provider === "deepseek") return undefined;
+  const baseUrl = String(process.env.DEEPSEEK_BASE_URL ?? "").replace(/\/+$/, "") || undefined;
+  return { provider: "deepseek", key, model: String(process.env.DEEPSEEK_MODEL ?? "").trim() || PROVIDERS.deepseek.model, server: true, backup: true, ...(baseUrl ? { baseUrl } : {}) };
+}
+
 export function credentialFrom(body) {
   if (!body || typeof body !== "object") return undefined;
   const provider = String(body.provider ?? "").toLowerCase();
@@ -88,7 +100,7 @@ function openaiCall(p, cred, model, { messages, tools, json, temperature, maxTok
   const body = { model, messages: messages.map(({ blocks, ...m }) => m), temperature, max_tokens: maxTokens, ...(tools?.length ? { tools, tool_choice: "auto" } : {}), ...(json && p.json ? { response_format: { type: "json_object" } } : {}) };
   const headers = { authorization: `Bearer ${cred.key}` };
   if (cred.provider === "openrouter") Object.assign(headers, { "http-referer": "https://ayto.app", "x-title": "AYTO" });
-  return postJson(`${p.baseUrl}/chat/completions`, headers, body, timeoutMs).then((r) => ({ ...r, message: r.status === 200 ? r.json?.choices?.[0]?.message : undefined, usage: r.status === 200 ? { input: r.json?.usage?.prompt_tokens ?? 0, output: r.json?.usage?.completion_tokens ?? 0 } : undefined }));
+  return postJson(`${cred.baseUrl ?? p.baseUrl}/chat/completions`, headers, body, timeoutMs).then((r) => ({ ...r, message: r.status === 200 ? r.json?.choices?.[0]?.message : undefined, usage: r.status === 200 ? { input: r.json?.usage?.prompt_tokens ?? 0, output: r.json?.usage?.completion_tokens ?? 0 } : undefined }));
 }
 
 /** OpenAI-style messages and tools → Anthropic Messages API, and the reply back to the OpenAI shape ask.js expects. */
@@ -142,9 +154,28 @@ let workingModel; // the server default model that last worked
  * server default is used and its model list is tried in order. `deadline` (a time in ms) bounds every attempt
  * and retry together, so a slow model gives up inside its stage's budget and the stage can fall back.
  */
-export async function chat({ credential, messages, tools, json = false, temperature = 0.3, maxTokens = 2048, deadline }) {
+export async function chat({ credential, ...ask }) {
   const cred = credential ?? serverCredential();
   if (!cred) throw new LlmError("No language model configured. Add a key in the drawer or set GROQ_API_KEY.");
+  const backup = backupCredential(cred);
+  if (!backup) return chatWith(cred, ask);
+  // The server's model gets the budget less a reserve (a third, at most 30 s), so the backup still has time to write.
+  const { deadline } = ask;
+  const reserve = deadline ? Math.min(30000, Math.max(0, (deadline - Date.now()) / 3)) : 0;
+  try {
+    return await chatWith(cred, { ...ask, deadline: deadline ? deadline - reserve : undefined });
+  } catch (error) {
+    try {
+      const message = await chatWith(backup, ask);
+      // Not enumerable: a tool loop sends this message back to a model, which mustn't see the marker.
+      return Object.defineProperty(message, "_by", { value: { provider: backup.provider, model: backup.model, backup: true, after: error.message } });
+    } catch (second) {
+      throw new LlmError(`${error.message} · backup ${second.message}`);
+    }
+  }
+}
+
+async function chatWith(cred, { messages, tools, json = false, temperature = 0.3, maxTokens = 2048, deadline }) {
   const p = PROVIDERS[cred.provider];
   const models = cred.model ? [cred.model] : cred.server && cred.provider === "groq" ? (workingModel ? [workingModel, ...config.groq.models.filter((m) => m !== workingModel)] : config.groq.models) : [p.model];
 
@@ -157,7 +188,7 @@ export async function chat({ credential, messages, tools, json = false, temperat
       const call = p.kind === "anthropic" ? anthropicCall : openaiCall;
       const r = await call(p, cred, model, { messages, tools, json: useJson, temperature, maxTokens, timeoutMs: Math.min(60000, left) }).catch((error) => ({ status: 0, text: error?.name === "TimeoutError" ? "timed out" : String(error?.message ?? error) }));
       if (r.message) {
-        if (cred.server) workingModel = model;
+        if (cred.server && !cred.backup) workingModel = model; // the backup never becomes the site's model
         if (r.usage) recordUsage({ provider: cred.provider, model, input: r.usage.input, output: r.usage.output, byok: !cred.server });
         return r.message;
       }
@@ -185,6 +216,7 @@ export async function chatJson({ credential, system, user, temperature = 0.2, ma
   const message = await chat({ credential, messages: [{ role: "system", content: system }, { role: "user", content: user }], json: true, temperature, maxTokens, deadline });
   const parsed = parseModelJson(message.content);
   if (!parsed) throw new LlmError("Model did not return JSON");
+  if (message._by?.backup) parsed._backup = { provider: message._by.provider, model: message._by.model };
   return parsed;
 }
 
@@ -298,7 +330,7 @@ export async function checkCredential(credential) {
   try {
     const m = await chat({ credential, messages: [{ role: "system", content: "Reply with the single word: ok" }, { role: "user", content: "ready?" }], temperature: 0, maxTokens: 8 });
     const cred = credential ?? serverCredential();
-    return { ok: true, provider: cred?.provider, model: credential?.model ?? workingModel ?? (cred ? PROVIDERS[cred.provider].model : undefined), reply: String(m.content ?? "").slice(0, 20) };
+    return { ok: true, provider: cred?.provider, model: credential?.model ?? workingModel ?? (cred ? PROVIDERS[cred.provider].model : undefined), reply: String(m.content ?? "").slice(0, 20), ...(m._by?.backup ? { via: m._by.provider } : {}) };
   } catch (error) {
     return { ok: false, error: redact(error.message).slice(0, 240) };
   }
@@ -313,12 +345,12 @@ export async function probeServerLlm() {
   const cred = serverCredential();
   if (!cred) return (status = { available: false, probed: true, error: "No server LLM key (ANTHROPIC_API_KEY, OPENAI_API_KEY, GROQ_API_KEY…)" });
   const r = await checkCredential(undefined);
-  status = { available: r.ok, probed: true, provider: cred.provider, model: r.ok ? (workingModel ?? cred.model ?? PROVIDERS[cred.provider].model) : undefined, error: r.ok ? undefined : r.error, at: new Date().toISOString() };
+  status = { available: r.ok, probed: true, provider: cred.provider, model: r.ok ? (workingModel ?? cred.model ?? PROVIDERS[cred.provider].model) : undefined, error: r.ok ? undefined : r.error, at: new Date().toISOString(), ...(r.via ? { via: r.via } : {}) };
   return status;
 }
 
 let status = { available: Boolean(serverCredential()), probed: false, provider: serverCredential()?.provider, model: undefined, error: undefined };
-export const llmStatus = () => ({ ...status, model: status.model ?? workingModel ?? (status.provider ? PROVIDERS[status.provider].model : undefined) });
+export const llmStatus = () => ({ ...status, model: status.model ?? workingModel ?? (status.provider ? PROVIDERS[status.provider].model : undefined), ...(backupCredential() ? { backup: "deepseek" } : {}) });
 /** The server's model is there. One failed probe (a 429 at boot) isn't final: it is tried again every ten minutes. */
 export const llmAvailable = () => {
   if (!status.available && status.probed && serverCredential() && Date.now() - probedAt > 10 * 60e3) probeServerLlm().catch(() => {});

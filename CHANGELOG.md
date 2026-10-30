@@ -3,6 +3,22 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: DeepSeek as the backup writer
+
+- **When the server's own model fails, DeepSeek writes.** With `DEEPSEEK_API_KEY` set, a call on the server's key
+  (Claude on the live site) that fails, whether a key that ran out, an outage or no answer in time, is asked again of
+  DeepSeek (`deepseek-chat`, the model that wrote full treatments live; `DEEPSEEK_MODEL` picks another). Before this,
+  a failed model meant the template brief.
+- **The main model keeps most of the time.** It gets each call's budget less a reserve (a third, at most 30 s), so a
+  slow main model can't leave the backup nothing.
+- **The brief says who wrote it:** "Written by deepseek (deepseek-chat), the backup writer, because the main model
+  failed." The backup never becomes the site's model; the next call tries the main model first again.
+- **A visitor's own key never falls back** to the server's DeepSeek: their errors stay theirs. Without
+  `DEEPSEEK_API_KEY`, or with DeepSeek already the server's model, nothing changes. `/api/presets` reports
+  `llm.backup: "deepseek"` when it is set.
+- Tests run against a fake main model and a fake DeepSeek (backup answers, a visitor's key never falls back, both down
+  names both, the brief says so, the backup never becomes the site's model).
+
 ## PR #45 (31 Oct, 04:20): no rupee costing for a drop outside India
 
 - **The Paris showcase was costed in rupees with Indian GST.** The production stage (tech packs, unit economics,

@@ -39,6 +39,7 @@ export async function writeWith(run, { forbid = [] } = {}) {
   const fallback = !plan;
   const template = writer.fallback(evidence);
   const repaired = Boolean(plan?._repaired);
+  const backup = plan?._backup; // the server's model failed and DeepSeek wrote it
   let filled = [];
   // The lists the check reads as names ("plan.travels_next[]"): an object item there stands for its name.
   const nameLists = new Set((GROUND[writer.id] ?? []).map(([path]) => path.match(/^plan\.([a-z_]+)\[\]$/)?.[1]).filter(Boolean));
@@ -47,7 +48,7 @@ export async function writeWith(run, { forbid = [] } = {}) {
   // A writer may complete the plan from its own fields (the film's plain-language story).
   if (writer.finish) plan = writer.finish(plan, evidence);
   const server = serverCredential();
-  const llm = credential ? { provider: credential.provider, model: credential.model ?? PROVIDERS[credential.provider].model, byok: true } : { provider: server?.provider ?? "none", model: server ? server.model ?? PROVIDERS[server.provider].model : undefined, byok: false, server: true };
+  const llm = credential ? { provider: credential.provider, model: credential.model ?? PROVIDERS[credential.provider].model, byok: true } : backup ? { ...backup, byok: false, server: true, backup: true } : { provider: server?.provider ?? "none", model: server ? server.model ?? PROVIDERS[server.provider].model : undefined, byok: false, server: true };
   return {
     writer: writer.id,
     plan,
@@ -64,7 +65,7 @@ export async function writeWith(run, { forbid = [] } = {}) {
     languages: languagesFor(run.stages.resolve?.output?.city),
     summary: fallback
       ? `${canWrite ? "Model failed; template shown." : "No language model: template from the evidence. Add a key to write."}${language ? ` The template is in English; ${language} needs a language model.` : ""}`
-      : `Written by ${llm.provider}${llm.model ? ` (${llm.model})` : ""}${language ? ` in ${language}` : ""}.${repaired ? " The reply was cut off; the complete part was kept." : ""}${filled.length ? ` ${filled.length} section${filled.length === 1 ? "" : "s"} the model left empty came from the evidence (${filled.join(", ").replace(/_/g, " ")}).` : ""}`,
+      : `Written by ${llm.provider}${llm.model ? ` (${llm.model})` : ""}${llm.backup ? ", the backup writer, because the main model failed" : ""}${language ? ` in ${language}` : ""}.${repaired ? " The reply was cut off; the complete part was kept." : ""}${filled.length ? ` ${filled.length} section${filled.length === 1 ? "" : "s"} the model left empty came from the evidence (${filled.join(", ").replace(/_/g, " ")}).` : ""}`,
   };
 }
 
