@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: hear the story with Sarvam; music steps aside when the key has no quota
+## PR #40 (31 Oct, 04:14): hear the story with Sarvam; music steps aside when the key has no quota
 
 - **Hear the story.** One click under any finished brief has Sarvam's Bulbul (`bulbul:v3`) read it aloud: a film reads
   its story ("the story, simply"), a drop its positioning, a café or a night its concept, a book its premise, each after
