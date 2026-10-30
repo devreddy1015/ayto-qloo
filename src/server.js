@@ -5,6 +5,7 @@ import { config, ROOT } from "./config.js";
 import { checkCredential, credentialFrom, llmAvailable, llmStatus, probeServerLlm, providerList, redact } from "./llm.js";
 import { discovery, mcpHandler } from "./mcp.js";
 import { imageAvailable, imageBudget, imageFile, imageStatus, startImage } from "./image.js";
+import { deckHtml, shotBudget, shotFile, shotPlan, shotsAvailable, shotsPerHour, shotStatus, startShots } from "./shots.js";
 import { mosaic, worldWall } from "./mosaic.js";
 import { gallery } from "./gallery.js";
 import { candidates, heuristicParse, parseInput } from "./parse.js";
@@ -145,7 +146,7 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.get("/api/presets", (_req, res) => {
-  res.json({ showcases: SHOWCASES.map(({ id, label, text, format }) => ({ id, label, text, format })), formats: formatList(), markets: MARKETS, providers: providerList(), mode: config.mode, llm: llmStatus(), images: imageAvailable() });
+  res.json({ showcases: SHOWCASES.map(({ id, label, text, format }) => ({ id, label, text, format })), formats: formatList(), markets: MARKETS, providers: providerList(), mode: config.mode, llm: llmStatus(), images: imageAvailable(), shotDeck: shotsAvailable() });
 });
 
 app.get("/api/llm/providers", (_req, res) => res.json({ providers: providerList() }));
@@ -369,6 +370,45 @@ app.get("/api/runs/:id/image.jpg", async (req, res) => {
   } catch {
     res.status(404).send("No image yet.");
   }
+});
+
+// ---------- shot deck: one storyboard frame per beat of a finished film (OpenAI), on demand, never a stage ----------
+
+app.post("/api/runs/:id/shots", async (req, res) => {
+  if (!shotsAvailable()) return res.status(503).json({ error: "The shot deck isn't switched on for this site." });
+  if (!RUN_ID.test(req.params.id)) return res.status(404).json({ error: "No such run." });
+  const run = await loadRun(req.params.id);
+  if (!run) return res.status(404).json({ error: "No such run." });
+  if (run.status !== "done") return res.status(409).json({ error: "Wait for the run to finish, then build the deck." });
+  const now = await shotStatus(run.id);
+  if (now.status === "drawing" || now.status === "done") return res.json(now);
+  if (!shotPlan(run)) return res.status(409).json({ error: "Only a finished film brief with beats gets a shot deck." });
+  if (!allow(clientIp(req), { perHour: shotsPerHour(), bucket: "shots" })) return res.status(429).json({ error: "You've built a lot of shot decks this hour. Try again later." });
+  if (!shotBudget({ take: true })) return res.status(503).json({ error: "The demo has drawn today's shot decks. Try again tomorrow." });
+  try {
+    await startShots(run);
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: publicError(error) });
+  }
+  res.status(202).json(await shotStatus(run.id));
+});
+app.get("/api/runs/:id/shots", async (req, res) => {
+  if (!RUN_ID.test(req.params.id)) return res.status(404).json({ error: "No such run." });
+  res.json(await shotStatus(req.params.id));
+});
+app.get("/api/runs/:id/shots/:n(\\d{1,2}).jpg", async (req, res) => {
+  if (!RUN_ID.test(req.params.id)) return res.status(404).send("Not found");
+  try {
+    res.type("jpeg").set("cache-control", "public, max-age=3600").send(await shotFile(req.params.id, Number(req.params.n)));
+  } catch {
+    res.status(404).send("No frame yet.");
+  }
+});
+app.get("/api/runs/:id/shots.html", async (req, res) => {
+  if (!RUN_ID.test(req.params.id)) return res.status(404).send("Not found");
+  const html = await deckHtml(req.params.id);
+  if (!html) return res.status(404).send("No shot deck yet.");
+  res.type("html").set({ "content-disposition": `attachment; filename="${req.params.id}-shot-deck.html"`, "cache-control": "no-cache" }).send(html);
 });
 
 app.post("/api/ask", async (req, res) => {

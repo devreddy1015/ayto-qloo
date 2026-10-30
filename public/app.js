@@ -980,6 +980,7 @@ function renderStage(id, s = {}) {
   }
   body.replaceChildren(...nodes.flat(Infinity).filter(Boolean));
   if (id === "write") body.append(conceptImage(state.run) ?? "");
+  if (id === "write") body.append(shotDeck(state.run) ?? "");
   if (s.output.edited) body.prepend(el("p", { class: "edited-note", text: "Edited by you. Stages after this were rerun with your changes." }));
 }
 
@@ -1020,6 +1021,62 @@ function conceptImage(run) {
   };
   show({ status: "none" });
   fetch(`/api/runs/${run.id}/image`).then((r) => r.json()).then((s) => s.status !== "none" && show(s)).catch(() => {});
+  return box;
+}
+
+/**
+ * The shot deck: one storyboard frame per beat of a film brief, drawn by OpenAI on demand, each with its shot line and
+ * the Qloo-traced film to study for it. Not a stage, so the run is complete without it. Frames show as they arrive.
+ */
+function shotDeck(run) {
+  const beats = run?.stages?.write?.output?.plan?.beats;
+  if (!state.presets.shotDeck || !run?.id || run.status !== "done" || run.input?.format !== "film" || !Array.isArray(beats) || !beats.length) return null;
+  const box = el("section", { class: "shot-deck" });
+  let polling;
+  const frame = (f) =>
+    el(
+      "figure",
+      { class: `shot shot-${f.status}` },
+      f.url ? el("img", { src: f.url, alt: `Storyboard frame for beat ${f.n}: ${f.title}`, loading: "lazy" }) : el("div", { class: f.status === "error" ? "shot-wait shot-failed" : "shot-wait skeleton", text: f.status === "error" ? "Couldn't draw this one." : "" }),
+      el(
+        "figcaption",
+        {},
+        el("strong", { text: `${f.n}. ${f.title}` }),
+        f.shot ? el("p", { class: "shot-line", text: f.shot }) : null,
+        f.reference?.title ? el("p", { class: "sub" }, "Study ", q(f.reference.title), f.reference.borrow ? `: ${f.reference.borrow}` : "") : null,
+      ),
+    );
+  const show = (s) => {
+    clearTimeout(polling);
+    if (!box.isConnected && s.status !== "none") return; // the card was redrawn; its new box takes over
+    const head = el("h3", { text: "Shot deck" });
+    if (s.status === "drawing" || s.status === "done") {
+      const drawn = (s.frames ?? []).filter((f) => f.status === "done").length;
+      box.replaceChildren(
+        ...[
+          head,
+          el("p", { class: "muted", text: s.status === "drawing" ? `Drawing frame ${Math.min(drawn + 1, s.frames.length)} of ${s.frames.length}… about a minute in all.` : "One frame per beat, drawn by OpenAI from this brief. Original frames: no real people, logos or stills from real films. The films named are Qloo-traced references to study." }),
+          el("div", { class: "shot-grid" }, (s.frames ?? []).map(frame)),
+          s.download ? el("a", { class: "secondary-link shot-download", href: s.download, download: `${run.id}-shot-deck.html`, text: "Download the deck (one HTML file, prints to PDF)" }) : null,
+        ].filter(Boolean),
+      );
+      if (s.status === "drawing") polling = setTimeout(() => fetch(`/api/runs/${run.id}/shots`).then((r) => r.json()).then(show).catch(() => show({ status: "error", error: "Lost the connection. Try again." })), 4000);
+      return;
+    }
+    if (s.available === false) return box.replaceChildren();
+    const build = el("button", { class: "secondary", type: "button", text: s.status === "error" ? "Try again" : "Build the shot deck" });
+    build.addEventListener("click", async () => {
+      build.disabled = true;
+      try {
+        show(await post(`/api/runs/${run.id}/shots`, {}));
+      } catch (error) {
+        show({ status: "error", error: error.message });
+      }
+    });
+    box.replaceChildren(head, build, el("p", { class: "muted", text: s.error ? `Couldn't build it: ${s.error}` : "One storyboard frame per beat (up to six), each with a shot line and a film to study. Drawn by OpenAI in about a minute." }));
+  };
+  show({ status: "none" });
+  fetch(`/api/runs/${run.id}/shots`).then((r) => r.json()).then((s) => s.status !== "none" && show(s)).catch(() => {});
   return box;
 }
 
@@ -1542,6 +1599,7 @@ const WRITE = {
     const lighting = p.camera?.lighting ?? [];
     const shots = p.camera?.shots ?? [];
     return [
+      p.story ? el("div", { class: "story-simply" }, el("span", { class: "k", text: "The story, simply" }), el("p", { text: p.story })) : null,
       titles.length ? el("div", { class: "titles" }, titles.map((t, i) => el("span", { class: `title-option ${i === 0 ? "first" : ""}`, text: t }))) : el("p", { class: "muted", text: "No titles yet." }),
       p.lane?.flavour ? el("p", { class: "lane-line" }, tag("Lane", "lane-tag"), " ", q(p.lane.flavour), p.lane.why ? el("span", { class: "sub", text: ` ${p.lane.why}` }) : null) : null,
       p.logline ? el("p", { class: "lead", text: p.logline }) : null,
@@ -1725,6 +1783,7 @@ function planText(o) {
   const names = (arr, f = (x) => x) => (arr ?? []).map((x) => (typeof x === "string" ? x : f(x))).filter(Boolean).join(", ");
   if (o.writer === "film") {
     add("Titles", names(p.titles));
+    add("The story, simply", p.story);
     add("Lane", p.lane?.flavour && `${p.lane.flavour}${p.lane.why ? ` — ${p.lane.why}` : ""}`);
     add("Logline", p.logline);
     add("Theme", p.theme);

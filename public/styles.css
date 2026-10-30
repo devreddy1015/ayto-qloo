@@ -2238,3 +2238,19 @@ details.raw > summary {
   .intro.play { animation-duration: 200ms; animation-delay: 300ms; }
   .intro-ring, .intro-dot, .intro-word { animation: none; opacity: 1; stroke-dashoffset: 0; transform: none; }
 }
+
+/* The story, simply: a plain telling at the top of a film's brief */
+.story-simply { margin: 0 0 1.4rem; padding: 0.9rem 1rem; border-left: 3px solid var(--tape); background: rgba(255, 255, 255, 0.03); border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.story-simply .k { margin-bottom: 0.35rem; color: var(--tape); }
+.story-simply p { margin: 0; max-width: 66ch; font-size: var(--step-1); line-height: 1.5; text-wrap: pretty; }
+
+/* Shot deck (OpenAI): one storyboard frame per beat, under a film's brief */
+.shot-deck { margin: 1.5rem 0 0; display: grid; gap: 0.6rem; justify-items: start; }
+.shot-deck h3 { margin: 0; }
+.shot-grid { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
+.shot { margin: 0; display: grid; gap: 0.4rem; align-content: start; }
+.shot img, .shot-wait { width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: var(--radius-md); border: 1px solid var(--line); display: block; }
+.shot-failed { display: grid; place-items: center; color: var(--fg-mute); font-size: var(--step--1); }
+.shot figcaption p { margin: 0.15rem 0 0; }
+.shot-line { font-size: var(--step--1); color: var(--fg-soft); }
+.shot-download { margin-top: 0.3rem; }
