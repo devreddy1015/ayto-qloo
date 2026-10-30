@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: references from Qloo under a drop's 3D preview
+## PR #38 (31 Oct, 03:57): references from Qloo under a drop's 3D preview
 
 - **Three or four pictures under "See it in 3D", in a strip that slides left** (swipe, scroll-snap, or the arrows; a
   short slide-in, still for reduced motion). The love the maker named comes first, as Qloo knows it, then the fashion
@@ -15,7 +15,7 @@ What changed in AYTO (Are You The One), newest first. Times are IST. Each entry 
 - `public/references.js` picks them (pure, tested: order, the four-picture cap, https only, repeats, the no-strip case).
   Checked in a browser at desktop and phone widths with test pictures (fake mode's synthetic labels have none).
 
-## Unreleased: with vs without Qloo, in 3D
+## PR #37 (31 Oct, 03:57): with vs without Qloo, in 3D
 
 - **The with vs without Qloo card now shows the difference for a fashion drop, not only counts it:** two small 3D
   viewers side by side. On the left, the drop's hero style as written from Qloo's read, in its palette, each colour
@@ -28,7 +28,7 @@ What changed in AYTO (Are You The One), newest first. Times are IST. Each entry 
 - Tests: the look is pulled out of the count, odd answers still read, only fashion gets it (a fake model answers).
   Checked in a browser at desktop and phone widths; leaving the run tears both viewers down.
 
-## Unreleased: fashion in 3D (dresses, sarees, capes, cosplay; drawn prints; real 3D models)
+## PR #36 (31 Oct, 03:57): fashion in 3D (dresses, sarees, capes, cosplay; drawn prints; real 3D models)
 
 - **Four new garments in the 3D viewer**, thirteen in all: a floor-length maxi dress with folds and a sash, a saree
   (a blouse in the accent colour, a pleated skirt with a woven border, the pallu across the front and over one shoulder),
