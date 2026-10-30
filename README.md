@@ -4,7 +4,7 @@
 
 **Tell AYTO what you're making and where. Qloo reads what that city's people love and finds the gap. Your own LLM writes the idea into it.**
 
-Live demo: _coming before submission_ · Source: [github.com/devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) · Built for the [Qloo Agentic Hackathon](https://qloo.devpost.com).
+Live demo: **[ayto-ocx1.onrender.com](https://ayto-ocx1.onrender.com)** (free plan: the first visit after a quiet spell wakes it, about a minute) · Source: [github.com/devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) · Built for the [Qloo Agentic Hackathon](https://qloo.devpost.com).
 
 **An agent with taste.** It plans its Qloo reads for the format you're making, calls Qloo's tools, writes, checks its own output against the evidence and rewrites what it can't trace. It is also an MCP server that other agents can call (`/mcp`).
 

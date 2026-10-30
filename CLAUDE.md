@@ -19,7 +19,7 @@ Must ship: live hosted app (no login), public repo with OSS licence visible in A
 Node 22 + Express, vanilla JS front end (public/), SSE streaming, file cache (.cache/, git-ignored).
 Qloo via `@qloo/qloo-harness` (`qloo mcp` stdio for workflow tools; raw HTTP for search (`GET /search`, the request
 `qloo api search` makes, without a process per call), Insights heatmaps, tag reads and tagged entity reads). LLM: provider table in src/llm.js (12 providers, OpenAI-compatible + Anthropic adapter);
-server default is Groq. MCP door in src/mcp.js. Hackathon host: https://hackathon.api.qloo.com.
+server default is Groq; the live site runs DeepSeek (LLM_PROVIDER=deepseek, deepseek-flash, thinking off). MCP door in src/mcp.js. Hackathon host: https://hackathon.api.qloo.com.
 
 ## Code map
 - src/formats.js: formats (film, reel, fashion, podcast, game, cafe, event, book), their entity types and stage plans, stage labels, parse hints.
@@ -89,6 +89,13 @@ Research behind this: /home/dev/hackthons/culture-gap/research.txt (29 Oct 2026,
 npm install · npm start (live if QLOO_API_KEY) · CULTURE_GAP_MODE=fake npm start · npm test · PORT=8787 locally (8080 is taken on
 this machine; .claude/launch.json starts it). Showcases: POST /api/runs {showcase:"hyderabad-crime-film"|"vegas-reel"|"tiruppur-kidswear"}.
 PREWARM=1 runs them at boot. Scratch probes live outside the repo.
+
+## Status (31 Oct 2026, 00:30 IST)
+LIVE: https://ayto-ocx1.onrender.com (Render blueprint "ayto", free plan, autodeploys main; the repo About links it).
+Server model DeepSeek; Qloo live. Checked live: the Hyderabad showcase written by DeepSeek in 30 s (25 of 25 names traced;
+with vs without Qloo 17/17 against 4/10), and a fresh "romance short film in Chennai" in 43 s (36 of 36). The free plan sleeps
+after 15 idle minutes and has no disk, so share links reset on each wake. Submission pack: docs/SUBMISSION.md (paste-ready
+Devpost text), docs/VIDEO_SCRIPT.md (60 s animated video); frames in submission/ (git-ignored).
 
 ## Status (30 Oct 2026, evening IST)
 v0.2.0: a bug-hunt loop (30 Oct) fixed ~75 reproduced bugs in stacked PRs #20–#24 (merge in order; see CHANGELOG).

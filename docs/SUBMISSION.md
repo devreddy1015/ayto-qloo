@@ -7,12 +7,12 @@ The app must stay up, free and with no login, until judging ends on **5 Nov 2026
 
 | Required by the rules | Status |
 |---|---|
-| A live, working app judges can try end to end, hosted externally | **To do:** deploy (see "Deploy" below), then paste the URL in four places |
+| A live, working app judges can try end to end, hosted externally | Done: https://ayto-ocx1.onrender.com (Render, free plan, DeepSeek as the server model). Checked on 31 Oct: a real model wrote the Hyderabad treatment, 25 of 25 names traced |
 | A public repo with all source and instructions | Done: [github.com/devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) |
 | An open-source licence visible in the repo's About section | Done: MIT, shown in About |
 | A text description of the features and what makes it Qloo-powered | Done: "About the project" below |
 | Video (optional, but judges may score on text, images and video alone) | Script ready: [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md) |
-| Gallery images | Frames ready in `submission/frames/` (kept out of git); retake the write and with-vs-without cards after the deploy |
+| Gallery images | Done: 12 frames in `submission/frames/` (kept out of git), including the live write and with-vs-without cards |
 
 **Once the live URL exists, put it in:**
 1. the README's "Live demo" line;
@@ -28,7 +28,7 @@ Render, from the blueprint in `render.yaml` (Docker, one web service). The bluep
 1. Go to https://render.com/deploy?repo=https://github.com/devreddy1015/ayto-qloo and sign in with GitHub.
 2. Paste the secrets when Render asks:
    - `QLOO_API_KEY`: the hackathon key.
-   - `GROQ_API_KEY`: a free key from console.groq.com. Without a server model, judges get a template instead of a written treatment unless they bring their own key.
+   - The model: `LLM_PROVIDER` = `deepseek` and `LLM_API_KEY` = your DeepSeek key (or `GROQ_API_KEY`, free from console.groq.com). Without a server model, judges get a template instead of a written treatment unless they bring their own key.
 3. Pick the plan:
    - **Free** works. It sleeps after 15 idle minutes (the first visit then waits about a minute), and share links reset on each wake.
    - **Starter** ($7/month) never sleeps. With the disk block in `render.yaml` uncommented, share links survive restarts. Recommended for the judging week (2–5 Nov).
@@ -175,13 +175,13 @@ Without Qloo there is no lane, no list and no map: only a prompt.
 ## Built with
 
 `node.js` · `express` · `javascript` · `qloo` · `qloo-insights-api` · `mcp` · `model-context-protocol` · `groq` · `anthropic` ·
-`openai` · `three.js` · `leaflet` · `docker` · `render` · `server-sent-events`
+`openai` · `deepseek` · `three.js` · `leaflet` · `docker` · `render` · `server-sent-events`
 
 ## Try it out (links)
 
-- Live app: `<LIVE_URL>`
+- Live app: https://ayto-ocx1.onrender.com
 - Source: https://github.com/devreddy1015/ayto-qloo
-- MCP endpoint: `<LIVE_URL>/mcp` (discovery at `<LIVE_URL>/.well-known/ayto.json`)
+- MCP endpoint: https://ayto-ocx1.onrender.com/mcp (discovery at https://ayto-ocx1.onrender.com/.well-known/ayto.json)
 
 ## Video demo link
 
@@ -196,8 +196,8 @@ Devpost recommends 3:2 images under 5 MB. Crop the frames to 3:2 on a dark backg
 | 1 | `04-gap.png` | The gap: Folk, Finance, Revenge and Justice. Loved in Hyderabad, not in India's top 30, and no recent film carries them. |
 | 2 | `02-confirm.png` | One sentence. AYTO shows what Qloo found: the city, the Crime tag, and HIT (2020, Telugu) over its Hindi remake. |
 | 3 | `05-look.png` | The look Hyderabad's crime crowd leans to, from Qloo's own style tags: Cinematic, Moody, Atmospheric, Gritty. |
-| 4 | the write card from the live site | The treatment, written into lane 1. Take this after the deploy, once a model writes it. |
-| 5 | the with-vs-without card from the live site | The same question without Qloo. Take this after the deploy too. |
+| 4 | `11-write.png` | The Clock Tower Ledger: a treatment written by DeepSeek into the gap, with beats, characters, the films to study and a palette. |
+| 5 | `12-diff.png` | The same question without Qloo: 4 of 10 names trace. With Qloo: 17 of 17. |
 | 6 | `10-where.png` | "Where should I make it?" Ten cities, each against the other nine. |
 | 7 | `06-spots.png` | Locations from the places this crowd goes, and a shoot base. |
 
