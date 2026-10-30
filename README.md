@@ -66,7 +66,7 @@ Nothing on the page exists without Qloo. Every step is a request you can open in
 | Audio, spots | `qloo_recommend` for artists and places with the city's picks as signals | the shortlist and the venues |
 | Travels | `/v2/insights` `filter.type=urn:heatmap` with `urn:geohash`, snapped to localities | cities that lean the same way, lift against popularity |
 
-The **with vs without Qloo** card runs the same sentence through the same model with no evidence and counts how many of its names trace to anything. Remove Qloo and the product is a prompt.
+The **with vs without Qloo** card runs the same sentence through the same model with no evidence and counts how many of its names trace to anything. Remove Qloo and the product is a prompt. For a fashion drop the card also stands the two hero pieces side by side in 3D: the one written from the city's read, in a palette whose every colour names the Qloo flavour it came from, and the one the same model makes with nothing to go on.
 
 ---
 

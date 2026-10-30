@@ -134,7 +134,7 @@ One click runs the full treatment for the city you pick.
 
 ## What makes it Qloo-powered
 
-Nothing on the page exists without Qloo. The Hyderabad film run makes 44 Qloo requests, and each one is a receipt you can open.
+Nothing on the page exists without Qloo. The Hyderabad film run makes 44 Qloo requests, and each one is a receipt you can open. For a fashion drop you can see it too: the with vs without Qloo card stands the two hero pieces side by side in 3D, the one written from the city's read next to the one the same model makes with nothing to go on.
 
 - **Resolve.** Locality search, `qloo_find_tags` for the theme, and `qloo_describe` plus `/entities` for the titles. The aliases pick the original over the remake, and death dates keep people who have died out of a cast list.
 - **Read.** `qloo_recommend` with the theme as `include_tags` and the location as the signal, for the city, the country and a contrast city. That gives the only-here picks and the hidden gems: high affinity, low popularity.

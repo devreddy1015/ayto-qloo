@@ -3,6 +3,19 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: with vs without Qloo, in 3D
+
+- **The with vs without Qloo card now shows the difference for a fashion drop, not only counts it:** two small 3D
+  viewers side by side. On the left, the drop's hero style as written from Qloo's read, in its palette, each colour
+  captioned with the Qloo flavour it came from. On the right, the hero piece the same model makes from the same sentence
+  with no evidence, in its own colours.
+- **One question, not two:** the no-evidence fashion question now also asks for that hero piece (garment, print, 2-4
+  colours), so no extra model call. The look is read safely (a known garment or a tee, no words drawn on it since a motif
+  could name a real brand, valid colours or black and white) and kept out of the names the card counts. Other formats are
+  unchanged; the fashion answer's cache key moves to v2.
+- Tests: the look is pulled out of the count, odd answers still read, only fashion gets it (a fake model answers).
+  Checked in a browser at desktop and phone widths; leaving the run tears both viewers down.
+
 ## Unreleased: fashion in 3D (dresses, sarees, capes, cosplay; drawn prints; real 3D models)
 
 - **Four new garments in the 3D viewer**, thirteen in all: a floor-length maxi dress with folds and a sash, a saree

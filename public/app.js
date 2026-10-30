@@ -764,6 +764,7 @@ function resetResults() {
     state.maps.delete(key);
   }
   destroyViewer();
+  destroyCompare();
   state.garmentPick = null;
   $("#home").hidden = true;
   $("#results").hidden = false;
@@ -1589,6 +1590,7 @@ const RENDER = {
     return [
       note(`The same question, asked twice: “${o.question ?? ""}”`),
       el("div", { class: "diff" }, col("With Qloo", (o.withQloo ?? []).length ? chips((o.withQloo ?? []).map((n) => q(n))) : el("p", { class: "muted", text: "No names." }), b.withQloo, "with"), col("Without Qloo", withoutBody, b.withoutQloo, "")),
+      o.withoutLook ? compare3d(o.withoutLook) : null,
     ];
   },
 
@@ -2226,6 +2228,87 @@ function garmentExtras(styles, getViewer, getIndex) {
   }
   update();
   return { node, update, mount };
+}
+
+// ---------- with vs without Qloo, in 3D (fashion) ----------
+// The drop's hero piece as written from Qloo's read, next to the piece the same model makes from the same sentence
+// with no evidence: two small viewers on the with/without card, each in its own palette.
+
+let compareViewers = [];
+function destroyCompare() {
+  for (const v of compareViewers) {
+    try {
+      v.destroy();
+    } catch (error) {
+      console.warn("compare teardown", error);
+    }
+  }
+  compareViewers = [];
+}
+
+const GARMENT_LABEL = { tee: "tee", oversized_tee: "oversized tee", maxi_dress: "maxi dress", dress: "A-line dress", cosplay_set: "cosplay set", set: "co-ord set" };
+const garmentLabel = (kind) => GARMENT_LABEL[kind] ?? kind.replace(/_/g, " ");
+
+function compare3d(without) {
+  const plan = state.run?.stages?.write?.output?.plan ?? {};
+  const styles = Array.isArray(plan.styles) ? plan.styles : [];
+  const hero = styles.find((s) => s?.hero) ?? styles[0];
+  if (!hero || !without?.garment) return null;
+  const withPalette = (plan.palette ?? []).filter((c) => hexOk(c?.hex));
+  const ownWays = (hero.colourways ?? []).map(trim).filter((n) => withPalette.some((c) => trim(c.name).toLowerCase() === n.toLowerCase()));
+  const sides = [
+    {
+      title: "With Qloo",
+      cls: "with",
+      style: hero,
+      palette: withPalette,
+      colourway: ownWays[0] ?? trim(withPalette[0]?.name),
+      // Each colour with the Qloo flavour it came from: the palette's own receipt.
+      words: [`${trim(hero.name) || "Hero style"} · ${garmentLabel(garmentKind(hero))}`, withPalette.slice(0, 4).map((c) => {
+        const tag = [].concat(c.from_tags ?? []).map(trim).find(Boolean);
+        return tag ? `${c.name} (from ${tag})` : c.name;
+      }).join(", ")],
+    },
+    {
+      title: "Without Qloo",
+      cls: "",
+      style: { name: "", garment: without.garment, print: without.print, colourways: [] },
+      palette: without.palette,
+      colourway: trim(without.palette[0]?.name),
+      words: [`The same model's first piece: ${garmentLabel(without.garment)}`, without.palette.map((c) => c.name).join(", ")],
+    },
+  ];
+  const stages = sides.map(() => el("div", { class: "garment-stage compare-stage", "aria-busy": "true" }));
+  const box = el(
+    "div",
+    { class: "compare-3d" },
+    h3("The hero piece, with and without Qloo"),
+    el("div", { class: "diff" }, ...sides.map((s, i) => el("figure", { class: `diff-col ${s.cls}` }, el("figcaption", {}, el("strong", { text: s.title })), stages[i], ...s.words.filter(Boolean).map((w) => el("p", { class: "garment-note", text: w }))))),
+    note("Same sentence, same model. One read what this city loves beyond the country first; the other had nothing to go on."),
+  );
+  setTimeout(async () => {
+    if (!box.isConnected) return;
+    destroyCompare();
+    try {
+      const mod = await import("./garment3d.js");
+      if (!box.isConnected) return;
+      sides.forEach((s, i) => {
+        const v = mod.createGarmentViewer(stages[i], { styles: [s.style], palette: s.palette, label: s.title });
+        v.show(0);
+        if (s.colourway) v.setColourway(s.colourway);
+        compareViewers.push(v);
+        stages[i].removeAttribute("aria-busy");
+      });
+    } catch (error) {
+      console.warn("3D comparison unavailable; showing flat outlines.", error);
+      destroyCompare();
+      sides.forEach((s, i) => {
+        stages[i].replaceChildren(croquis(s.style, paletteHex(s.colourway, s.palette), s.palette));
+        stages[i].removeAttribute("aria-busy");
+      });
+    }
+  }, 0);
+  return box;
 }
 
 // The flat fallback: a front-view outline per garment in a 200×260 box, filled with the colourway and marked with the print.
