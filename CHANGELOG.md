@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: a music tone for every brief
+## PR #33 (31 Oct, 03:40): a music tone for every brief
 
 - **One click under any finished brief composes a music tone:** a 30-second original instrumental from Google's Lyria
   (`lyria-3-clip-preview` on the Gemini API), with a player on the page and a Download link for the MP3. A "What we
