@@ -50,7 +50,7 @@ test("check blanks a print motif that names a real brand and drops unknown garme
   const { checkEvidence } = await import("../src/pipeline/check.js");
   const run = {
     names: { diesel: { name: "Diesel", kind: "brand" }, ink: { name: "Ink", kind: "tag" } },
-    stages: { write: { output: { writer: "fashion", plan: { styles: [{ name: "Tee 01", garment: "cape", print: { type: "typographic", motif: "Diesel forever" }, from_tags: ["Ink"] }], brands_to_study: ["Diesel"], first_cities: [], palette: [] } } } },
+    stages: { write: { output: { writer: "fashion", plan: { styles: [{ name: "Tee 01", garment: "spacesuit", print: { type: "typographic", motif: "Diesel forever" }, from_tags: ["Ink"] }], brands_to_study: ["Diesel"], first_cities: [], palette: [] } } } },
   };
   const out = checkEvidence(run);
   const style = run.stages.write.output.plan.styles[0];

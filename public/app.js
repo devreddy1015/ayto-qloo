@@ -1960,7 +1960,7 @@ async function makeLaneFirst(index) {
 // from the category and cues (older runs, sample mode); garment3d.js keeps the
 // same rules.
 
-const GARMENT_KINDS = ["tee", "oversized_tee", "hoodie", "sweatshirt", "dress", "kurta", "jacket", "shorts", "set"];
+const GARMENT_KINDS = ["tee", "oversized_tee", "hoodie", "sweatshirt", "dress", "maxi_dress", "saree", "kurta", "jacket", "cape", "cosplay_set", "shorts", "set"];
 const hexOk = (h) => /^#[0-9a-f]{6}$/i.test(h ?? "");
 const trim = (v) => String(v ?? "").trim();
 const slug = (v) => trim(v).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "garment";
@@ -1969,6 +1969,10 @@ function garmentKind(style = {}) {
   const given = trim(style.garment).toLowerCase().replace(/[\s-]+/g, "_");
   if (GARMENT_KINDS.includes(given)) return given;
   const text = `${trim(style.category)} ${trim(style.name)}`.toLowerCase();
+  if (/cosplay|armou?r|pauldron|costume/.test(text)) return "cosplay_set";
+  if (/\b(sarees?|saris?)\b/.test(text)) return "saree";
+  if (/\b(capes?|cloaks?|capelets?)\b/.test(text)) return "cape";
+  if (/maxi|gown|floor[ -]length|anarkali/.test(text)) return "maxi_dress";
   if (/\b(co-?ord|set)\b/.test(text)) return "set";
   if (/hood/.test(text)) return "hoodie";
   if (/sweat|crew ?neck|jumper|pullover/.test(text)) return "sweatshirt";
@@ -2135,6 +2139,10 @@ const CROQUIS = {
   jacket: ["58,62 80,52 96,64 96,208 66,208 66,112 64,172 40,168", "142,62 120,52 104,64 104,208 134,208 134,112 136,172 160,168"],
   shorts: [SHORTS],
   set: ["60,60 80,52 95,62 105,62 120,52 140,60 152,98 132,104 132,150 68,150 68,104 48,98", "66,146 134,146 142,206 106,206 100,170 94,206 58,206"],
+  maxi_dress: ["70,60 85,52 95,62 105,62 115,52 130,60 140,90 126,96 124,112 156,254 44,254 76,112 74,96 60,90"],
+  saree: ["72,60 86,52 95,62 105,62 114,52 128,60 138,86 124,90 124,104 76,104 76,90 62,86", "76,114 124,114 144,254 56,254", "70,62 84,56 134,124 118,132"],
+  cape: ["96,52 74,56 30,236 92,236", "104,52 126,56 170,236 108,236"],
+  cosplay_set: ["58,62 80,52 96,64 96,214 64,214 66,112 64,172 40,168", "142,62 120,52 104,64 104,214 136,214 134,112 136,172 160,168"],
 };
 
 function croquis(style, hex, palette) {
@@ -2154,6 +2162,12 @@ function croquis(style, hex, palette) {
   if (kind === "kurta") detail("M100,62 v40 M94,62 v40 M68,206 v30 M132,206 v30");
   if (kind === "jacket") detail("M96,64 L100,54 L104,64 M72,120 h16 M112,120 h16");
   if (kind === "set" || kind === "shorts") detail(kind === "set" ? "M66,152 h68" : "M66,134 h68");
+  if (kind === "maxi_dress") detail("M76,112 h48");
+  if (kind === "saree") detail("M60,242 h88");
+  if (kind === "cosplay_set") {
+    detail("M64,150 h72 M64,160 h72");
+    for (const x of [62, 138]) root.append(svg("ellipse", { cx: x, cy: 62, rx: 20, ry: 10, fill: accent, stroke: line, "stroke-width": 1.2 }));
+  }
   const g = svg("g", { "clip-path": `url(#${id})` });
   const markAt = (cx, cy, w, h, dim = false) => {
     const text = (print.motif || style.name || "").toUpperCase();

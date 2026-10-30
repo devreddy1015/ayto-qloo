@@ -111,7 +111,7 @@ export function checkEvidence(run) {
     prune(output.plan);
     // A print motif is free text drawn onto a garment: it must never be a real brand, artist or title from the evidence,
     // and the garment must be one the viewer knows.
-    const GARMENTS = new Set(["tee", "oversized_tee", "hoodie", "sweatshirt", "dress", "kurta", "jacket", "shorts", "set"]);
+    const GARMENTS = new Set(["tee", "oversized_tee", "hoodie", "sweatshirt", "dress", "maxi_dress", "saree", "kurta", "jacket", "cape", "cosplay_set", "shorts", "set"]);
     const protectedNames = new Set(Object.values(run.names ?? {}).filter((n) => ["brand", "artist", "love", "movie", "tv_show"].includes(n.kind)).map((n) => String(n.name).toLowerCase()));
     for (const style of output.plan?.styles ?? []) {
       if (!style || typeof style !== "object") continue;
