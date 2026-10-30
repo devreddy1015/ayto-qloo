@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: live on Render, with DeepSeek
+## PR #26 (31 Oct, 00:14): live on Render, with DeepSeek
 
 - **Live at https://ayto-ocx1.onrender.com** (Render, free plan). The README, the repo's About and the Devpost text link it.
 - **DeepSeek uses its current model.** DeepSeek retired the name `deepseek-chat` on 24 Jul 2026 (it still answers for
