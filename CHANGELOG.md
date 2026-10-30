@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: the shot deck fits a phone
+## PR #47 (31 Oct, 05:06): the shot deck fits a phone
 
 - **On a phone, the "Make it" tab ran 51 px wider than the screen** (441 px on a 390 px phone), found in a layout pass
   on the live site at desktop and phone width. The shot deck's grid column sized itself to its widest content (407 px)
