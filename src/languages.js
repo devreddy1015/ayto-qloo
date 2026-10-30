@@ -32,9 +32,12 @@ export function writeLanguage(value) {
   return name && name !== "English" ? name : undefined;
 }
 
-/** "…in Hyderabad, in Telugu": the language a sentence asks for. "A Telugu film" names the film's language, not the brief's. */
+/**
+ * "…in Hyderabad, in Telugu": the language a sentence asks for. "A Telugu film" names the film's language, not the
+ * brief's, and "in Tamil Nadu" or "in Hindi cinema" name a place and an industry.
+ */
 export function languageFrom(text) {
-  const m = String(text ?? "").match(new RegExp(`\\b(?:in|written in|write it in)\\s+(${Object.keys(WRITE_LANGUAGES).join("|")})\\b`, "i"));
+  const m = String(text ?? "").match(new RegExp(`\\b(?:in|written in|write it in)\\s+(${Object.keys(WRITE_LANGUAGES).join("|")})\\b(?!\\s+(?:nadu|cinema|films?|movies?|songs?|music|industry|audiences?|crowds?|fans|speakers?|speaking))`, "i"));
   return writeLanguage(m?.[1]);
 }
 

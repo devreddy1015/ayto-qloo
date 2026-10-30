@@ -46,10 +46,75 @@ export const COUNTRY_ALIASES = {
 
 const lower = (s) => String(s ?? "").toLowerCase();
 const head = (s) => lower(s).split(",")[0].trim();
-// Qloo often keeps a city as "Pune City" or "Vijayawada (Urban)" next to "Pune District"; prefer the city-sized one,
-// then the metropolitan region, then anything else that carries the name (a district or taluk), never a stranger.
-const CITY_VARIANT = /\s*(city|\(urban\)|municipal corporation)$/i;
-const METRO_VARIANT = /\s*(metropolitan region|metro)$/i;
+// Accents and case folded away, so "Montreal" finds "Montréal".
+const fold = (s) => head(s).normalize("NFKD").replace(/\p{M}/gu, "");
+const KNOWN = new Set(Object.values(CANDIDATE_CITIES).flat().map(fold));
+// Qloo often keeps a city as "Pune City", "Jaipur Municipal Corporation" or "City of Edinburgh" next to "Pune
+// District" and a village of the same name; these forms are the city itself.
+const CITY_FORMS = [/^(?:city of|county borough of|municipality of|municipio de|município de)\s+(.+)$/, /^(.+?)\s*(?:city|\(urban\)|urban|\(m\.?\s?corp\.?\)|(?:urban\s+)?municipal corporation|nagar nigam|metropolitan city)$/];
+const METRO_FORMS = [/^(.+?)\s*(?:metropolitan region|metropolitan area|metro)$/];
+const formOf = (n, forms) => forms.map((re) => n.match(re)?.[1]?.trim()).find(Boolean);
+
+/** How well one name carries the query: 4 the name, 3 the city's own form, 2 its metro, 1 "<name> District" and kin. */
+function fitOf(n, needle) {
+  if (n === needle) return 4;
+  if (formOf(n, CITY_FORMS) === needle) return 3;
+  if (formOf(n, METRO_FORMS) === needle) return 2;
+  // "Patna District", "Jaipur(Rural) District", "Jodhpur Tehsil": the name plus admin words only, so neither "Perth
+  // and Kinross" (or its "Perth ja Kinross" alias) nor "Perth Amboy" counts as Perth.
+  const rest = n.startsWith(needle) ? n.slice(needle.length).trim() : "";
+  return rest && ADMIN_REST.test(rest) ? 1 : 0;
+}
+const ADMIN_REST = /^(?:\(?(?:rural|urban)\)?\s*)?(?:district|distict|tehsil|tahsil|taluka?|mandal|rural|urban|division|subdivision|region|county|municipality|borough|zone|cantonment|central)?$/;
+const POPULAR_WITHIN = 0.003;
+
+/**
+ * The locality a city name means, from Qloo's search hits. Qloo lists a famous city next to villages that share its
+ * name ("Jaipur" in Jharkhand at popularity 0.50; "Glasgow" in Kentucky), and often lists the city itself only in an
+ * admin form ("Jaipur Municipal Corporation"). So: hits that carry the name, then only those near the most popular
+ * of them, then the best form (the name, the city's own form, its metro, its district), city-sized, popular.
+ * With a market, only hits inside that country (or, where Qloo gives no parent chain, a famous exact one).
+ */
+export function rankLocalities(results = [], query, { market, wantedId, levels = [4, 8] } = {}) {
+  const needle = fold(query);
+  const hits = results.filter((r) => r?.entity_id && r?.location?.lat !== undefined && r?.location?.lon !== undefined);
+  const wanted = wantedId && hits.find((r) => r.entity_id === wantedId);
+  if (wanted) return wanted;
+  if (!needle) return undefined;
+  const typed = head(query);
+  const scored = hits.map((r) => {
+    const own = fold(r.name);
+    const raw = [r.name, ...(r.properties?.akas ?? []).map((a) => a?.value)].map(head);
+    const names = [own, ...(r.properties?.akas ?? []).map((a) => fold(a?.value))].filter(Boolean);
+    const fit = Math.max(...names.map((n) => fitOf(n, needle)));
+    const level = r.properties?.admin_level;
+    return {
+      r,
+      fit,
+      // Spelt as typed, accents and all: "Münster" is the German city, not Ireland's Munster.
+      asTyped: raw.includes(typed) ? 1 : 0,
+      ownName: fitOf(own, needle) === fit ? 1 : 0,
+      // Weaker readings, used only when nothing carries the name properly: "New Delhi" for Delhi, "Leicestershire" for Leicester.
+      word: names.some((n) => new RegExp(`(^|\\s)${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s|$)`).test(n)) ? 1 : 0,
+      part: needle.length >= 5 && names.some((n) => n.includes(needle)) ? 1 : 0,
+      country: market ? (inCountry(r, market) ? 1 : 0) : 1,
+      orphan: !(r.properties?.ancestors ?? []).length,
+      cityLevel: level === undefined || (level >= levels[0] && level <= levels[1]) ? 1 : 0,
+      popularity: r.popularity ?? 0,
+    };
+  });
+  const local = scored.filter((s) => s.country);
+  const pool = [local.filter((s) => s.fit > 0), local.filter((s) => s.word), local.filter((s) => s.part)].find((p) => p.length);
+  if (!pool) {
+    // Some countries' localities carry no parent chain at all (Japan). Only then, trust an exact, well-known, city-sized hit.
+    if (!market) return undefined;
+    return scored.filter((s) => s.orphan && s.fit >= 3 && s.cityLevel && s.popularity >= 0.98).sort((a, b) => b.popularity - a.popularity)[0]?.r;
+  }
+  const top = Math.max(...pool.map((s) => s.popularity));
+  return pool
+    .filter((s) => s.popularity >= top - POPULAR_WITHIN)
+    .sort((a, b) => b.fit - a.fit || b.asTyped - a.asTyped || b.ownName - a.ownName || b.cityLevel - a.cityLevel || b.popularity - a.popularity)[0]?.r;
+}
 
 /** Does this Qloo locality sit inside the market's country, going by its parent chain? */
 export function inCountry(entity, market) {
@@ -70,9 +135,15 @@ export function localityName(entity) {
  */
 export function displayName(name) {
   let s = String(name ?? "").trim();
-  s = s.replace(/^(municipio de|município de|autonomous community of the region of|autonomous community of|región de|region of|comunidad de|province of|county of|city of)\s+/i, "");
-  s = s.replace(/\s*\((urban|rural|city|town|m\.?\s?corp\.?)\)\s*$/i, "");
-  s = s.replace(/\s+(district|taluk|taluka|tehsil|mandal|municipal corporation|municipality|metropolitan region|metropolitan area|metro|county|city|urban agglomeration)$/i, "");
+  s = s.replace(/^(municipio de|município de|autonomous community of the region of|autonomous community of|región de|region of|comunidad de|province of|county borough of|county of|city of|municipality of)\s+/i, "");
+  // Admin words, twice over ("Patna Urban Municipal Corporation" → "Patna", "Jaipur(Rural) District" → "Jaipur").
+  for (let i = 0; i < 2; i += 1) {
+    s = s.replace(/\s*\((urban|rural|city|town|m\.?\s?corp\.?)\)\s*$/i, "");
+    s = s.replace(/\s+(district|taluk|taluka|tehsil|mandal|municipal corporation|nagar nigam|municipality|metropolitan region|metropolitan area|metro|county|urban agglomeration|urban|rural)$/i, "");
+  }
+  // "City" only where the name without it is a city AYTO knows: "Pune City" is Pune, "Kansas City" stays.
+  const bare = s.replace(/\s+city$/i, "");
+  if (bare !== s && KNOWN.has(fold(bare)) && !KNOWN.has(fold(s))) s = bare;
   return s || String(name ?? "");
 }
 
@@ -88,37 +159,9 @@ export const toPlace = (r, market) => ({
   market,
 });
 
-/**
- * Pick the Qloo locality that best matches one candidate city in a market:
- * inside the right country first, then an exact name, then a city-sized
- * admin level (4..8: city-states like Berlin are level 4, wards are 9+),
- * then popularity. Returns undefined when nothing fits.
- */
+/** The Qloo locality for one candidate city inside a market (see rankLocalities). Undefined when nothing fits. */
 export function pickLocality(results = [], { query, market, levels = [4, 8] } = {}) {
-  const needle = head(query);
-  const scored = results
-    .filter((r) => r?.entity_id && r?.location?.lat !== undefined && r?.location?.lon !== undefined)
-    .map((r) => {
-      const names = [r.name, ...(r.properties?.akas ?? []).map((a) => a?.value)].map(head);
-      const level = r.properties?.admin_level;
-      // 4: the name itself; 3: Qloo's city-sized variant; 2: its metropolitan region; 1: any name carrying it; 0: unrelated.
-      const variant = (re) => names.some((n) => re.test(n) && n.replace(re, "").trim() === needle);
-      const exact = names.includes(needle) ? 4 : variant(CITY_VARIANT) ? 3 : variant(METRO_VARIANT) ? 2 : names.some((n) => n.includes(needle)) ? 1 : 0;
-      return {
-        r,
-        orphan: !(r.properties?.ancestors ?? []).length,
-        country: inCountry(r, market) ? 1 : 0,
-        exact,
-        cityLevel: level === undefined || (level >= levels[0] && level <= levels[1]) ? 1 : 0,
-        popularity: r.popularity ?? 0,
-      };
-    })
-    .sort((a, b) => b.country - a.country || b.exact - a.exact || b.cityLevel - a.cityLevel || b.popularity - a.popularity);
-  const best = scored[0];
-  if (!best || !best.exact) return undefined;
-  // Some countries' localities carry no parent chain at all (Japan). Only then, trust an exact, well-known, city-sized hit.
-  if (!best.country && !(best.orphan && best.exact && best.cityLevel && best.popularity >= 0.98)) return undefined;
-  return best.r;
+  return rankLocalities(results, query, { market, levels });
 }
 
 /** Localities Qloo lists inside a city: search hits whose parent chain names the city. */

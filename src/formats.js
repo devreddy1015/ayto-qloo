@@ -126,7 +126,45 @@ export const STAGE_LABELS = {
   share: { label: "Share", output: "A page to send" },
 };
 
-/** Words in free text that pick a format when the model is not around. */
+/**
+ * The words that name what is being made ("a short film", "a podcast", "a novel"), then words that only suggest it
+ * ("a bar", "a party", "comic"). A named format beats a suggested one, and the earlier word wins within each, so
+ * "a short film about a bar fight" is a film and "a reel for Telugu cinema fans" is a reel.
+ */
+const FORMAT_WORDS = {
+  named: [
+    ["podcast", /\b(podcasts?|audio shows?|talk shows?|audio series)\b/gi],
+    ["game", /\b(video ?games?|mobile games?|indie games?|board games?|card games?|games?|gameplay|game studio)\b/gi],
+    ["cafe", /(?:\bcaf[eé]s?(?![a-zà-ÿ])|\b(?:coffee shops?|restaurants?|bakery|bakeries|tea house|bistro|cloud kitchen|food truck|eatery|diner|pubs?|brewery)\b)/gi],
+    ["event", /\b(events?|concerts?|gigs?|club nights?|festivals?|open mics?|screening nights?|pop-?ups?|meetups?|comedy nights?|stand-?up (?:show|night|gig)s?|raves?|parties)\b/gi],
+    ["book", /\b(books?|novels?|novellas?|web ?novels?|short stor(?:y|ies)|story collections?|graphic novels?|manga|comic books?|zines?)\b/gi],
+    ["film", /\b(short films?|feature films?|films?|movies?|screenplays?|web ?series|docu-?series|series|documentar(?:y|ies)|short(?!\s+(?:stor(?:y|ies)|videos?|reels?|clips?|form|films?|documentar(?:y|ies)|podcasts?|novels?)\b)(?![-\w]))/gi],
+    ["reel", /\b(reels?|tik ?toks?|short videos?|youtube shorts?|insta(?:gram)? (?:reels?|videos?)|instagram|vlogs?|ig videos?|youtube videos?)\b/gi],
+    ["fashion", /\b(clothing|clothes|apparel|fashion|streetwear|kidswear|menswear|womenswear|drops?|capsule|collections?|tees?|t-shirts?|hoodies?|sweatshirts?|garments?|labels?|footwear|sneakers?|sarees?|kurtas?|jackets?|merch)\b/gi],
+  ],
+  suggested: [
+    ["podcast", /\b(episodes?|audio)\b/gi],
+    ["cafe", /\b(bars?|menu|kitchen|coffee)\b/gi],
+    ["event", /\b(party|gathering)\b/gi],
+    ["book", /\b(comics?)\b/gi],
+    ["film", /\b(cinema|screen story|ott)\b/gi],
+    ["reel", /\b(shorts|videos?|content)\b/gi],
+    ["fashion", /\b(wear|outfits?|shorts)\b/gi],
+  ],
+};
+
+/** The format a sentence names, else the one it suggests, else undefined. */
+export function formatFrom(text) {
+  const t = String(text ?? "");
+  for (const tier of ["named", "suggested"]) {
+    const hits = FORMAT_WORDS[tier].flatMap(([id, re]) => [...t.matchAll(re)].map((m) => ({ id, at: m.index, length: m[0].length })));
+    hits.sort((a, b) => a.at - b.at || b.length - a.length);
+    if (hits.length) return hits[0].id;
+  }
+  return undefined;
+}
+
+/** Words in free text that mark a format (used to keep them out of city and theme readings). */
 export const FORMAT_HINTS = [
   ["podcast", /\b(podcasts?|audio show|talk show|episodes?)\b/i],
   ["game", /\b(video ?games?|indie games?|mobile games?|game studio|gameplay)\b/i],

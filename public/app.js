@@ -534,7 +534,7 @@ function renderWhere(out) {
           ),
         ),
       ),
-      out.shared?.length ? el("p", { class: "where-shared" }, el("strong", { text: "Crowded everywhere: " }), out.shared.map((s) => `${s.name} (${s.cities} of ${s.of} cities)`).join(", "), el("span", { class: "sub", text: ". Every big city already leans to these, so none of them is one city's gap." })) : null,
+      out.shared?.length ? el("p", { class: "where-shared" }, el("strong", { text: "Crowded everywhere: " }), `${out.shared.map((s) => `${s.name} (${s.cities} of ${s.of} cities)`).join(", ")}.`, el("span", { class: "sub", text: "Every big city already leans to these, so none of them is one city's gap." })) : null,
       el("p", { class: "footnote", text: "The full run for a city reads deeper (recent supply, its own control cities, the look, the places), so its lanes can differ a little from this overview." }),
       el("details", { class: "where-receipts" }, el("summary", { text: `${out.ledger.length} Qloo requests behind this` }), el("ul", {}, out.ledger.map((e) => el("li", {}, `${e.title} · ${e.count ?? 0} result${e.count === 1 ? "" : "s"} · ${e.ms ?? 0} ms`)))),
     ),

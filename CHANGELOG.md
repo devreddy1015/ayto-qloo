@@ -3,6 +3,37 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: the sentence reads right and the city is the city (bug hunt, batch 2)
+
+- **Big cities resolved to villages that share their name.** Qloo lists "Jaipur" the city only as "Jaipur
+  Municipal Corporation", next to a village called exactly "Jaipur" in Jharkhand (popularity 0.50), and the exact
+  name won: a run "in Jaipur" read a village, and "Where should I make it?" showed Jaipur, Jharkhand with no
+  flavours. Patna went to a village in Bangladesh, Ranchi to one in Italy, Jodhpur to a neighbourhood of
+  Ahmedabad, and Glasgow, Edinburgh, Belfast and Leicester to towns in the US. One ranking now serves every
+  lookup: hits that carry the name (the name, the city's own form, its metro, "<name> District"), then only those
+  near the most popular, then the best form. Checked against Qloo's hits for 650 candidate cities in 12 markets:
+  31 picks changed, every one to the right city or an equal one (Tokyo is found at all now). Searches take 8 hits
+  everywhere, so "Glasgow City" is in reach. "Kansas City", "Quezon City" and "Benin City" keep their "City";
+  the city picked in the confirm step always wins.
+- **The format is the one the maker names.** "a short film about a bar fight" was a café, "a documentary about a
+  music festival" an event, "a comic short film" a book, "a web series with 6 episodes" a podcast. Words that
+  name the thing (film, reel, podcast, game, novel, drop) now beat words about the subject (bar, party, comic);
+  "a short" is a film, "a short story" a book; games, TikToks, sneakers, sarees, pubs and stand-up nights are read.
+- **The city reader.** "In Hyderabad, …" (capital I), "A CRIME FILM IN HYDERABAD", São Paulo, Montréal, "in
+  Hyderabad but shot in Vizag", "at Charminar in Hyderabad", "in Telugu in Hyderabad", "in Hyderabad in 2026",
+  "Hyderabad's Old City" and "the crowd in Mumbai nightlife" all read the city now.
+- **Loves and themes.** "a love story set in Hyderabad" no longer adds a love called "Story Set In Hyderabad", nor
+  "getting into filmmaking" one called "Filmmaking In Hyderabad"; "inspired by Drishyam in Hyderabad" is
+  Drishyam. Themes lose their articles ("bar fight"), "true crime" no longer comes with "crime", "comedy" is no
+  longer asked twice, and "themed around Diwali" is Diwali.
+- When the request gives the format and the city, the sentence still fills the theme and loves (they were
+  dropped); a theme or loves the confirm step sent, even "none", stay as sent. A model that returns only a
+  country no longer picks a random city.
+- "Blade Runner 2049" and "Cyberpunk 2077" keep their numbers (a year is split off when bracketed or after a
+  comma, or when the full name finds nothing). "in Tamil Nadu" no longer asks for a Tamil brief. "Help us pick a
+  city in India" is India, not the United States. Chandigarh offers Hindi as well as Punjabi.
+- The "Crowded everywhere" line no longer breaks before its full stop.
+
 ## Unreleased: the public server holds up (bug hunt, batch 1)
 
 Found by a review of the server, the parser, the engine and the pipeline (30 Oct), each bug reproduced first.

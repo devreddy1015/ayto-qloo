@@ -11,8 +11,8 @@ import { crowdIds, format } from "./common.js";
 export async function marketPlaces(q, run, market, extra = []) {
   const names = [...new Set([...extra, ...(CANDIDATE_CITIES[market] ?? [])])];
   if (!names.length) return [];
-  const env = await q.tryStep(`Find ${market}'s cities in Qloo (${names.length} locality searches)`, "qloo api search", { type: "locality", take: 6, queries: names.length }, async () => {
-    const hits = await Promise.all(names.map((name) => qlooSearch({ query: name, type: "locality", take: 6 }).then((x) => pickLocality(x?.results, { query: name, market })).catch(() => undefined)));
+  const env = await q.tryStep(`Find ${market}'s cities in Qloo (${names.length} locality searches)`, "qloo api search", { type: "locality", take: 8, queries: names.length }, async () => {
+    const hits = await Promise.all(names.map((name) => qlooSearch({ query: name, type: "locality", take: 8 }).then((x) => pickLocality(x?.results, { query: name, market })).catch(() => undefined)));
     const seen = new Set();
     return { results: hits.filter((h) => h && !seen.has(h.entity_id) && seen.add(h.entity_id)).map((h) => toPlace(h, market)), provenance: { source: "Qloo API", endpoint: "/search", requests: names.map((name) => ({ method: "GET", path: "/search", query: { query: name, types: "urn:entity:locality", take: 6 } })) } };
   });
