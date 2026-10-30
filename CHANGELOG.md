@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: the story, simply, and a shot deck for films
+## PR #35 (31 Oct, 03:29): the story, simply, and a shot deck for films
 
 - **Every film brief opens with the story, simply**: 120 to 200 plain words in the present tense on who wants what,
   what stands in the way, how it turns and how it ends, at the top of the write card, the share page and its Markdown.
