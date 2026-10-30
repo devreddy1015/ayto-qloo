@@ -3,6 +3,17 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: the submission covers all eight formats
+
+- **The pitch is for anyone making something for a city**, not only filmmakers: "An agent with taste for anyone making
+  something for a city. Tell AYTO what and where: Qloo finds what that city loves and isn't getting, and your AI writes
+  it into the gap." (172 characters.)
+- **"About the project" opens with all eight formats** and what AYTO writes for each, then walks through the Hyderabad
+  film as one run. It adds the live with-vs-without numbers (17 of 17 against 4 of 10), the security pass, and a
+  next step for formats without release years.
+- **The gallery** is ten 3:2 images from the live site, film, reel and fashion drop, in `submission/gallery/`.
+- The Devpost draft carries all of this; images and the final submit are the user's.
+
 ## PR #28 (31 Oct, 00:47): a security check of the live site
 
 - **Per-visitor limits work on Render.** Behind Cloudflare and Render's proxy, the address Express saw changed with
