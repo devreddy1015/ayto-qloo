@@ -172,7 +172,11 @@ export async function fakeInsights(params) {
 }
 
 /** Synthetic entity lookup: the love's own style and theme tags. */
+// An artist's sound, as Qloo tags it: genres, moods and instruments, two of each, picked per entity.
+const SOUND = { "genre:qloo": ["Indie Pop", "Folk", "Electronic", "Hip Hop", "Fusion", "Lo-fi"], "music:qloo": ["Energetic", "Melodic", "Rhythmic", "Atmospheric"], "instrument:qloo": ["Guitar", "Synthesizer", "Drums", "Piano", "Vocals"] };
+const soundTags = (id) => Object.entries(SOUND).flatMap(([family, list]) => [0, 1].map((i) => list[Math.floor(rnd(`sound|${id}|${family}`, i) * list.length) % list.length]).filter((t, i, a) => a.indexOf(t) === i).map((t) => ({ tag_id: `urn:tag:${family}:${slug(t)}`, name: t, type: `urn:tag:${family}` })));
+
 export async function fakeEntities(ids) {
   await wait(80);
-  return { results: ids.map((id) => ({ entity_id: id, name: `Entity ${id.slice(-4)}`, type: "urn:entity:movie", tags: ["Neon Infused", "Glam Spectacle", "Textured Collage", "Stylized", "Vibrant"].map((t) => ({ tag_id: `urn:tag:style:qloo:${slug(t)}`, name: t })).concat([{ tag_id: "urn:tag:theme:qloo:sisterhood", name: "Sisterhood" }]) })) };
+  return { results: ids.map((id) => ({ entity_id: id, name: `Entity ${id.slice(-4)}`, type: "urn:entity:movie", tags: ["Neon Infused", "Glam Spectacle", "Textured Collage", "Stylized", "Vibrant"].map((t) => ({ tag_id: `urn:tag:style:qloo:${slug(t)}`, name: t })).concat([{ tag_id: "urn:tag:theme:qloo:sisterhood", name: "Sisterhood" }], soundTags(id)) })) };
 }

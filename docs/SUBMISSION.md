@@ -116,6 +116,8 @@ One click runs the full treatment for the city you pick.
 
 **Read it simply, shoot it beat by beat.** A film brief opens with the story told simply in plain words, and one click builds a shot deck: a storyboard frame per beat with its shot line and the Qloo-traced film to study, drawn as original art and downloadable as one file.
 
+**Hear it.** One more click asks Google's Lyria for a 30-second instrumental music tone, described only by the genres, moods and instruments that the city's favoured artists carry on Qloo, the lane and the look, never by an artist or song name; play it on the page or download it.
+
 **Agents can use it too.** AYTO is an MCP server at `/mcp` with four tools: `ayto_where_to_make`, `ayto_read_city`, `ayto_find_gap` and `ayto_write`. Claude, or any other MCP client, can ask where to make something and get back lanes with receipts.
 
 **How to try it:** open the live link (no login) and click a showcase (the Hyderabad film, the Las Vegas reel or the Tiruppur drop), or type your own sentence for any of the eight formats.

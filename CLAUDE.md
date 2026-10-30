@@ -32,6 +32,9 @@ server default is Groq; the live site runs DeepSeek (LLM_PROVIDER=deepseek, mode
   the server model or the plan's camera notes; reference = a Qloo-traced plan.references title; prompts scrubbed with image.js scrub()); never a stage;
   POST/GET /api/runs/:id/shots, /shots/:n.jpg, /shots.html (one-file download). The film writer's finish() fills plan.story ("the story, simply").
 - src/image.js: concept image on demand (OpenAI gpt-image-2.5-flare, falls back to gpt-image-2), never a stage; prompt from the plan + look + palette + area with every Qloo name scrubbed; POST/GET /api/runs/:id/image, /image.jpg.
+- src/music.js: music tone on demand (Gemini API, Lyria 3 Clip `lyria-3-clip-preview`, 30 s MP3, GEMINI_API_KEY, MAX_MUSIC_PER_DAY), never a stage;
+  prompt = audio.output.sound (the shortlist's own genre/music/instrument tags from /entities, read in the audio stage) + lanes + look + city + the
+  brief's mood line + a per-format tempo, every run word through image.js scrub(); POST/GET /api/runs/:id/music, /music.mp3 (sendFile, ranges).
 - src/llm.js (providers, redactor, boot probe), src/keys.js (per-run credentials, memory only), src/mcp.js, src/server.js.
 - src/languages.js: the brief's language (input.language; English when unset). languagesFor(city) = English + cityLanguages;
   languageRule() is appended to the writer's system prompt (empty for English); Qloo names stay in Latin letters, and the
