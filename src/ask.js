@@ -16,6 +16,9 @@ const ALLOWED = new Set([
   "qloo_find_tags",
 ]);
 const MAX_STEPS = 6;
+// Qloo calls one question may make: per model turn, and in all. A model asking for forty at once gets four.
+const MAX_CALLS_PER_STEP = 4;
+const MAX_CALLS = 12;
 
 let toolSpecsPromise;
 function toolSpecs() {
@@ -71,7 +74,7 @@ Never infer sensitive traits about people (health, religion, politics, ethnicity
 Context from the run the user is looking at:
 ${JSON.stringify(context).slice(0, 6000)}`;
 
-export async function runAsk({ question, context, credential }, emit) {
+export async function runAsk({ question, context, credential, signal }, emit) {
   if (!credential && !llmAvailable()) throw new Error("Follow-up questions need a language model: add your key in the drawer.");
   const tools = await toolSpecs();
   const messages = [
@@ -79,8 +82,11 @@ export async function runAsk({ question, context, credential }, emit) {
     { role: "user", content: String(question).slice(0, 800) },
   ];
 
+  let used = 0;
   for (let step = 0; step < MAX_STEPS; step += 1) {
-    const message = await chat({ credential, messages, tools, temperature: 0.2, maxTokens: 1200 });
+    // The visitor left: stop spending their key (or the server's) and Qloo calls on an answer nobody reads.
+    if (signal?.aborted) return "";
+    const message = await chat({ credential, messages, tools, temperature: 0.2, maxTokens: 1200, deadline: Date.now() + 60000 });
     const calls = message.tool_calls ?? [];
     if (!calls.length) {
       emit({ type: "answer", text: message.content ?? "" });
@@ -88,8 +94,13 @@ export async function runAsk({ question, context, credential }, emit) {
     }
     messages.push({ role: "assistant", content: message.content ?? "", tool_calls: calls });
 
-    for (const call of calls) {
+    for (const [i, call] of calls.entries()) {
       const name = call.function?.name;
+      if (signal?.aborted) return "";
+      if (i >= MAX_CALLS_PER_STEP || used >= MAX_CALLS) {
+        messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify({ error: "Skipped: this question has used its Qloo lookups. Answer with what you have." }) });
+        continue;
+      }
       let args = {};
       try {
         args = JSON.parse(call.function?.arguments || "{}");
@@ -101,6 +112,7 @@ export async function runAsk({ question, context, credential }, emit) {
         messages.push({ role: "tool", tool_call_id: id, content: JSON.stringify({ error: "Unknown tool" }) });
         continue;
       }
+      used += 1;
       emit({ type: "call", id, status: "running", title: name.replace(/^qloo_/, "").replace(/_/g, " "), tool: name, args });
       const started = Date.now();
       try {
@@ -116,7 +128,8 @@ export async function runAsk({ question, context, credential }, emit) {
 
   // Out of steps: ask for an answer with what we have.
   messages.push({ role: "user", content: "Answer now with the evidence you have." });
-  const final = await chat({ credential, messages, temperature: 0.2, maxTokens: 800 });
+  // The tools go along: a history with tool calls in it needs them (Anthropic refuses one without).
+  const final = await chat({ credential, messages, tools, temperature: 0.2, maxTokens: 800, deadline: Date.now() + 60000 });
   emit({ type: "answer", text: final.content ?? "" });
   return final.content ?? "";
 }

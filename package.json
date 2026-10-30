@@ -1,6 +1,6 @@
 {
   "name": "culture-gap",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "AYTO (Are You The One): tell it what you're making and where. Qloo reads what that city loves beyond the rest of the country and finds the gap; your own LLM writes the idea into it.",

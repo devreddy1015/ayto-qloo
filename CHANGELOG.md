@@ -3,6 +3,40 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: v0.2.0, ready for the deploy (bug hunt, batch 5)
+
+Version 0.2.0: batches 1 to 5 of the bug hunt (30 Oct), about 75 bugs, each reproduced before it was fixed.
+
+- **Qloo searches no longer start a process each.** Every city, love and title lookup ran `qloo api search` as a
+  new process; on Render's free plan (0.1 CPU) one took about 10 s to start and four at once ran past the 30 s
+  timeout, so showcases could fail to place their city. Search is now the same `GET /search` the harness makes,
+  over HTTP (about 0.4 s), with the same results in the same order and the same cache keys.
+- **Without a Qloo key the app now runs on labelled synthetic data** instead of a "samples" mode with no samples,
+  where every run failed to place its city while health said ok.
+- **render.yaml says what the free plan costs a judged demo**: it sleeps, and with no disk every sleep wipes the
+  share links and the cache. A disk block is ready to uncomment with the Starter plan.
+- **The home page**: one run whose titles came as objects made `/api/gallery` fail for everyone; a card that
+  can't be built is now left out. A world wall that came back empty at boot is tried again, not kept all day.
+- **The analyst** makes at most 4 Qloo lookups per model turn and 12 per question (a model asking for 40 at once
+  made 240), stops when the visitor leaves, counts against the server model's daily cap, and keeps its tools on
+  the last call (Anthropic refused that call without them).
+- **The MCP door**: a run that fails is a tool error with its reason; share links are absolute; a key without its
+  provider is refused (it used to write on the server's model, uncounted); handshakes and listings no longer use
+  up the hourly tool-call limit.
+- A body that isn't JSON is a 400 (413 when too large), and a JSON-RPC parse error on `/mcp`; it used to be a 500
+  with a stack in the log. The Qloo harness gets only its own settings, not the server's LLM keys. The in-memory
+  Qloo cache is bounded (400 answers; the disk keeps the rest). The server model is probed again every ten minutes
+  after a failed probe. `.dockerignore` keeps nested `.env` and `.cache` folders and `.claude` out of the build.
+- **The run page**, from a review of the front end: the event stream sends a snapshot and then live events (it
+  replayed the whole history on top, so finished stages flashed to "running", Recompute left the with/without
+  card stuck as stale, and replaced receipts came back); a rerun marks only the stages it reruns; rail links
+  scroll instead of reloading the run; a slower earlier load can't draw over the run you opened; the Where map
+  survives a round trip; the confirm card is ready again when you come back; maps don't leak; Ask answers belong
+  to their run; Ctrl/Cmd-click on a gallery card opens a new tab; Copy keeps plain-text beats; wide tables scroll
+  inside their card on a phone; event numbers keep rising past the log's cap; a restart's error names its stage.
+- Small engine ones: a country outside AYTO's markets still narrows the city pick; Coney Island and Dupont Circle
+  are neighbourhoods, not admin units.
+
 ## Unreleased: every name traces, whatever shape the model writes it in (bug hunt, batch 4)
 
 The writers had never met a real model. A fake one sending the shapes real models send found these.

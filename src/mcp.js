@@ -14,11 +14,13 @@ import { CANDIDATE_CITIES } from "./cities.js";
 const formatSchema = z.enum(FORMAT_IDS).describe("film, reel or fashion");
 const cityDesc = "City with its country, e.g. 'Hyderabad, India'";
 
-const digest = (run) => {
+const digest = (run, base = "") => {
   const o = (id) => run.stages[id]?.output;
+  const failed = run.plan?.find((id) => run.stages[id]?.status === "error");
   return {
     run: run.id,
     status: run.status,
+    ...(failed ? { error: `${failed}: ${run.stages[failed].error ?? "failed"}` } : {}),
     resolve: o("resolve") && { city: o("resolve").city, contrast: o("resolve").contrast?.name, theme: o("resolve").theme?.tags, loves: o("resolve").loves?.map((l) => l.name) },
     read: o("read") && Object.fromEntries(Object.entries(o("read").columns).map(([t, c]) => [t, { filter: c.filter, only_here: c.onlyHere, hidden_gems: c.hiddenGems, top: c.rows.slice(0, 10).map((r) => r.name), country_prefers: c.countryNames.slice(0, 8), contrast_prefers: c.contrastNames.slice(0, 8) }])),
     gap: o("gap") && { mode: o("gap").mode, lanes: o("gap").lanes, avoid: o("gap").avoid.map((a) => a.name), flavours: o("gap").flavours.map((f) => f.name) },
@@ -28,7 +30,7 @@ const digest = (run) => {
     travels: o("travels")?.cities,
     write: o("write") && { plan: o("write").plan, llm: o("write").llm, fallback: o("write").fallback },
     check: o("check") && { grounded: o("check").grounded, checked: o("check").checked, removed: o("check").removed },
-    share: run.publish?.url,
+    share: run.publish?.url ? `${base}${run.publish.url}` : undefined,
     receipts: run.ledger.length,
     note: "Qloo describes aggregate taste affinity, not individuals and not sales. Every name above came from a Qloo request recorded in the run's ledger.",
   };
@@ -41,18 +43,20 @@ async function runUntil(input, stopAfter, credential) {
   return run;
 }
 
-export function buildMcpServer() {
+export function buildMcpServer({ publicUrl = "" } = {}) {
   const server = new McpServer({ name: "ayto", version: "0.2.0" });
-  const text = (value) => ({ content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value });
+  // A run that stopped on an error is a tool error, with the reason, so an agent doesn't read an empty result as an answer.
+  const text = (value) => ({ content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value, ...(value?.status === "error" ? { isError: true } : {}) });
+  const digestOf = (run) => digest(run, publicUrl);
 
   server.registerTool("ayto_read_city", { title: "Read a city's taste", description: "What a city favours beyond its country and a contrast city, for a theme and a format. Three-column read plus flavour tags. Aggregate Qloo affinity, no personal data.", inputSchema: { city: z.string().describe(cityDesc), theme: z.string().optional().describe("Genre or subject words, e.g. 'crime' or 'nightlife, food'"), format: formatSchema.default("film"), loves: z.array(z.string()).optional().describe("Up to 3 titles or artists the crowd loves") } }, async ({ city, theme, format, loves }) => {
     const run = await runUntil(await parseInput({ text: "", format, city, theme: theme ?? "", loves: loves ?? [] }), "read");
-    return text(digest(run));
+    return text(digestOf(run));
   });
 
   server.registerTool("ayto_find_gap", { title: "Find the gap", description: "Lanes a city loves and is under-served in: demand (flavour rank in the city vs the country) weighed by recent supply. Includes audio, spots, audience and where the taste travels, per format.", inputSchema: { city: z.string().describe(cityDesc), theme: z.string().optional(), format: formatSchema.default("film"), loves: z.array(z.string()).optional() } }, async ({ city, theme, format, loves }) => {
     const run = await runUntil(await parseInput({ text: "", format, city, theme: theme ?? "", loves: loves ?? [] }), "audience");
-    return text(digest(run));
+    return text(digestOf(run));
   });
 
   server.registerTool(
@@ -65,9 +69,10 @@ export function buildMcpServer() {
     },
   );
   server.registerTool("ayto_write", { title: "Write into the gap", description: "The full run: read, gap, and the written film, reel or drop, checked so every name traces to Qloo. Pass your own LLM provider and key; it is used for this call only and never stored.", inputSchema: { city: z.string().describe(cityDesc), theme: z.string().optional(), format: formatSchema.default("film"), loves: z.array(z.string()).optional(), provider: z.string().optional().describe("groq, openai, anthropic, gemini, mistral, openrouter, together, fireworks, deepseek, xai, cerebras, sambanova"), key: z.string().optional().describe("Your API key for that provider"), model: z.string().optional(), language: z.string().optional().describe("Write the brief in this language, e.g. Telugu for Hyderabad. Names stay as Qloo spells them. Default English.") } }, async ({ city, theme, format, loves, provider, key, model, language }) => {
+    if (key && !provider) throw new Error("Pass the provider (groq, openai, anthropic…) with your key.");
     const credential = provider && key ? credentialFrom({ provider, key, model }) : undefined;
     const run = await runUntil(await parseInput({ text: "", format, city, theme: theme ?? "", loves: loves ?? [], language: language ?? "English" }), undefined, credential);
-    return text(digest(run));
+    return text(digestOf(run));
   });
 
   return server;
@@ -76,7 +81,7 @@ export function buildMcpServer() {
 /** Express handler: one stateless MCP request per HTTP request. */
 export function mcpHandler() {
   return async (req, res) => {
-    const server = buildMcpServer();
+    const server = buildMcpServer({ publicUrl: (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "") });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     res.on("close", () => {
       transport.close().catch(() => {});

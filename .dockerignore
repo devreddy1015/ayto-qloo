@@ -2,6 +2,10 @@ node_modules
 .cache
 .env
 .env.*
+**/.env
+**/.env.*
+**/.cache
+.claude
 probe-out
 samples/qloo
 .git

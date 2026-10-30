@@ -47,8 +47,14 @@ export function worldWall() {
     await Promise.all(Array.from({ length: 6 }, worker));
     // Films, series and artists woven together so no kind clumps on the wall.
     const by = (t) => out.filter((x) => x?.type === t);
-    return seen(interleave([by("movie"), by("tv_show"), by("artist")]));
-  })().catch(() => []);
+    const wall = seen(interleave([by("movie"), by("tv_show"), by("artist")]));
+    // Nothing came back (Qloo down at boot): try again on the next visit instead of keeping an empty wall all day.
+    if (!wall.length) worldAt = 0;
+    return wall;
+  })().catch(() => {
+    worldAt = 0;
+    return [];
+  });
   return worldPromise;
 }
 
