@@ -3,6 +3,16 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: live on Render, with DeepSeek
+
+- **Live at https://ayto-ocx1.onrender.com** (Render, free plan). The README, the repo's About and the Devpost text link it.
+- **DeepSeek uses its current model.** DeepSeek retired the name `deepseek-chat` on 24 Jul 2026 (it still answers for
+  now). The entry now asks for `deepseek-flash` with thinking off: thinking is on by default, slow inside the write
+  stage's budget, and expects its reasoning passed back on tool calls, which the analyst doesn't do. A per-provider
+  `extraBody` carries the switch.
+- **The video script quotes the live run**: the treatment DeepSeek wrote (The Clock Tower Ledger) and the
+  with-vs-without card (17 of 17 against 4 of 10).
+
 ## PR #25 (30 Oct, 23:50): the submission pack
 
 - **docs/VIDEO_SCRIPT.md**: a 60-second animated video for the animators, scene by scene (picture, on-screen text,
