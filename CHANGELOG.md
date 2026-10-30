@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: Claude writes on the live site; a café's lanes are tastes, not people
+## PR #30 (31 Oct, 02:49): Claude writes on the live site; a café's lanes are tastes, not people
 
 - **Claude (Sonnet 5.5) works as the writer.** With the live site switched to Anthropic, every call failed with
   "400: `temperature` is deprecated for this model": since 21 Oct 2026 Anthropic rejects sampling settings on every
