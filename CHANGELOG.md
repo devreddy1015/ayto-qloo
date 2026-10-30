@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: the submission pack
+## PR #25 (30 Oct, 23:50): the submission pack
 
 - **docs/VIDEO_SCRIPT.md**: a 60-second animated video for the animators, scene by scene (picture, on-screen text,
   voiceover), the app's palette, type and logo story, what must stay exact, and a 30-second cut. Every number is
