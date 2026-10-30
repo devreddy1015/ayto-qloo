@@ -2241,7 +2241,7 @@ details.raw > summary {
 
 /* The story, simply: a plain telling at the top of a film's brief */
 .story-simply { margin: 0 0 1.4rem; padding: 0.9rem 1rem; border-left: 3px solid var(--tape); background: rgba(255, 255, 255, 0.03); border-radius: 0 var(--radius-md) var(--radius-md) 0; }
-.story-simply .k { display: block; margin-bottom: 0.35rem; color: var(--tape); font-weight: 700; font-size: var(--step--1); letter-spacing: 0.02em; }
+.story-simply .k { margin-bottom: 0.35rem; color: var(--tape); }
 .story-simply p { margin: 0; max-width: 66ch; font-size: var(--step-1); line-height: 1.5; text-wrap: pretty; }
 
 /* Shot deck (OpenAI): one storyboard frame per beat, under a film's brief */

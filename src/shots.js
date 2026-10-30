@@ -237,19 +237,19 @@ export async function deckHtml(runId) {
   for (const f of deck.frames ?? []) {
     let img = "";
     if (f.status === "done") img = await readFile(fileOf(runId, Number(f.n))).then((b) => `data:image/jpeg;base64,${b.toString("base64")}`).catch(() => "");
-    frames.push(`<figure>${img ? `<img src="${img}" alt="Frame ${esc(f.n)}">` : `<div class="none">Not drawn</div>`}<figcaption><b>${esc(f.n)}. ${esc(f.title)}</b>${f.shot ? `<p>${esc(f.shot)}</p>` : ""}${f.reference?.title ? `<p class="ref">Study <i>${esc(f.reference.title)}</i>${f.reference.borrow ? `: ${esc(f.reference.borrow)}` : ""}</p>` : ""}</figcaption></figure>`);
+    frames.push(`<figure>${img ? `<img src="${img}" alt="Frame ${esc(f.n)}">` : `<div class="none">Not drawn</div>`}<figcaption><b>${esc(f.n)}. ${esc(f.title)}</b>${f.shot ? `<p>${esc(f.shot)}</p>` : ""}${f.reference?.title ? `<p class="ref">Study <b>${esc(f.reference.title)}</b>${f.reference.borrow ? `: ${esc(f.reference.borrow)}` : ""}</p>` : ""}</figcaption></figure>`);
   }
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:;">
 <title>${esc(deck.title)}: shot deck · AYTO</title>
 <style>
-body{margin:0;background:#0b0b0d;color:#eef0f7;font:16px/1.5 system-ui,sans-serif}main{max-width:1100px;margin:0 auto;padding:2rem 1rem}
-h1{margin:0 0 .3rem;font-size:2rem}.k{color:#f2be22;font-weight:700}.fine{color:#aab0c4;font-size:.85rem;max-width:70ch}
+body{margin:0;background:#0b0b0d;color:#eef0f7;font:400 16px/1.5 Archivo,system-ui,sans-serif}main{max-width:1100px;margin:0 auto;padding:2rem 1rem}
+h1{margin:0 0 .3rem;font-size:2rem;font-weight:700}.k{color:#f2be22;font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}b{font-weight:600}.fine{color:#aab0c4;font-size:.85rem;max-width:70ch}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.2rem;margin-top:1.5rem}
 figure{margin:0;break-inside:avoid}img,.none{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:8px;display:block;background:#1a1a1f}
-.none{display:grid;place-items:center;color:#aab0c4}figcaption p{margin:.2rem 0;color:#c9cdda;font-size:.92rem}.ref i{color:#eef0f7}
-@media print{body{background:#fff;color:#111}figcaption p,.ref i{color:#222}.fine{color:#444}}
+.none{display:grid;place-items:center;color:#aab0c4}figcaption p{margin:.2rem 0;color:#c9cdda;font-size:.92rem}.ref b{color:#eef0f7}
+@media print{body{background:#fff;color:#111}figcaption p,.ref b{color:#222}.fine{color:#444}}
 </style></head><body><main>
 <span class="k">Shot deck${deck.city ? ` · ${esc(deck.city)}` : ""}</span>
 <h1>${esc(deck.title)}</h1>
