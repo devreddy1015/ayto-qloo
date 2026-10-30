@@ -84,6 +84,8 @@ export const GROUND = {
     ["plan.shoot_base.name", "neighbourhood"],
     ["plan.travels_next[]", "city"],
     ["plan.lane.flavour", "tag"],
+    // What the city cares less about is a claim about Qloo's data too: the page shows it with the Qloo mark.
+    ["plan.avoid[]", "tag"],
   ],
   reel: [
     ["plan.audio.artist", "artist"],
@@ -96,6 +98,7 @@ export const GROUND = {
     ["plan.styles[].from_tags[]", "tag"],
     ["plan.palette[].from_tags[]", "tag"],
     ["plan.soundtrack[]", "artist"],
+    ["plan.avoid[]", "tag"],
   ],
   podcast: [
     ["plan.guests[].name", "person"],
@@ -103,12 +106,14 @@ export const GROUND = {
     ["plan.references[].title", "title"],
     ["plan.travels_next[]", "city"],
     ["plan.lane.flavour", "tag"],
+    ["plan.avoid[]", "tag"],
   ],
   game: [
     ["plan.references[].title", "title"],
     ["plan.soundtrack.artist", "artist"],
     ["plan.travels_next[]", "city"],
     ["plan.lane.flavour", "tag"],
+    ["plan.avoid[]", "tag"],
   ],
   cafe: [
     ["plan.playlist[].artist", "artist"],
@@ -116,16 +121,19 @@ export const GROUND = {
     ["plan.study_these[]", "place"],
     ["plan.brands_to_stock[]", "brand"],
     ["plan.lane.flavour", "tag"],
+    ["plan.avoid[]", "tag"],
   ],
   event: [
     ["plan.lineup[].artist", "artist"],
     ["plan.venue.name", "place"],
     ["plan.screening_or_theme[]", "title"],
     ["plan.lane.flavour", "tag"],
+    ["plan.avoid[]", "tag"],
   ],
   book: [
     ["plan.comps[].title", "title"],
     ["plan.travels_next[]", "city"],
     ["plan.lane.flavour", "tag"],
+    ["plan.avoid[]", "tag"],
   ],
 };

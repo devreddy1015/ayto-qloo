@@ -192,6 +192,9 @@ export async function gap(run) {
   // Demand-only when the catalogue read came back empty: say so rather than show zeros.
   if (canCount && !read.sample) for (const lane of lanes) Object.assign(lane, { supplyRead: false, supplyCount: undefined, fill: undefined, mode: "demand-only" });
   const avoid = avoidFrom(avoidPool, { read, supply, siblings, said });
+  // Many come from the country's own read (tags this city doesn't list), so they are registered here: the check
+  // traces the brief's "avoid" list to them.
+  for (const t of avoid) registerName(run, t.name, "tag", { id: t.id });
   const avoidSkipped = avoidPool.filter((t) => t.why).slice(0, 4).map((t) => ({ name: t.name, why: t.why }));
 
   return {

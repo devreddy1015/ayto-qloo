@@ -59,3 +59,12 @@ test("check blanks a print motif that names a real brand and drops unknown garme
   assert.equal(out.items.some((i) => i.kind === "motif"), true);
   assert.deepEqual(run.stages.write.output.plan.brands_to_study, ["Diesel"]); // still allowed as a reference
 });
+
+test("what the city cares less about is checked too: an invented flavour in avoid goes", () => {
+  for (const writer of ["film", "fashion", "podcast", "game", "cafe", "event", "book"]) {
+    const run = { names: { horror: { name: "Horror" } }, stages: { write: { output: { writer, plan: { avoid: ["Horror", "Made Up Flavour"] } } } } };
+    const out = checkEvidence(run);
+    assert.equal(out.removed, 1, writer);
+    assert.deepEqual(run.stages.write.output.plan.avoid, ["Horror"], writer);
+  }
+});

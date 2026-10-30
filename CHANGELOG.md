@@ -36,6 +36,12 @@ Version 0.2.0: batches 1 to 5 of the bug hunt (30 Oct), about 75 bugs, each repr
   inside their card on a phone; event numbers keep rising past the log's cap; a restart's error names its stage.
 - Small engine ones: a country outside AYTO's markets still narrows the city pick; Coney Island and Dupont Circle
   are neighbourhoods, not admin units.
+- **"Avoid" is checked.** Every format's brief lists flavours the city cares less about, shown with the Qloo mark,
+  but the check never looked at them, so an invented one stayed. They are checked now, and the gap stage
+  registers them (many come from the country's own read), so the template's list traces in full. Found by running
+  all eight formats against scrambled model replies with planted names, then live: a podcast in Mumbai, a café in
+  Kochi, a game in Seoul, a club night in Bengaluru, a novel in Chennai, a film in Hyderabad and a drop in Mumbai
+  all finish with every name traced.
 
 ## Unreleased: every name traces, whatever shape the model writes it in (bug hunt, batch 4)
 

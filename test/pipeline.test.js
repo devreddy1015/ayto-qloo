@@ -10,6 +10,7 @@ const { parseInput } = await import("../src/parse.js");
 const { createRun, startRun } = await import("../src/pipeline/runner.js");
 const { SHOWCASES } = await import("../src/presets.js");
 const { renderSharePage } = await import("../src/pipeline/page.js");
+const { isKnownName } = await import("../src/pipeline/evidence.js");
 
 after(() => rm(process.env.CACHE_DIR, { recursive: true, force: true }));
 
@@ -31,6 +32,8 @@ for (const showcase of SHOWCASES) {
     assert.equal(write.writer, showcase.format);
     const check = run.stages.check.output;
     assert.equal(check.removed, 0, JSON.stringify(check.items)); // the template only uses evidence names
+    // Every flavour the brief is told to avoid is a name Qloo returned, so the check can trace it.
+    for (const a of gap.avoid ?? []) assert.ok(isKnownName(run, a.name), `avoid ${a.name} is not a known name`);
     assert.match(run.publish.url, /^\/s\/[a-z0-9-]+$/);
     const html = renderSharePage(run);
     assert.match(html, /<!doctype html>/);
