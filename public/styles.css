@@ -2317,3 +2317,69 @@ details.raw > summary {
 @media (max-width: 720px) {
   .compare-stage { height: 230px; }
 }
+
+/* ---------- references from Qloo (fashion): a strip of 3-4 pictures under the 3D preview that slides left ---------- */
+.refs {
+  min-width: 0;
+}
+.refs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+.refs-head h3 {
+  margin: 0;
+}
+.ref-arrows {
+  display: flex;
+  gap: 0.4rem;
+}
+.ref-arrows button {
+  padding: 0.2rem 0.75rem;
+  font-size: var(--step-1);
+  line-height: 1.2;
+}
+.ref-track {
+  display: flex;
+  gap: 0.8rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding-bottom: 0.2rem;
+  animation: ref-slide-in 600ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.ref-track::-webkit-scrollbar {
+  display: none;
+}
+.ref-card {
+  flex: 0 0 min(68%, 220px);
+  margin: 0;
+  scroll-snap-align: start;
+  display: grid;
+  gap: 0.4rem;
+  align-content: start;
+  min-width: 0;
+}
+.ref-card img {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.06);
+  display: block;
+}
+.ref-card figcaption {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+}
+@keyframes ref-slide-in {
+  from { opacity: 0; transform: translateX(32px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ref-track { animation: none; }
+}

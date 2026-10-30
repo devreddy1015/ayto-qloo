@@ -33,6 +33,8 @@ server default is Groq; the live site runs DeepSeek (LLM_PROVIDER=deepseek, mode
 - src/shots.js: shot deck on demand for a finished film (one frame per beat, max 6, 2 OpenAI calls at a time, quality low; shot line from
   the server model or the plan's camera notes; reference = a Qloo-traced plan.references title; prompts scrubbed with image.js scrub()); never a stage;
   POST/GET /api/runs/:id/shots, /shots/:n.jpg, /shots.html (one-file download). The film writer's finish() fills plan.story ("the story, simply").
+- public/references.js: pickReferences(run), 3-4 Qloo pictures for the strip under the fashion 3D preview (resolved love first,
+  then look.labels, onlyHere first; https only; none if fewer than 2). No web search: every picture came from this run's reads.
 - src/fashion3d.js: on demand per fashion style, never a stage: an OpenAI-drawn print/fabric the viewer wraps onto the garment
   (OPENAI_API_KEY), and for hero styles an OpenAI product shot lifted to a GLB by Stability Stable Fast 3D (STABILITY_API_KEY;
   OpenAI has no 3D API). scrub() from image.js on every prompt; caps MAX_PRINTS_PER_DAY / MAX_MODELS_PER_DAY; routes
