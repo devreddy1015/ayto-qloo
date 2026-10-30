@@ -70,10 +70,12 @@ function build() {
     );
     const panel = node("div", { class: "page", role: "tabpanel", id: `page-${p.id}`, "aria-labelledby": tab.id, tabindex: "0", hidden: "" });
     if (p.note) panel.append(node("p", { class: "block-note page-note", text: p.note }));
+    // The brief opens on the run's main results (public/highlights.js), drawn by app.js into #highlights.
+    const lead = p.id === "brief" ? node("section", { id: "highlights", class: "highlights", "aria-label": "Main results", hidden: "" }) : null;
     const blocks = p.id === "make" ? node("div", { class: "page-blocks" }) : null;
     const stages = node("div", { class: "page-stages" });
     const empty = p.id === "make" ? node("p", { class: "block-note page-empty", hidden: "" }) : null;
-    panel.append(...[blocks, stages, empty].filter(Boolean));
+    panel.append(...[lead, blocks, stages, empty].filter(Boolean));
     ui.tabs[p.id] = tab;
     ui.panels[p.id] = { el: panel, blocks, stages, empty };
     ui.bar.append(tab);
@@ -223,7 +225,8 @@ function refresh() {
 function reset() {
   const redrawn = ui.built && !ui.results.hidden;
   if (!ui.built) build();
-  for (const old of ui.results.querySelectorAll(".page-stages > *, .page-blocks > *")) old.remove();
+  for (const old of ui.results.querySelectorAll(".page-stages > *, .page-blocks > *, #highlights > *")) old.remove();
+  document.getElementById("highlights").hidden = true;
   const want = location.hash ? pageFromHash(location.hash) : null;
   ui.stage = want?.stage ?? null;
   ui.status = null;

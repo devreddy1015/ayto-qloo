@@ -2413,3 +2413,46 @@ details.raw > summary {
   .page-tab-unit { display: none; }
   .page-blocks > *, .page > .ask { padding: 0.9rem 1rem 1rem; }
 }
+
+/* Main results, first on the brief page (public/highlights.js): the idea, the gap and the proof at a glance.
+   Yellow stays the gap's colour: only the gap tile carries it. Each tile opens the stage behind it. */
+.highlights { display: grid; gap: 0.9rem; padding: 1.3rem 1.4rem 1.4rem; background: var(--glass); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.35); border-radius: var(--radius); box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.9); scroll-margin-top: 5.5rem; transition: opacity 0.35s ease, transform 0.35s var(--ease-out); }
+@starting-style { .highlights { opacity: 0; transform: translateY(8px); } }
+.hl-kicker { margin: 0; font-size: var(--step--2); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tape); }
+.hl-title { margin: -0.3rem 0 0; font-size: var(--step-3); font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.hl-line { margin: 0; max-width: 62ch; color: var(--fg-soft); font-size: var(--step-0); }
+.hl-what { color: var(--fg); font-weight: 600; }
+.hl-what::after { content: "."; }
+.hl-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.7rem; margin-top: 0.2rem; }
+.hl-grid > .hl-gap, .hl-grid.hl-n1 > * { grid-column: 1 / -1; }
+.hl-tile { display: flex; flex-direction: column; gap: 0.45rem; min-width: 0; padding: 0.9rem 1rem 1rem; color: inherit; text-decoration: none; background: var(--well); border: 1px solid var(--line); border-radius: var(--radius-md); transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out); }
+.hl-tile:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .hl-tile:hover { background: var(--well-2); border-color: var(--line-strong); } }
+.hl-gap { border-color: rgba(242, 190, 34, 0.45); background: linear-gradient(180deg, rgba(242, 190, 34, 0.1), rgba(242, 190, 34, 0.02)); }
+@media (hover: hover) and (pointer: fine) { .hl-gap:hover { border-color: var(--tape); background: linear-gradient(180deg, rgba(242, 190, 34, 0.16), rgba(242, 190, 34, 0.04)); } }
+.hl-label { font-size: var(--step--2); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-mute); }
+.hl-gap .hl-label { color: var(--tape); }
+.hl-lanes { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); gap: 0.6rem 1rem; }
+.hl-lanes li { display: grid; gap: 0.05rem; padding-left: 0.7rem; border-left: 3px solid var(--tape); }
+.hl-lanes strong { font-size: var(--step-1); font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.hl-lanes span { font-size: var(--step--1); color: var(--fg-soft); }
+.hl-num { font-size: var(--step-3); font-weight: 700; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.hl-num small { font-size: var(--step-1); font-weight: 600; color: var(--fg-mute); letter-spacing: 0; }
+.hl-dim { color: var(--fg-mute); }
+.hl-vs { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.2rem 0.6rem; }
+.hl-vs-word { font-size: var(--step--1); color: var(--fg-mute); }
+.hl-foot { margin-top: auto; font-size: var(--step--1); color: var(--fg-soft); line-height: 1.4; }
+.hl-facts { margin: 0.1rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 0.6rem 1.2rem; }
+.hl-facts > div { min-width: 0; padding-top: 0.55rem; border-top: 1px solid var(--line); }
+.hl-facts dt { font-size: var(--step--2); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-mute); }
+.hl-facts dd { margin: 0.15rem 0 0; font-size: var(--step--1); overflow-wrap: anywhere; }
+.hl-facts a { text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { .hl-facts a:hover { text-decoration: underline; text-underline-offset: 3px; } }
+@media (max-width: 720px) {
+  .highlights { padding: 1rem 1rem 1.1rem; }
+  .hl-title { font-size: var(--step-2); }
+  .hl-num { font-size: var(--step-2); }
+  .hl-num small { font-size: var(--step-0); }
+}
+@media (max-width: 420px) { .hl-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .highlights { transition: none; } }
