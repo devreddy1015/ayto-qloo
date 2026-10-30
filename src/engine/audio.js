@@ -1,8 +1,10 @@
 // Stage: artists this crowd favours in the city, vs the country. Reuses the
 // read's artist column when the format already read artists.
-import { threeColumns } from "../analysis.js";
+import { tagName, threeColumns } from "../analysis.js";
 import { evidenceFor, registerEntity, registerName } from "../pipeline/evidence.js";
+import { qlooEntities } from "../qloo.js";
 import { crowdIds, placeLabel } from "./common.js";
+import { isNoise } from "./gap.js";
 import { latinNames } from "./read.js";
 
 export async function audio(run) {
@@ -30,5 +32,44 @@ export async function audio(run) {
   const readable = (x) => !/[^\u0000-\u024F\u1E00-\u1EFF\s\d\p{P}\p{S}]/u.test(String(x.name ?? ""));
   const ranked = [...rows.filter(readable), ...rows.filter((x) => !readable(x))];
   const shortlist = [...ranked.filter((x) => x.onlyHere || x.hiddenGem), ...ranked.filter((x) => !(x.onlyHere || x.hiddenGem))].slice(0, 6).map((x) => ({ id: x.id, name: x.name, why: x.hiddenGem ? "hidden gem: loved here, small everywhere" : x.onlyHere ? `favoured in ${r.city.name}, not nationally` : "favoured here and nationally", popularity: x.popularity, affinity: x.affinity, image: x.image }));
-  return { artists: rows.slice(0, 15), shortlist, summary: `${shortlist.length} artist${shortlist.length === 1 ? "" : "s"}, ${rows.filter((x) => x.hiddenGem).length} hidden gem${rows.filter((x) => x.hiddenGem).length === 1 ? "" : "s"}.` };
+  const sound = await soundOf(q, shortlist);
+  return { artists: rows.slice(0, 15), shortlist, sound, summary: `${shortlist.length} artist${shortlist.length === 1 ? "" : "s"}, ${rows.filter((x) => x.hiddenGem).length} hidden gem${rows.filter((x) => x.hiddenGem).length === 1 ? "" : "s"}.` };
+}
+
+// The shortlist's own tags on /entities (recommend results carry none): the genres, moods and instruments these
+// artists share, ranked by how many of them carry each. The music tone (src/music.js) is described with these words,
+// never with an artist's name.
+const SOUND_FAMILIES = {
+  genres: ["urn:tag:genre:qloo:", "urn:tag:subgenre:qloo:", "urn:tag:genre:music:"],
+  moods: ["urn:tag:music:qloo:"],
+  instruments: ["urn:tag:instrument:qloo:"],
+};
+// Qloo files these under instrument; the tone is instrumental, so they're left out.
+const NOT_INSTRUMENTS = new Set(["vocals", "vocal", "voice", "singing", "dance", "rap"]);
+
+async function soundOf(q, shortlist) {
+  const ids = shortlist.map((a) => a.id).filter(Boolean);
+  if (!ids.length) return undefined;
+  const env = await q.tryStep("The shortlist's own genre, mood and instrument tags", "qloo api entities", { ids }, async () => ({ results: (await qlooEntities(ids)).results ?? [], provenance: { source: "Qloo API", endpoint: "/entities", requests: [{ method: "GET", path: "/entities", query: { entity_ids: ids } }] } }));
+  const entities = env?.results ?? [];
+  if (!entities.length) return undefined;
+  const top = (prefixes, skip = new Set()) => {
+    const seen = new Map(); // folded name -> { id, name, artists }
+    for (const pre of prefixes) {
+      for (const e of entities) {
+        for (const t of e.tags ?? []) {
+          const id = String(t.tag_id ?? t.id ?? "");
+          const name = tagName(t.name);
+          const key = name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ""); // "Hip - Hop" is "Hip Hop"
+          if (!id.startsWith(pre) || !key || isNoise(name, id) || skip.has(name.toLowerCase())) continue;
+          if (!seen.has(key)) seen.set(key, { id, name, artists: new Set() });
+          seen.get(key).artists.add(e.entity_id);
+        }
+      }
+    }
+    // Map order breaks ties: the first family, then the shortlist's own order.
+    return [...seen.values()].sort((a, b) => b.artists.size - a.artists.size).slice(0, 5).map((x) => ({ id: x.id, name: x.name, artists: x.artists.size }));
+  };
+  const sound = { genres: top(SOUND_FAMILIES.genres), moods: top(SOUND_FAMILIES.moods), instruments: top(SOUND_FAMILIES.instruments, NOT_INSTRUMENTS), of: entities.length };
+  return sound.genres.length || sound.moods.length || sound.instruments.length ? sound : undefined;
 }

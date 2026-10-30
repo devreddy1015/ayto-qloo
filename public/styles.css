@@ -2254,3 +2254,14 @@ details.raw > summary {
 .shot figcaption p { margin: 0.15rem 0 0; }
 .shot-line { font-size: var(--step--1); color: var(--fg-soft); }
 .shot-download { margin-top: 0.3rem; }
+
+/* Music tone (Lyria), under the concept image */
+.music-tone { margin: 1.5rem 0 0; display: grid; gap: 0.6rem; justify-items: start; }
+.music-tone audio { width: 100%; }
+.music-tone figcaption { color: var(--fg-mute); font-size: var(--step--1); }
+.music-tone figcaption a { color: var(--link); }
+.music-wait { width: 100%; height: 3rem; border-radius: var(--radius-md); }
+.music-ask { width: 100%; color: var(--fg-mute); font-size: var(--step--1); }
+.music-ask > summary { cursor: pointer; color: var(--link); }
+.music-ask h3 { font-size: var(--step--1); font-weight: 600; margin: 0.8rem 0 0.35rem; color: var(--fg); }
+.music-prompt { margin: 0.6rem 0; padding: 0.6rem 0.8rem; border-left: 2px solid var(--line); white-space: pre-wrap; }

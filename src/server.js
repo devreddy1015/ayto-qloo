@@ -6,6 +6,7 @@ import { checkCredential, credentialFrom, llmAvailable, llmStatus, probeServerLl
 import { discovery, mcpHandler } from "./mcp.js";
 import { imageAvailable, imageBudget, imageFile, imageStatus, startImage } from "./image.js";
 import { deckHtml, shotBudget, shotFile, shotPlan, shotsAvailable, shotsPerHour, shotStatus, startShots } from "./shots.js";
+import { musicAvailable, musicBudget, musicFile, musicStatus, startMusic } from "./music.js";
 import { mosaic, worldWall } from "./mosaic.js";
 import { gallery } from "./gallery.js";
 import { candidates, heuristicParse, parseInput } from "./parse.js";
@@ -146,7 +147,7 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.get("/api/presets", (_req, res) => {
-  res.json({ showcases: SHOWCASES.map(({ id, label, text, format }) => ({ id, label, text, format })), formats: formatList(), markets: MARKETS, providers: providerList(), mode: config.mode, llm: llmStatus(), images: imageAvailable(), shotDeck: shotsAvailable() });
+  res.json({ showcases: SHOWCASES.map(({ id, label, text, format }) => ({ id, label, text, format })), formats: formatList(), markets: MARKETS, providers: providerList(), mode: config.mode, llm: llmStatus(), images: imageAvailable(), shotDeck: shotsAvailable(), music: musicAvailable() });
 });
 
 app.get("/api/llm/providers", (_req, res) => res.json({ providers: providerList() }));
@@ -409,6 +410,35 @@ app.get("/api/runs/:id/shots.html", async (req, res) => {
   const html = await deckHtml(req.params.id);
   if (!html) return res.status(404).send("No shot deck yet.");
   res.type("html").set({ "content-disposition": `attachment; filename="${req.params.id}-shot-deck.html"`, "cache-control": "no-cache" }).send(html);
+});
+
+// ---------- music tone: a 30-second instrumental from a finished run's music taste (Lyria), on demand, never a stage ----------
+
+app.post("/api/runs/:id/music", async (req, res) => {
+  if (!musicAvailable()) return res.status(503).json({ error: "Music tones aren't switched on for this site." });
+  const run = await loadRun(req.params.id);
+  if (!run) return res.status(404).json({ error: "No such run." });
+  if (run.status !== "done") return res.status(409).json({ error: "Wait for the run to finish, then compose." });
+  const now = await musicStatus(run.id);
+  if (now.status === "composing" || now.status === "done") return res.json(now);
+  if (!allow(clientIp(req), { perHour: 6, bucket: "music" })) return res.status(429).json({ error: "You've composed a lot of music tones this hour. Try again later." });
+  if (!musicBudget({ take: true })) return res.status(503).json({ error: "The demo has composed today's music tones. Try again tomorrow." });
+  try {
+    await startMusic(run);
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: publicError(error) });
+  }
+  res.status(202).json({ status: "composing" });
+});
+app.get("/api/runs/:id/music", async (req, res) => {
+  if (!RUN_ID.test(req.params.id)) return res.status(404).json({ error: "No such run." });
+  res.json(await musicStatus(req.params.id));
+});
+// Sent as a file, so the browser can seek (range requests) and the page can offer it as a download.
+app.get(/^\/api\/runs\/([A-Za-z0-9_-]{3,40})\/music\.(mp3|wav)$/, async (req, res) => {
+  const file = await musicFile(req.params[0], req.params[1]);
+  if (!file) return res.status(404).send("No music yet.");
+  res.sendFile(file.path, { headers: { "cache-control": "public, max-age=3600" } });
 });
 
 app.post("/api/ask", async (req, res) => {

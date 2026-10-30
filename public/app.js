@@ -981,6 +981,7 @@ function renderStage(id, s = {}) {
   body.replaceChildren(...nodes.flat(Infinity).filter(Boolean));
   if (id === "write") body.append(conceptImage(state.run) ?? "");
   if (id === "write") body.append(shotDeck(state.run) ?? "");
+  if (id === "write") body.append(musicTone(state.run) ?? "");
   if (s.output.edited) body.prepend(el("p", { class: "edited-note", text: "Edited by you. Stages after this were rerun with your changes." }));
 }
 
@@ -1078,6 +1079,70 @@ function shotDeck(run) {
   show({ status: "none" });
   fetch(`/api/runs/${run.id}/shots`).then((r) => r.json()).then((s) => s.status !== "none" && show(s)).catch(() => {});
   return box;
+}
+
+/**
+ * A 30-second instrumental composed by Google's Lyria from this run's music taste, on demand: the genres, moods and
+ * instruments the shortlist's artists carry on Qloo, the lanes and the look, with no artist or song named in the
+ * prompt. Not a stage, so the run is complete without it.
+ */
+function musicTone(run) {
+  if (!state.presets.music || !run?.id || run.status !== "done") return null;
+  const box = el("figure", { class: "music-tone" });
+  const sound = run.stages?.audio?.output?.sound;
+  const basis = [...(sound?.genres ?? []).slice(0, 3), ...(sound?.instruments ?? []).slice(0, 2)].map((t) => t.name).join(", ");
+  let polling;
+  const show = (s) => {
+    clearTimeout(polling);
+    if (!box.isConnected && s.status !== "none") return; // the card was redrawn; its new box takes over
+    if (s.status === "done") {
+      box.replaceChildren(
+        el("audio", { src: s.url, controls: true, preload: "metadata" }),
+        el("figcaption", {}, `Music tone, composed by Google Lyria from this run's taste${basis ? ` (${basis})` : ""}. Original, instrumental, no real artist or song. `, el("a", { href: s.url, download: `${run.id}-music-tone.${s.url.split(".").pop()}`, text: "Download" })),
+        s.prompt ? musicAsk(s, sound) : "",
+      );
+    } else if (s.status === "composing") {
+      box.replaceChildren(el("div", { class: "music-wait skeleton" }), el("figcaption", { text: "Composing… about 20 to 60 seconds." }));
+      polling = setTimeout(() => fetch(`/api/runs/${run.id}/music`).then((r) => r.json()).then(show).catch(() => show({ status: "error", error: "Lost the connection. Try again." })), 4000);
+    } else {
+      const compose = el("button", { class: "secondary", type: "button", text: s.status === "error" ? "Try again" : "Compose a music tone" });
+      compose.addEventListener("click", async () => {
+        compose.disabled = true;
+        try {
+          show(await post(`/api/runs/${run.id}/music`, {}));
+        } catch (error) {
+          show({ status: "error", error: error.message });
+        }
+      });
+      box.replaceChildren(
+        compose,
+        el("figcaption", { text: s.error ? `Couldn't compose it: ${s.error}` : `Google's Lyria composes a 30-second instrumental from this run's music taste${basis ? `: ${basis}` : ""}. Described by genre, mood, tempo and instruments only, never a real artist or song.` }),
+      );
+    }
+  };
+  show({ status: "none" });
+  fetch(`/api/runs/${run.id}/music`).then((r) => r.json()).then((s) => s.status !== "none" && show(s)).catch(() => {});
+  return box;
+}
+
+/** The exact prompt Lyria got, and the Qloo reads behind each part of it: the receipts for the music. */
+function musicAsk(s, sound) {
+  const count = new Map([...(sound?.genres ?? []), ...(sound?.moods ?? []), ...(sound?.instruments ?? [])].map((t) => [t.name.toLowerCase(), t.artists]));
+  const tagged = (list) => (list ?? []).map((n) => (count.get(n.toLowerCase()) ? `${n} ×${count.get(n.toLowerCase())}` : n));
+  const b = s.basis ?? {};
+  const rows = [
+    [`Genres, feel and instruments: the shortlisted artists' own tags on Qloo${sound?.of ? ` (× = how many of the ${sound.of} carry it)` : ""}`, [...tagged(b.genres), ...tagged(b.moods), ...tagged(b.instruments)]],
+    ["Theme: the lanes from the gap", b.lanes ?? []],
+    ["Visual style: the look words", b.look ?? []],
+  ].filter(([, list]) => list.length);
+  return el(
+    "details",
+    { class: "music-ask" },
+    el("summary", { text: "What we asked Lyria" }),
+    rows.map(([label, list]) => section(label, chips(list, "small"))),
+    el("p", { class: "music-prompt", text: s.prompt }),
+    el("p", { class: "footnote", text: "Every word taken from the run went through the same name scrub as the concept image, so no artist, title, brand or venue reaches the model." }),
+  );
 }
 
 // ---------- small pieces ----------
@@ -1319,6 +1384,7 @@ const RENDER = {
           ),
         ),
       ),
+      o.sound ? section(`The sound they share (their own Qloo tags, across ${o.sound.of} artists)`, chips([...(o.sound.genres ?? []), ...(o.sound.moods ?? []), ...(o.sound.instruments ?? [])].map((t) => `${t.name} ×${t.artists}`), "small")) : null,
     ];
   },
 

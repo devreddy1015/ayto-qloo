@@ -3,6 +3,26 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: a music tone for every brief
+
+- **One click under any finished brief composes a music tone:** a 30-second original instrumental from Google's Lyria
+  (`lyria-3-clip-preview` on the Gemini API), with a player on the page and a Download link for the MP3. A "What we
+  asked Lyria" fold under the player shows the exact prompt and the Qloo tags, lanes and look words behind it.
+- **Built from what Qloo read, not made up.** The audio stage now looks up its shortlist on Qloo's `/entities` (one more
+  receipt) and counts the genre, mood and instrument tags those artists carry: for six artists Hyderabad favours
+  (checked live), Indian Classical, Playback Singing and Film Score; Energetic and Melodious; keyboard, piano and
+  guitar. The audio card shows them. The prompt adds the gap's lanes, the look words, the city, the brief's own mood line, and a tempo per format (a film's
+  titles at about 80 BPM, a reel's opener at 120).
+- **No name reaches the model.** Every word taken from the run goes through the concept image's `scrub()`, so no artist,
+  title, brand or venue is named, and a genre that shares a name with one drops out. Sung genres are left out of an
+  instrumental, and the prompt asks for no vocals and nothing in the style of any artist or song.
+- **It is never a stage**, so a run never waits on it or fails because of it. One tone per run: a second click plays
+  the same one. Capped at 6 an hour per visitor and 40 a day for the site (`MAX_MUSIC_PER_DAY`). It is off, with no
+  button, when the server has no `GEMINI_API_KEY`.
+- **Routes:** `POST /api/runs/:id/music` (starts composing, 202), `GET /api/runs/:id/music` (status), and
+  `GET /api/runs/:id/music.mp3` (sent as a file, so the player can seek). Tests run against a fake Gemini API (no Qloo
+  name in the prompt, a refused prompt says why and can be retried, the file served with ranges, off without a key).
+
 ## PR #35 (31 Oct, 03:29): the story, simply, and a shot deck for films
 
 - **Every film brief opens with the story, simply**: 120 to 200 plain words in the present tense on who wants what,
