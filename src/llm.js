@@ -19,7 +19,9 @@ export const PROVIDERS = {
   openrouter: { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", model: "meta-llama/llama-3.3-70b-instruct", keyHint: "sk-or-…", json: false },
   together: { label: "Together", baseUrl: "https://api.together.xyz/v1", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", keyHint: "…", json: true },
   fireworks: { label: "Fireworks", baseUrl: "https://api.fireworks.ai/inference/v1", model: "accounts/fireworks/models/llama-v3p3-70b-instruct", keyHint: "fw_…", json: true },
-  deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", model: "deepseek-chat", keyHint: "sk-…", json: true },
+  // deepseek-chat was retired on 24 Jul 2026; deepseek-flash thinks by default, which is slow and wants its reasoning
+  // passed back on tool calls, so the writer and the analyst turn it off.
+  deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com", model: "deepseek-flash", keyHint: "sk-…", json: true, extraBody: { thinking: { type: "disabled" } } },
   xai: { label: "xAI", baseUrl: "https://api.x.ai/v1", model: "grok-3-mini", keyHint: "xai-…", json: true },
   cerebras: { label: "Cerebras", baseUrl: "https://api.cerebras.ai/v1", model: "llama-3.3-70b", keyHint: "csk-…", json: true },
   sambanova: { label: "SambaNova", baseUrl: "https://api.sambanova.ai/v1", model: "Meta-Llama-3.3-70B-Instruct", keyHint: "…", json: true },
@@ -82,7 +84,7 @@ async function postJson(url, headers, body, timeoutMs = 60000) {
 }
 
 function openaiCall(p, cred, model, { messages, tools, json, temperature, maxTokens, timeoutMs }) {
-  const body = { model, messages, temperature, max_tokens: maxTokens, ...(tools?.length ? { tools, tool_choice: "auto" } : {}), ...(json && p.json ? { response_format: { type: "json_object" } } : {}) };
+  const body = { model, messages, temperature, max_tokens: maxTokens, ...(tools?.length ? { tools, tool_choice: "auto" } : {}), ...(json && p.json ? { response_format: { type: "json_object" } } : {}), ...(p.extraBody ?? {}) };
   const headers = { authorization: `Bearer ${cred.key}` };
   if (cred.provider === "openrouter") Object.assign(headers, { "http-referer": "https://ayto.app", "x-title": "AYTO" });
   return postJson(`${p.baseUrl}/chat/completions`, headers, body, timeoutMs).then((r) => ({ ...r, message: r.status === 200 ? r.json?.choices?.[0]?.message : undefined, usage: r.status === 200 ? { input: r.json?.usage?.prompt_tokens ?? 0, output: r.json?.usage?.completion_tokens ?? 0 } : undefined }));

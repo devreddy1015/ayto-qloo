@@ -33,3 +33,31 @@ test("the Anthropic adapter is wired for tools (no provider-level refusal)", asy
   assert.ok(!src.includes("Tool calls need an OpenAI-compatible provider"));
   assert.ok(src.includes('type: "tool_use"') && src.includes('type: "tool_result"'));
 });
+
+test("DeepSeek gets its current model with thinking off", async () => {
+  const { createServer } = await import("node:http");
+  const { chat } = await import("../src/llm.js");
+  let seen;
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (d) => (body += d));
+    req.on("end", () => {
+      seen = { path: req.url, body: JSON.parse(body) };
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: "ok" } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }));
+    });
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const real = PROVIDERS.deepseek.baseUrl;
+  PROVIDERS.deepseek.baseUrl = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const message = await chat({ credential: credentialFrom({ provider: "deepseek", key: "sk-test-abcdefghijkl" }), messages: [{ role: "user", content: "hi" }] });
+    assert.equal(message.content, "ok");
+    assert.equal(seen.path, "/chat/completions");
+    assert.equal(seen.body.model, "deepseek-flash");
+    assert.deepEqual(seen.body.thinking, { type: "disabled" });
+  } finally {
+    PROVIDERS.deepseek.baseUrl = real;
+    server.close();
+  }
+});

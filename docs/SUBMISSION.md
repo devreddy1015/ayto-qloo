@@ -28,7 +28,7 @@ Render, from the blueprint in `render.yaml` (Docker, one web service). The bluep
 1. Go to https://render.com/deploy?repo=https://github.com/devreddy1015/ayto-qloo and sign in with GitHub.
 2. Paste the secrets when Render asks:
    - `QLOO_API_KEY`: the hackathon key.
-   - `GROQ_API_KEY`: a free key from console.groq.com. Without a server model, judges get a template instead of a written treatment unless they bring their own key.
+   - The model: `LLM_PROVIDER` = `deepseek` and `LLM_API_KEY` = your DeepSeek key (or `GROQ_API_KEY`, free from console.groq.com). Without a server model, judges get a template instead of a written treatment unless they bring their own key.
 3. Pick the plan:
    - **Free** works. It sleeps after 15 idle minutes (the first visit then waits about a minute), and share links reset on each wake.
    - **Starter** ($7/month) never sleeps. With the disk block in `render.yaml` uncommented, share links survive restarts. Recommended for the judging week (2–5 Nov).
@@ -175,7 +175,7 @@ Without Qloo there is no lane, no list and no map: only a prompt.
 ## Built with
 
 `node.js` · `express` · `javascript` · `qloo` · `qloo-insights-api` · `mcp` · `model-context-protocol` · `groq` · `anthropic` ·
-`openai` · `three.js` · `leaflet` · `docker` · `render` · `server-sent-events`
+`openai` · `deepseek` · `three.js` · `leaflet` · `docker` · `render` · `server-sent-events`
 
 ## Try it out (links)
 
