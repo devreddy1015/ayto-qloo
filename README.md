@@ -14,6 +14,8 @@ Live demo: **[ayto-ocx1.onrender.com](https://ayto-ocx1.onrender.com)** (free pl
 - Not sure **where** yet? Say "a crime short film in India" and click **Let AYTO compare cities**. AYTO reads the theme across the country's ten largest cities, measures each city against the country and against the other nine, and maps where the widest open lane is: Kolkata's is Crime Lord, Bengaluru's Documentary, Mumbai's Gender Violence, while Martial Arts leans high in all ten cities and Biographical in nine. One click runs the full treatment for the city you pick.
 - Same engine, seven other formats: a **reel** (hook, beats, song, spots, caption), a **fashion drop** (styles you can turn in 3D, a palette, brands to study, a first production run with costing), a **podcast**, an **indie game**, a **café menu and playlist**, a **live event night**, a **book or web novel**. Say which, or let AYTO read it from the sentence.
 
+- **See it.** Under any finished brief, one click asks OpenAI to draw a concept image from it: a film's mood still, a café's room, a drop's hero garment, a book cover. The picture is built from the look words and palette Qloo's read gave, set in the city and area AYTO found, and every Qloo name is kept out of the prompt, so it is original art, never a real poster, logo or person. Optional: it needs `OPENAI_API_KEY` on the server (capped at 40 images a day, 6 an hour per visitor).
+
 Every name on the page comes from a Qloo request you can open. It never says "hit"; it says "built on what this city already loves".
 
 ---

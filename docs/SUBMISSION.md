@@ -112,6 +112,8 @@ One click runs the full treatment for the city you pick.
 
 **The other showcases** run the same way: a Las Vegas reel about nightlife and food, and a Tiruppur kidswear drop riding KPop Demon Hunters that you can turn in 3D, with its first production run costed.
 
+**See it.** Under any finished brief, one click asks OpenAI to draw a concept image from it: a film's mood still, a café's room, a drop's hero garment. The prompt is built from Qloo's look words, the brief's palette and the area AYTO found, with every Qloo name kept out, so the picture is original art in the city's taste, never a real poster, logo or person.
+
 **Agents can use it too.** AYTO is an MCP server at `/mcp` with four tools: `ayto_where_to_make`, `ayto_read_city`, `ayto_find_gap` and `ayto_write`. Claude, or any other MCP client, can ask where to make something and get back lanes with receipts.
 
 **How to try it:** open the live link (no login) and click a showcase (the Hyderabad film, the Las Vegas reel or the Tiruppur drop), or type your own sentence for any of the eight formats.

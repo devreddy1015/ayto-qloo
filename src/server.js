@@ -4,6 +4,7 @@ import { runAsk } from "./ask.js";
 import { config, ROOT } from "./config.js";
 import { checkCredential, credentialFrom, llmAvailable, llmStatus, probeServerLlm, providerList, redact } from "./llm.js";
 import { discovery, mcpHandler } from "./mcp.js";
+import { imageAvailable, imageBudget, imageFile, imageStatus, startImage } from "./image.js";
 import { mosaic, worldWall } from "./mosaic.js";
 import { gallery } from "./gallery.js";
 import { candidates, heuristicParse, parseInput } from "./parse.js";
@@ -144,7 +145,7 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.get("/api/presets", (_req, res) => {
-  res.json({ showcases: SHOWCASES.map(({ id, label, text, format }) => ({ id, label, text, format })), formats: formatList(), markets: MARKETS, providers: providerList(), mode: config.mode, llm: llmStatus() });
+  res.json({ showcases: SHOWCASES.map(({ id, label, text, format }) => ({ id, label, text, format })), formats: formatList(), markets: MARKETS, providers: providerList(), mode: config.mode, llm: llmStatus(), images: imageAvailable() });
 });
 
 app.get("/api/llm/providers", (_req, res) => res.json({ providers: providerList() }));
@@ -335,6 +336,38 @@ app.post("/api/runs/:id/regenerate", async (req, res) => {
     res.json({ ok: true, llm: run.llm, ...(forked ? { forked } : {}) });
   } catch (error) {
     res.status(400).json({ error: publicError(error) });
+  }
+});
+
+// ---------- concept image: one picture from a finished brief (OpenAI), on demand, never a stage ----------
+
+const RUN_ID = /^[A-Za-z0-9_-]{3,40}$/;
+app.post("/api/runs/:id/image", async (req, res) => {
+  if (!imageAvailable()) return res.status(503).json({ error: "Concept images aren't switched on for this site." });
+  const run = await loadRun(req.params.id);
+  if (!run) return res.status(404).json({ error: "No such run." });
+  if (run.status !== "done") return res.status(409).json({ error: "Wait for the run to finish, then draw." });
+  const now = await imageStatus(run.id);
+  if (now.status === "drawing" || now.status === "done") return res.json(now);
+  if (!allow(clientIp(req), { perHour: 6, bucket: "image" })) return res.status(429).json({ error: "You've drawn a lot of images this hour. Try again later." });
+  if (!imageBudget({ take: true })) return res.status(503).json({ error: "The demo has drawn today's images. Try again tomorrow." });
+  try {
+    await startImage(run);
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: publicError(error) });
+  }
+  res.status(202).json({ status: "drawing" });
+});
+app.get("/api/runs/:id/image", async (req, res) => {
+  if (!RUN_ID.test(req.params.id)) return res.status(404).json({ error: "No such run." });
+  res.json(await imageStatus(req.params.id));
+});
+app.get("/api/runs/:id/image.jpg", async (req, res) => {
+  if (!RUN_ID.test(req.params.id)) return res.status(404).send("Not found");
+  try {
+    res.type("jpeg").set("cache-control", "public, max-age=3600").send(await imageFile(req.params.id));
+  } catch {
+    res.status(404).send("No image yet.");
   }
 });
 

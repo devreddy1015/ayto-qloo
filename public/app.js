@@ -979,7 +979,48 @@ function renderStage(id, s = {}) {
     nodes = [pre(s.output)];
   }
   body.replaceChildren(...nodes.flat(Infinity).filter(Boolean));
+  if (id === "write") body.append(conceptImage(state.run) ?? "");
   if (s.output.edited) body.prepend(el("p", { class: "edited-note", text: "Edited by you. Stages after this were rerun with your changes." }));
+}
+
+/**
+ * One picture drawn from this brief by OpenAI, on demand: the look, the palette and the place, with every Qloo name
+ * kept out of the prompt. Not a stage, so the run is complete without it.
+ */
+function conceptImage(run) {
+  if (!state.presets.images || !run?.id || run.status !== "done") return null;
+  const box = el("figure", { class: "concept-image" });
+  let polling;
+  const show = (s) => {
+    clearTimeout(polling);
+    if (!box.isConnected && s.status !== "none") return; // the card was redrawn; its new box takes over
+    if (s.status === "done") {
+      box.replaceChildren(
+        el("img", { src: s.url, alt: "Concept image drawn from this brief", loading: "lazy" }),
+        el("figcaption", {}, "Concept image, drawn by OpenAI from this brief: the look, the palette and the place. Not a real place, product or person. ", el("a", { href: s.url, download: `${run.id}-concept.jpg`, text: "Download" })),
+      );
+    } else if (s.status === "drawing") {
+      box.replaceChildren(el("div", { class: "concept-wait skeleton" }), el("figcaption", { text: "Drawing… about 30 to 60 seconds." }));
+      polling = setTimeout(() => fetch(`/api/runs/${run.id}/image`).then((r) => r.json()).then(show).catch(() => show({ status: "error", error: "Lost the connection. Try again." })), 4000);
+    } else {
+      const draw = el("button", { class: "secondary", type: "button", text: s.status === "error" ? "Try again" : "Draw a concept image" });
+      draw.addEventListener("click", async () => {
+        draw.disabled = true;
+        try {
+          show(await post(`/api/runs/${run.id}/image`, {}));
+        } catch (error) {
+          show({ status: "error", error: error.message });
+        }
+      });
+      box.replaceChildren(
+        draw,
+        el("figcaption", { text: s.error ? `Couldn't draw it: ${s.error}` : "OpenAI draws one picture from this brief: the look, the palette, the place. Original art, with no real people, logos or titles." }),
+      );
+    }
+  };
+  show({ status: "none" });
+  fetch(`/api/runs/${run.id}/image`).then((r) => r.json()).then((s) => s.status !== "none" && show(s)).catch(() => {});
+  return box;
 }
 
 // ---------- small pieces ----------
