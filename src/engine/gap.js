@@ -31,10 +31,16 @@ export function yearOf(e) {
 const JUNK_TAGS = new Set(["none", "other", "others", "unknown", "misc", "miscellaneous", "general", "n/a", "na", "various", "adult", "mature", "erotic", "explicit", "nsfw"]);
 // Words too broad to be a lane or a thing to avoid: every film is "Film", every gig is "Music".
 const GENERIC_TAGS = new Set(["music", "film", "films", "movie", "movies", "tv", "television", "book", "books", "podcast", "podcasts", "game", "games", "video games", "videogames", "entertainment", "media", "art", "arts", "fun", "life", "lifestyle"]);
-export const isNoise = (name) => {
+// People named as a group (a religion, a caste, an ethnicity) are an audience, never a flavour to build on or avoid:
+// a café in Hyderabad came back "tuned to" Muslims, a film genre tag in Qloo (genre:media:muslims). Qloo's
+// customer_identity family ("Young Professionals") describes who goes, not what they love, so it isn't a lane either.
+const PEOPLE_GROUPS = new Set(["muslims", "hindus", "christians", "sikhs", "jews", "jains", "buddhists", "parsis", "dalits", "brahmins", "arabs", "africans", "asians", "latinos", "hispanics", "immigrants", "refugees", "tribals", "adivasis"]);
+export const isNoise = (name, id) => {
   const n = String(name ?? "").trim().toLowerCase();
-  return JUNK_TAGS.has(n) || GENERIC_TAGS.has(n);
+  return JUNK_TAGS.has(n) || GENERIC_TAGS.has(n) || PEOPLE_GROUPS.has(n) || /^urn:tag:customer_identity:/.test(String(id ?? ""));
 };
+// A lane must be a flavour of the kind being read: a café's lanes are cuisines and ambiences, never film genres.
+export const fitsLaneType = (id, type) => !["place", "brand"].includes(type) || !/^urn:tag:(?:genre|subgenre|keyword):media:/.test(String(id ?? ""));
 // Genres that travel with a theme: never tell a crime film to avoid thrillers, or a love story to avoid romance.
 const SIBLINGS = {
   crime: ["thriller", "mystery", "detective", "police", "noir", "suspense", "heist", "gangster", "investigation", "procedural"],
@@ -133,7 +139,7 @@ export async function gap(run) {
     flavourRead(q, `Flavours ${r.city.name} leans to (${type.replace("_", " ")} tags)`, { type, tagIds: themeIds, entityIds, where }),
     flavourRead(q, `Same flavours for ${country}`, { type, tagIds: themeIds, entityIds, where: country }),
   ]);
-  const flavoursRaw = demandLift(cityTags, countryTags, { take: TAKE }).filter((t) => !isNoise(t.name));
+  const flavoursRaw = demandLift(cityTags, countryTags, { take: TAKE }).filter((t) => !isNoise(t.name, t.id) && fitsLaneType(t.id, type));
 
   // Control cities: the country baseline behaves like its largest city, so a lift over the country is
   // often shared by every other big city. Read the same flavours for up to three controls and keep
@@ -163,7 +169,7 @@ export async function gap(run) {
     ...flavours.filter((x) => x.lift <= -3).sort((a, b) => a.lift - b.lift),
   ]
     .filter(notTheme)
-    .filter((t) => !isNoise(t.name))
+    .filter((t) => !isNoise(t.name, t.id) && fitsLaneType(t.id, type))
     // "Sports" and "Sport" are one thing to avoid, not two.
     .filter((t) => !seenAvoid.has(stem(t.name)) && seenAvoid.add(stem(t.name)))
     .slice(0, 10)

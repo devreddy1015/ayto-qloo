@@ -73,3 +73,17 @@ test("a memoised plan is each caller's own copy", async () => {
   assert.equal(calls, 1, "the second caller is served from the cache");
   assert.equal(b.references.length, 1, "and is not handed the first caller's edits");
 });
+
+test("a group of people is an audience, never a lane, and a café's lanes are never film genres", async () => {
+  const { isNoise, fitsLaneType } = await import("../src/engine/gap.js");
+  // Live, 31 Oct: a Hyderabad café came back with "Muslims" (genre:media:muslims) as lane 1 and a menu "tuned to" it.
+  assert.equal(isNoise("Muslims", "urn:tag:genre:media:muslims"), true);
+  assert.equal(isNoise("Hindus"), true);
+  assert.equal(isNoise("Young Professionals", "urn:tag:customer_identity:qloo:young_professionals"), true);
+  assert.equal(isNoise("Religion", "urn:tag:genre:media:religion"), false, "a subject stays a lane");
+  assert.equal(isNoise("Family Friendly", "urn:tag:ambience:qloo:family_friendly"), false);
+  assert.equal(fitsLaneType("urn:tag:genre:media:muslims", "place"), false);
+  assert.equal(fitsLaneType("urn:tag:keyword:media:cricket", "brand"), false);
+  assert.equal(fitsLaneType("urn:tag:genre:place:restaurant:south_indian", "place"), true);
+  assert.equal(fitsLaneType("urn:tag:genre:media:crime", "movie"), true, "films keep their genres");
+});

@@ -61,3 +61,45 @@ test("DeepSeek gets the model that writes", async () => {
     server.close();
   }
 });
+
+test("Claude 5.x gets no temperature, low effort, room to think, fallbacks, and its blocks back in a tool loop", async () => {
+  const { createServer } = await import("node:http");
+  const { chat } = await import("../src/llm.js");
+  const seen = [];
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (d) => (body += d));
+    req.on("end", () => {
+      const parsed = JSON.parse(body);
+      seen.push({ path: req.url, beta: req.headers["anthropic-beta"], body: parsed });
+      // First call: a thinking block, then a tool call. Second call: a thinking block, then the answer.
+      const content = seen.length === 1
+        ? [{ type: "thinking", thinking: "", signature: "sig-1" }, { type: "tool_use", id: "tu_1", name: "lookup", input: { q: "x" } }]
+        : [{ type: "thinking", thinking: "", signature: "sig-2" }, { type: "text", text: "{\"ok\":true}" }];
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ content, stop_reason: seen.length === 1 ? "tool_use" : "end_turn", usage: { input_tokens: 5, output_tokens: 5 } }));
+    });
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const real = PROVIDERS.anthropic.baseUrl;
+  PROVIDERS.anthropic.baseUrl = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const credential = credentialFrom({ provider: "anthropic", key: "sk-ant-test-abcdefghijkl" });
+    const tools = [{ type: "function", function: { name: "lookup", description: "d", parameters: { type: "object", properties: { q: { type: "string" } } } } }];
+    const first = await chat({ credential, messages: [{ role: "user", content: "hi" }], tools, temperature: 0.7, maxTokens: 2048 });
+    assert.equal(first.tool_calls[0].function.name, "lookup");
+    const second = await chat({ credential, messages: [{ role: "user", content: "hi" }, { role: "assistant", content: "", tool_calls: first.tool_calls, blocks: first.blocks }, { role: "tool", tool_call_id: "tu_1", content: "{}" }], tools });
+    assert.equal(second.content, "{\"ok\":true}", "the reply is read by block type, not position");
+    const [a, b] = seen;
+    assert.equal(a.path, "/messages");
+    assert.equal("temperature" in a.body, false);
+    assert.deepEqual(a.body.output_config, { effort: "low" });
+    assert.ok(a.body.max_tokens >= 16000, "room for thinking as well as the reply");
+    assert.equal(a.body.fallbacks, "default");
+    assert.equal(a.beta, "server-side-fallback-2026-07-01");
+    assert.deepEqual(b.body.messages[1].content[0], { type: "thinking", thinking: "", signature: "sig-1" }, "the thinking block goes back unchanged");
+  } finally {
+    PROVIDERS.anthropic.baseUrl = real;
+    server.close();
+  }
+});

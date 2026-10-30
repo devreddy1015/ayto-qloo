@@ -85,14 +85,19 @@ async function postJson(url, headers, body, timeoutMs = 60000) {
 }
 
 function openaiCall(p, cred, model, { messages, tools, json, temperature, maxTokens, timeoutMs }) {
-  const body = { model, messages, temperature, max_tokens: maxTokens, ...(tools?.length ? { tools, tool_choice: "auto" } : {}), ...(json && p.json ? { response_format: { type: "json_object" } } : {}) };
+  const body = { model, messages: messages.map(({ blocks, ...m }) => m), temperature, max_tokens: maxTokens, ...(tools?.length ? { tools, tool_choice: "auto" } : {}), ...(json && p.json ? { response_format: { type: "json_object" } } : {}) };
   const headers = { authorization: `Bearer ${cred.key}` };
   if (cred.provider === "openrouter") Object.assign(headers, { "http-referer": "https://ayto.app", "x-title": "AYTO" });
   return postJson(`${p.baseUrl}/chat/completions`, headers, body, timeoutMs).then((r) => ({ ...r, message: r.status === 200 ? r.json?.choices?.[0]?.message : undefined, usage: r.status === 200 ? { input: r.json?.usage?.prompt_tokens ?? 0, output: r.json?.usage?.completion_tokens ?? 0 } : undefined }));
 }
 
 /** OpenAI-style messages and tools → Anthropic Messages API, and the reply back to the OpenAI shape ask.js expects. */
-function anthropicCall(p, cred, model, { messages, tools, json, temperature, maxTokens, timeoutMs }) {
+// Claude 5.x takes no sampling settings (since 21 Oct 2026 a temperature is a 400 on every model). It thinks adaptively:
+// low effort keeps a write fast, max_tokens leaves room for the thinking as well as the reply, and a tool loop passes the
+// assistant's blocks back unchanged (thinking blocks included). A request a safety classifier declines is retried
+// server-side on the model Anthropic recommends for that category.
+const ANTHROPIC_MIN_TOKENS = 16000;
+function anthropicCall(p, cred, model, { messages, tools, json, maxTokens, timeoutMs }) {
   const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n") + (json ? "\n\nReturn only a JSON object. No prose, no code fences." : "");
   const turns = [];
   const push = (role, blocks) => {
@@ -103,6 +108,7 @@ function anthropicCall(p, cred, model, { messages, tools, json, temperature, max
   for (const m of messages) {
     if (m.role === "system") continue;
     if (m.role === "tool") push("user", [{ type: "tool_result", tool_use_id: m.tool_call_id, content: String(m.content ?? "") }]);
+    else if (m.role === "assistant" && m.blocks?.length) push("assistant", m.blocks);
     else if (m.role === "assistant" && m.tool_calls?.length) {
       const blocks = m.content ? [{ type: "text", text: String(m.content) }] : [];
       for (const c of m.tool_calls) {
@@ -115,14 +121,17 @@ function anthropicCall(p, cred, model, { messages, tools, json, temperature, max
       push("assistant", blocks);
     } else push(m.role === "assistant" ? "assistant" : "user", [{ type: "text", text: String(m.content ?? "") || "." }]);
   }
-  const body = { model, max_tokens: maxTokens, temperature, system, messages: turns };
+  // Effort is for the 5.x family (older Haiku and Sonnet reject it); server-side fallback is for the models that have one.
+  const modern = /^claude-(?:opus|sonnet|fable|haiku|mythos)-5/.test(model);
+  const fallback = /^claude-(?:opus-5(?:-5)?|sonnet-5-5|fable-5-1)$/.test(model);
+  const body = { model, max_tokens: Math.max(maxTokens ?? 0, ANTHROPIC_MIN_TOKENS), system, messages: turns, ...(modern ? { output_config: { effort: "low" } } : {}), ...(fallback ? { fallbacks: "default" } : {}) };
   if (tools?.length) body.tools = tools.map((t) => ({ name: t.function.name, description: t.function.description ?? "", input_schema: t.function.parameters ?? { type: "object", properties: {} } }));
-  return postJson(`${p.baseUrl}/messages`, { "x-api-key": cred.key, "anthropic-version": "2023-06-01" }, body, timeoutMs).then((r) => {
+  return postJson(`${p.baseUrl}/messages`, { "x-api-key": cred.key, "anthropic-version": "2023-06-01", ...(fallback ? { "anthropic-beta": "server-side-fallback-2026-07-01" } : {}) }, body, timeoutMs).then((r) => {
     if (r.status !== 200) return { ...r, message: undefined };
     const blocks = r.json?.content ?? [];
     const text = blocks.filter((c) => c.type === "text").map((c) => c.text).join("");
     const calls = blocks.filter((c) => c.type === "tool_use").map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: JSON.stringify(c.input ?? {}) } }));
-    return { ...r, message: { role: "assistant", content: text, ...(calls.length ? { tool_calls: calls } : {}) }, usage: { input: r.json?.usage?.input_tokens ?? 0, output: r.json?.usage?.output_tokens ?? 0 } };
+    return { ...r, message: { role: "assistant", content: text, ...(calls.length ? { tool_calls: calls, blocks } : {}) }, usage: { input: r.json?.usage?.input_tokens ?? 0, output: r.json?.usage?.output_tokens ?? 0 } };
   });
 }
 

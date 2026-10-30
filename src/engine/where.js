@@ -80,7 +80,7 @@ export async function whereToMake({ format = "film", theme, market = "India", te
 
   const themeIds = new Set(tagIds);
   const themeNames = new Set(resolved.tags.map((t) => lower(t.name)));
-  const keep = (t) => !themeIds.has(t.id) && !themeNames.has(lower(t.name)) && !isNoise(t.name);
+  const keep = (t) => !themeIds.has(t.id) && !themeNames.has(lower(t.name)) && !isNoise(t.name, t.id);
   const lifts = cityTags.map((tags) => demandLift(tags, countryTags, { take: TAKE }).filter(keep));
   const maps = lifts.map((list) => new Map(list.map((x) => [x.id ?? x.name, x.lift])));
 
