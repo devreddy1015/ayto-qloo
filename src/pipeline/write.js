@@ -4,7 +4,7 @@ import { getRunCredential } from "../keys.js";
 import { languageRule, languagesFor, WRITE_LANGUAGES, writeLanguage } from "../languages.js";
 import { chatJson, llmAvailable, PROVIDERS, redact, serverCredential } from "../llm.js";
 import { memo } from "../qloo.js";
-import { WRITERS } from "../writers/index.js";
+import { GROUND, WRITERS } from "../writers/index.js";
 import { emitEvent } from "./store.js";
 
 // A model call, retries included, ends this long after it starts: the stage itself has 120 s.
@@ -40,7 +40,9 @@ export async function writeWith(run, { forbid = [] } = {}) {
   const template = writer.fallback(evidence);
   const repaired = Boolean(plan?._repaired);
   let filled = [];
-  if (plan) ({ plan, filled } = normalizePlan(plan, template));
+  // The lists the check reads as names ("plan.travels_next[]"): an object item there stands for its name.
+  const nameLists = new Set((GROUND[writer.id] ?? []).map(([path]) => path.match(/^plan\.([a-z_]+)\[\]$/)?.[1]).filter(Boolean));
+  if (plan) ({ plan, filled } = normalizePlan(plan, template, { nameLists }));
   plan ??= template;
   const server = serverCredential();
   const llm = credential ? { provider: credential.provider, model: credential.model ?? PROVIDERS[credential.provider].model, byok: true } : { provider: server?.provider ?? "none", model: server ? server.model ?? PROVIDERS[server.provider].model : undefined, byok: false, server: true };
@@ -70,7 +72,7 @@ const isEmpty = (v) => v === undefined || v === null || (typeof v === "string" &
 const textOf = (v) => (typeof v === "string" ? v : typeof v === "number" ? String(v) : Array.isArray(v) ? v.map(textOf).filter(Boolean).join(", ") : v && typeof v === "object" ? Object.values(v).map(textOf).filter(Boolean).join(" · ") : "");
 
 /** One value in the shape the template has for it: a list, a text, or an object with the template's keys. */
-function coerce(v, t) {
+function coerce(v, t, asNames = false) {
   if (t === undefined) return v;
   if (Array.isArray(t)) {
     const list = Array.isArray(v) ? v : v === undefined || v === null || v === "" ? [] : typeof v === "string" ? v.split(/\n+/).map((x) => x.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim()) : [v];
@@ -81,7 +83,7 @@ function coerce(v, t) {
       .flat(Infinity)
       .filter((x) => !isEmpty(x))
       .map((x) => (key && typeof x === "string" ? { [key]: x } : x))
-      .map((x) => (item && x && typeof x === "object" && !Array.isArray(x) ? shapeLike(x, item) : !item && t.length && x && typeof x === "object" && typeof t[0] === "string" ? nameText(x) : x));
+      .map((x) => (item && x && typeof x === "object" && !Array.isArray(x) ? shapeLike(x, item) : !item && t.length && x && typeof x === "object" && typeof t[0] === "string" ? (asNames ? nameText(x) : textOf(x)) : x));
   }
   if (typeof t === "string") return typeof v === "string" ? v : textOf(v);
   if (t && typeof t === "object") {
@@ -93,8 +95,9 @@ function coerce(v, t) {
   return v;
 }
 
-// Where the template lists plain names, an object item stands for the name it carries ({ city: "Pune", why: "…" } is
-// "Pune"), never all its values joined, which would no longer match Qloo's name.
+// In a list the check reads as names, an object item stands for the name it carries ({ city: "Pune", why: "…" } is
+// "Pune"), never all its values joined, which would no longer match Qloo's name. Other text lists (a reel's beats)
+// keep every part.
 const NAME_FIELDS = ["title", "name", "city", "artist", "brand", "place", "flavour", "venue"];
 const nameText = (x) => {
   const k = NAME_FIELDS.find((f) => typeof x[f] === "string" && x[f].trim());
@@ -114,7 +117,7 @@ function shapeLike(x, item) {
  * Qloo names. Keys the template doesn't have are dropped (the check walks only the template's), and a plan the
  * model wrapped ({ "plan": { … } }) is unwrapped. Returns the plan and the fields that were filled.
  */
-export function normalizePlan(plan, template) {
+export function normalizePlan(plan, template, { nameLists = new Set() } = {}) {
   const filled = [];
   const out = {};
   const keys = Object.keys(template ?? {}).filter((k) => k !== "fallback");
@@ -124,7 +127,7 @@ export function normalizePlan(plan, template) {
   }
   for (const [k, t] of Object.entries(template ?? {})) {
     if (k === "fallback") continue;
-    let v = coerce(plan?.[k], t);
+    let v = coerce(plan?.[k], t, nameLists.has(k));
     if (isEmpty(v) && !isEmpty(t)) {
       v = t;
       filled.push(k);

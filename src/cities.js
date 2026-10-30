@@ -123,11 +123,12 @@ export function inCountry(entity, market) {
   return chain.some((n) => n && aliases.some((a) => n === a || n.includes(a)));
 }
 
-/** Is this place inside the one named ("Maine", "Pakistan")? A whole name in its parent chain, never part of one. */
+/** Is this place inside the one named ("Maine", "Chennai")? A whole name in its parent chain, never part of one. */
 export function isWithin(entity, place) {
   const want = fold(place);
   const chain = [...(entity?.properties?.ancestors ?? []).map((a) => a?.name), ...String(entity?.disambiguation ?? "").split(",").slice(1)];
-  return Boolean(want) && chain.some((n) => fold(n) === want);
+  // The place as Qloo lists it may carry an admin word: "Chennai District" is Chennai, "Patna Rural" is Patna.
+  return Boolean(want) && chain.some((n) => fold(n) === want || fold(displayName(n)) === want || fitOf(fold(n), want) > 0);
 }
 
 /** The English name when Qloo lists one, else Qloo's own name. */

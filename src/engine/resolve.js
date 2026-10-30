@@ -8,6 +8,11 @@ import { evidenceFor, registerEntity, registerName } from "../pipeline/evidence.
 const TAG_PREFERENCE = ["urn:tag:genre:qloo", "urn:tag:genre:media", "urn:tag:subgenre:qloo", "urn:tag:theme:qloo", "urn:tag:category:qloo", "urn:tag:category:place", "urn:tag:plot:qloo", "urn:tag:keyword:qloo", "urn:tag:keyword:media"];
 const lower = (s) => String(s ?? "").toLowerCase();
 
+// US state codes after a city ("Portland, ME"): read as the state's name, which narrows like any place.
+const US_STATES = { AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming", DC: "District of Columbia" };
+/** The place a typed second part names: a state code in capitals becomes the state ("ME" is Maine). */
+export const placePart = (part) => US_STATES[String(part ?? "").trim()] ?? String(part ?? "").trim();
+
 // Short forms people type after a city. Matched whole only: "us" is inside "Australia".
 const SHORT_MARKETS = { us: "United States", usa: "United States", america: "United States", uk: "United Kingdom", britain: "United Kingdom", "great britain": "United Kingdom", england: "United Kingdom", scotland: "United Kingdom", wales: "United Kingdom", "northern ireland": "United Kingdom", uae: "United Arab Emirates", emirates: "United Arab Emirates", korea: "South Korea" };
 
@@ -53,7 +58,7 @@ async function resolveCity(q, run, input) {
   const wanted = input.city?.id && hits.find((r) => r?.entity_id === input.city.id);
   // A market ("India", "US") narrows the pick to that country; anything else after the comma ("Maine", "Pakistan")
   // to the hits with that whole name in their parent chain.
-  let hit = wanted || (countryPart && (marketFor(countryPart) ? pickLocality(hits, { query: cityPart, market: marketFor(countryPart) }) : rankLocalities(hits, cityPart, { within: countryPart }))) || pickCity(hits, cityPart);
+  let hit = wanted || (countryPart && (marketFor(countryPart) ? pickLocality(hits, { query: cityPart, market: marketFor(countryPart) }) : rankLocalities(hits, cityPart, { within: placePart(countryPart) }))) || pickCity(hits, cityPart);
   // A typo or an old name ("Hydrabad", "Bangalore"): try the closest known city, and say so.
   let correctedFrom;
   if (!hit) {

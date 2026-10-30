@@ -44,6 +44,13 @@ Version 0.2.0: batches 1 to 5 of the bug hunt (30 Oct), about 75 bugs, each repr
   reader cut "Lost in Translation" to "Lost" and read "a film festival" as a film (the last format word of the
   first phrase names the thing now: festival, café, podcast); lowercase "usa" stopped meaning the US; a receipt
   said `take: 6` for requests of 8; and the 500 test passed without reaching the error path.
+- **A second review, of that fix**, found seven more, now fixed. The rules reader kept tails ("fans of RRR in
+  Telugu" → "RRR In Telugu") and cut titles ("Interview with the Vampire" → "Interview"); "set in winter" beat the
+  city; a sentence's first word or "Netflix" counted as a title ("Reels in Mumbai about weddings in Udaipur" was
+  Udaipur); "a podcast series" became a film and "a short story collection" fashion; "Anna Nagar, Chennai" went to
+  Madurai (Qloo lists "Chennai District"); reel beats written as objects lost their text; an empty or odd
+  `TRUST_PROXY` stopped the server booting. The reader now has a table of 51 sentences from all three reviews that
+  every change must keep right (`test/reader.test.js`). US state codes narrow too ("Portland, ME", "Columbus, GA").
 - The writers are asked for "avoid" flavour names copied exactly from the evidence, now that the list is checked.
   `TRUST_PROXY` accepts `true`, a hop count or addresses; edit keys survive a browser that blocks storage; new
   assumptions are refused before a copy is made when the stages before haven't finished.

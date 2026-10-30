@@ -1,7 +1,7 @@
 // Turning a sentence into a run input, and finding what Qloo makes of it
 // before anything runs. Two paths: the model when it is there, plain rules
 // when it is not. Both end at the same confirm step.
-import { loveOptions, pickCity, pickTags, toCity, marketFor } from "./engine/resolve.js";
+import { loveOptions, pickCity, pickTags, placePart, toCity, marketFor } from "./engine/resolve.js";
 import { CANDIDATE_CITIES, closestKnownCity, pickLocality, rankLocalities } from "./cities.js";
 import { FORMAT_HINTS, FORMAT_IDS, formatFrom } from "./formats.js";
 import { languageFrom, languagesFor, WRITE_LANGUAGES, writeLanguage } from "./languages.js";
@@ -32,11 +32,29 @@ const clean = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 const title = (s) => clean(s).split(" ").map((w) => (w.length > 3 && w === w.toUpperCase() ? w[0] + w.slice(1).toLowerCase() : w)).join(" ").replace(/(^|\s)(\p{Ll})/gu, (_, a, c) => a + c.toUpperCase());
 const WORD = "[\\p{L}][\\p{L}\\p{M}\\w.'’-]*";
 
+// Words that start a title someone loves: "after Midnight in Paris", "fans of Lost in Translation", "I love …".
+const TITLE_START = /^(?:after|by|of|love|loves|loved|like)$/i;
+// Small words a title may hold between its capitalised ones ("Once Upon a Time in Mumbaai").
+const TITLE_SMALL = new Set(["a", "an", "the", "of", "in", "on", "for", "with", "upon", "and", "to", "at", "from"]);
+
+/** Is the "in" here inside a title: capitalised and small words back to "after", "inspired by", "loves", "fans of"? */
+function insideTitle(before) {
+  const words = before.split(/\s+/).filter(Boolean);
+  if (!words.length || !/^\p{Lu}/u.test(words.at(-1))) return false;
+  for (let i = words.length - 1; i >= 0; i -= 1) {
+    if (i < words.length - 1 && /[.,;:!?]$/.test(words[i])) return false;
+    const w = words[i].replace(/[.,;:!?]+$/, "");
+    if (TITLE_START.test(w)) return i < words.length - 1;
+    if (!/^\p{Lu}/u.test(w) && !TITLE_SMALL.has(w.toLowerCase())) return false;
+  }
+  return false;
+}
+
 /**
- * The city a sentence names: after "set in" / "based in" first, then "in" ("at Charminar in Hyderabad"
- * is Hyderabad), then "at", "from", "near". An "in X" straight after a capitalised word inside the sentence is part
- * of a title ("Lost in Translation", "Midnight in Paris") and gives way to a later one, unless that word ends the
- * city just read ("Midnight in Paris in Pune" is Pune).
+ * The city a sentence names: after "set in" / "based in" a city AYTO knows ("set in Tokyo", never "set in winter"),
+ * then "in" ("at Charminar in Hyderabad" is Hyderabad), then "at", "from", "near". An "in X" inside a title someone
+ * loves ("after Midnight in Paris", "I love Lost in Translation") gives way to a later one, unless it ends the city
+ * just read ("Midnight in Paris in Pune" is Pune).
  */
 function cityFrom(t) {
   for (const preps of ["set in|based in|located in", "in", "at|around|from|near"]) {
@@ -44,10 +62,9 @@ function cityFrom(t) {
     // The words are read in a lookahead, so "in Telugu set in Hyderabad" still reaches the second "in".
     for (const m of t.matchAll(new RegExp(`(?<![\\p{L}])(?:${preps})\\s+(?=(${WORD}(?:\\s+${WORD}){0,3}))`, "giu"))) {
       const city = cityAt(m[1]);
-      if (!city) continue;
+      if (!city || (preps.startsWith("set") && !CITY_NAMES.has(city.toLowerCase()))) continue;
       const before = t.slice(0, m.index).trimEnd();
-      const prev = before.split(/\s+/).at(-1) ?? "";
-      const titled = Boolean(prev) && /^\p{Lu}/u.test(prev) && !/[.!?]$/.test(prev) && prev !== "I" && !found.some((f) => f.end === before.length);
+      const titled = insideTitle(before) && !found.some((f) => f.end === before.length);
       found.push({ city, titled, end: m.index + m[0].length + city.length });
     }
     const pick = found.find((f) => !f.titled) ?? found[0];
@@ -108,9 +125,19 @@ export function heuristicParse(text) {
   // A love ends where the sentence moves on to the city it named ("fans of Drishyam in Hyderabad" is Drishyam), or to
   // "a/an/the" something; a title's own "in" stays ("Lost in Translation", "In the Mood for Love").
   const cityTail = city ? new RegExp(`\\s+(?:set in|in|at|from|near)\\s+${city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b.*$`, "i") : undefined;
-  const trim = (x) => (cityTail ? x.replace(cityTail, "") : x).replace(/\s+(?:on|with|for|in|set|about)\s+(?:a|an|the)\b.*$/i, "");
-  // "…for Love in Mumbai" read as a love "in Mumbai" is a place, not a title (a title would be capitalised).
-  if (l) for (const part of trim(l[1]).split(/\s*(?:,|\band\b|&)\s*/i)) if (clean(part) && !/^(?:in|at|from|near|set in)\s/.test(part)) push(title(part));
+  const languages = Object.keys(WRITE_LANGUAGES).join("|");
+  const trim = (x) =>
+    (cityTail ? x.replace(cityTail, "") : x)
+      // The sentence moves on when a preposition is followed by a plain word (not an article) or a language: "for its
+      // twists", "in Telugu"; "with the Vampire" stays.
+      .replace(new RegExp(`\\s+(?:in|for|at|from|with|on|about|set in)\\s+(?:(?!(?:a|an|the)\\s)[a-z]|(?:${languages})\\b).*$`), "")
+      // …or by a platform: "HIT on Netflix".
+      .replace(/\s+(?:on|in|at)\s+(?:Netflix|Prime(?: Video)?|Amazon|Hotstar|Disney\+?|YouTube|Instagram|Spotify|JioCinema|Zee5|SonyLIV|Aha|Apple TV\+?|Hulu|HBO)\b.*$/, "")
+      // …or by an article and a plain word ("with the crowd"); "Notes on a Scandal" stays.
+      .replace(/\s+(?:on|with|for|in|set|about)\s+(?:a|an|the)\s+[a-z].*$/, "");
+  // A comma part that names a format, or is "a/an/the" and a plain word ("a film", "a thriller"), is no title.
+  const titleLike = (part) => clean(part) && !/^(?:in|at|from|near|set in)\s/.test(part) && !/^(?:a|an|the)\s+[a-z]/.test(part) && !formatFrom(part);
+  if (l) for (const part of trim(l[1]).split(/\s*(?:,|\band\b|&)\s*/i)) if (titleLike(part)) push(title(part));
   // "after HIT: The First Case", "inspired by Drishyam", "in the style of Wong Kar-wai": a reference title, kept as typed.
   const after = t.match(/\b(?:after|inspired by|in the (?:style|vein|spirit) of|à la|a la)\s+([A-Z0-9][^,.!?;]{1,60})/);
   if (after) push(trim(after[1]));
@@ -192,7 +219,7 @@ export async function candidates(input) {
   // The same narrowing a run makes: "Portland, Maine" offers Portland, Maine first, "Miami, US" Miami, Florida.
   const hits = cityEnv.results ?? [];
   const market = countryPart && marketFor(countryPart);
-  let best = (input.city.id && hits.find((r) => r?.entity_id === input.city.id)) || (countryPart && (market ? pickLocality(hits, { query: cityPart, market }) : rankLocalities(hits, cityPart, { within: countryPart }))) || pickCity(hits, cityPart);
+  let best = (input.city.id && hits.find((r) => r?.entity_id === input.city.id)) || (countryPart && (market ? pickLocality(hits, { query: cityPart, market }) : rankLocalities(hits, cityPart, { within: placePart(countryPart) }))) || pickCity(hits, cityPart);
   // A typo or an old name: offer the closest known city instead of a dead end.
   let corrected;
   if (!best) {

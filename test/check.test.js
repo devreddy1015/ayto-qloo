@@ -75,8 +75,9 @@ test("the key a path names is the one checked, and object items in name lists ke
   const run = { names, stages: { write: { output: { writer: "film", plan: { soundtrack: [{ artist: "Sid Sriram", title: "Srivalli" }], lane: { name: "The gritty lane", flavour: "Gritty" } } } } } };
   const out = checkEvidence(run);
   assert.equal(out.removed, 0, JSON.stringify(out.items));
-  const { plan } = normalizePlan({ travels_next: [{ city: "Pune", why: "leans the same way" }] }, { travels_next: ["Mysuru"] });
-  assert.deepEqual(plan.travels_next, ["Pune"]);
+  const { plan } = normalizePlan({ travels_next: [{ city: "Pune", why: "leans the same way" }], beats: [{ title: "Hook", shot: "Close-up on the sign" }] }, { travels_next: ["Mysuru"], beats: ["Open on the street"] }, { nameLists: new Set(["travels_next"]) });
+  assert.deepEqual(plan.travels_next, ["Pune"], "a name list keeps the name");
+  assert.deepEqual(plan.beats, ["Hook · Close-up on the sign"], "a text list keeps every part");
   // A registered name with no letters doesn't let every other symbol string through.
   const odd = { names: { "": { name: "!!!" } }, stages: { write: { output: { writer: "film", plan: { travels_next: ["???"] } } } } };
   assert.equal(checkEvidence(odd).removed, 1);

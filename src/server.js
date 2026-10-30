@@ -19,8 +19,14 @@ import { closeQloo, qlooStatus } from "./qloo.js";
 const app = express();
 app.disable("x-powered-by");
 // One proxy hop (Render's): req.ip is the address that proxy saw, not a client-supplied X-Forwarded-For.
-const trust = String(process.env.TRUST_PROXY ?? "1").trim();
-app.set("trust proxy", /^\d+$/.test(trust) ? Number(trust) : trust === "true" ? true : trust === "false" ? false : trust);
+// TRUST_PROXY may be a hop count, true/false, or addresses; anything Express refuses (empty, "yes") means one hop.
+const trust = String(process.env.TRUST_PROXY ?? "").trim();
+try {
+  app.set("trust proxy", /^\d+$/.test(trust) ? Number(trust) : trust === "true" ? true : trust === "false" ? false : trust || 1);
+} catch {
+  console.error(`TRUST_PROXY "${trust.slice(0, 40)}" isn't a hop count, true/false or an address list; trusting one hop.`);
+  app.set("trust proxy", 1);
+}
 
 // Express 4 lets a rejected async handler escape, and Node then exits: one bad request would take the server down.
 // Every handler registered below is guarded, so its errors reach the error handler at the end instead.
