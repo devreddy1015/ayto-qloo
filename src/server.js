@@ -6,8 +6,9 @@ import { checkCredential, credentialFrom, llmAvailable, llmStatus, probeServerLl
 import { discovery, mcpHandler } from "./mcp.js";
 import { imageAvailable, imageBudget, imageFile, imageStatus, startImage } from "./image.js";
 import { deckHtml, shotBudget, shotFile, shotPlan, shotsAvailable, shotsPerHour, shotStatus, startShots } from "./shots.js";
-import { musicAvailable, musicBudget, musicFile, musicStatus, startMusic } from "./music.js";
+import { MUSIC_UNAVAILABLE, musicAvailable, musicBlocked, musicBudget, musicFile, musicStatus, startMusic } from "./music.js";
 import { fashion3dBudget, fashion3dFile, fashion3dJob, fashion3dRun, fashion3dStatus, modelsAvailable, printsAvailable, startFashion3d } from "./fashion3d.js";
+import { startVoice, voiceAvailable, voiceBudget, voiceFile, voicePlan, voiceStatus } from "./voice.js";
 import { mosaic, worldWall } from "./mosaic.js";
 import { gallery } from "./gallery.js";
 import { candidates, heuristicParse, parseInput } from "./parse.js";
@@ -148,7 +149,7 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.get("/api/presets", (_req, res) => {
-  res.json({ showcases: SHOWCASES.map(({ id, label, text, format }) => ({ id, label, text, format })), formats: formatList(), markets: MARKETS, providers: providerList(), mode: config.mode, llm: llmStatus(), images: imageAvailable(), shotDeck: shotsAvailable(), music: musicAvailable(), garment3d: fashion3dStatus() });
+  res.json({ showcases: SHOWCASES.map(({ id, label, text, format }) => ({ id, label, text, format })), formats: formatList(), markets: MARKETS, providers: providerList(), mode: config.mode, llm: llmStatus(), images: imageAvailable(), shotDeck: shotsAvailable(), music: musicAvailable(), garment3d: fashion3dStatus(), voice: voiceAvailable() });
 });
 
 app.get("/api/llm/providers", (_req, res) => res.json({ providers: providerList() }));
@@ -416,7 +417,7 @@ app.get("/api/runs/:id/shots.html", async (req, res) => {
 // ---------- music tone: a 30-second instrumental from a finished run's music taste (Lyria), on demand, never a stage ----------
 
 app.post("/api/runs/:id/music", async (req, res) => {
-  if (!musicAvailable()) return res.status(503).json({ error: "Music tones aren't switched on for this site." });
+  if (!musicAvailable()) return res.status(503).json(musicBlocked() ? { error: MUSIC_UNAVAILABLE, unavailable: true } : { error: "Music tones aren't switched on for this site." });
   const run = await loadRun(req.params.id);
   if (!run) return res.status(404).json({ error: "No such run." });
   if (run.status !== "done") return res.status(409).json({ error: "Wait for the run to finish, then compose." });
@@ -486,6 +487,43 @@ for (const kind of Object.keys(KIND_3D)) {
     }
   });
 }
+
+// ---------- hear the story: the brief read aloud by Sarvam's Bulbul, on demand, never a stage ----------
+
+app.post("/api/runs/:id/voice", async (req, res) => {
+  if (!voiceAvailable()) return res.status(503).json({ error: "Reading aloud isn't switched on for this site." });
+  const run = await loadRun(req.params.id);
+  if (!run) return res.status(404).json({ error: "No such run." });
+  if (run.status !== "done") return res.status(409).json({ error: "Wait for the run to finish, then listen." });
+  const now = await voiceStatus(run.id, run);
+  if (now.status === "reading" || now.status === "done") return res.json(now);
+  if (!allow(clientIp(req), { perHour: 6, bucket: "voice" })) return res.status(429).json({ error: "You've listened to a lot of briefs this hour. Try again later." });
+  if (!voiceBudget({ take: true })) return res.status(503).json({ error: "The demo has read today's briefs aloud. Try again tomorrow." });
+  try {
+    await startVoice(run);
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: publicError(error) });
+  }
+  res.status(202).json({ status: "reading" });
+});
+app.get("/api/runs/:id/voice", async (req, res) => {
+  if (!RUN_ID.test(req.params.id)) return res.status(404).json({ error: "No such run." });
+  const run = voiceAvailable() ? await loadRun(req.params.id).catch(() => undefined) : undefined;
+  const now = await voiceStatus(req.params.id, run);
+  // Before a click the page names the language it will hear ("Hear the story in Telugu"), or hides the button
+  // when the brief has nothing to read (a template brief written without a model).
+  if (now.status === "none" && run) {
+    const plan = voicePlan(run);
+    if (plan) Object.assign(now, { language: plan.language, ...(plan.hint ? { hint: plan.hint } : {}) });
+    else now.nothing = true;
+  }
+  res.json(now);
+});
+app.get(/^\/api\/runs\/([A-Za-z0-9_-]{3,40})\/voice\.(mp3|wav)$/, async (req, res) => {
+  const file = await voiceFile(req.params[0], req.params[1]);
+  if (!file) return res.status(404).send("Nothing read aloud yet.");
+  res.sendFile(file.path, { headers: { "cache-control": "public, max-age=3600" } });
+});
 
 app.post("/api/ask", async (req, res) => {
   const { question, context } = req.body ?? {};

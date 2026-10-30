@@ -19,7 +19,15 @@ const DIR = () => resolve(config.cacheDir, "music");
 const jobs = new Map(); // runId -> { status: "composing" | "done" | "error", error?, model?, at }
 const day = { date: "", count: 0 };
 
-export const musicAvailable = () => KEY().length >= 20;
+// A key with no Lyria quota (no billing on its project: "429 … limit: 0") turns music off for the rest of the day,
+// so visitors never meet Google's quota message. Billing switched on brings it back after a restart or at midnight UTC.
+const blocked = { date: "" };
+const today = () => new Date().toISOString().slice(0, 10);
+export const MUSIC_UNAVAILABLE = "Music isn't available on this site right now.";
+export const musicBlocked = () => blocked.date === today();
+const noQuota = (status, message) => [403, 429].includes(status) && /limit:\s*0\b|free.?tier|billing/i.test(message);
+
+export const musicAvailable = () => KEY().length >= 20 && !musicBlocked();
 
 /** Room left in today's music budget; counts one when `take` is set. */
 export function musicBudget({ take = false } = {}) {
@@ -117,7 +125,7 @@ export async function musicStatus(runId) {
     }
     if (!job) return { status: "none" };
   }
-  return { status: job.status, ...(job.error ? { error: job.error } : {}) };
+  return { status: job.status, ...(job.error ? { error: job.error } : {}), ...(job.unavailable ? { unavailable: true } : {}) };
 }
 
 /** Start composing the run's music tone (no-op if one is composing). Resolves when the job starts; callers needn't wait. */
@@ -138,6 +146,10 @@ export async function startMusic(run, { timeoutMs = 150000 } = {}) {
         signal: AbortSignal.timeout(timeoutMs),
       });
       const json = await res.json().catch(() => ({}));
+      if (!res.ok && noQuota(res.status, String(json?.error?.message ?? ""))) {
+        blocked.date = today();
+        return Object.assign(job, { status: "error", error: MUSIC_UNAVAILABLE, unavailable: true });
+      }
       if (!res.ok) throw new Error(`${model} ${res.status}: ${json?.error?.message ?? res.statusText}`);
       const b64 = audioOf(json);
       if (!b64) {
@@ -161,4 +173,5 @@ export async function startMusic(run, { timeoutMs = 150000 } = {}) {
 export function resetMusic() {
   jobs.clear();
   Object.assign(day, { date: "", count: 0 });
+  blocked.date = "";
 }

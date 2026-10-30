@@ -19,6 +19,8 @@ Live demo: **[ayto-ocx1.onrender.com](https://ayto-ocx1.onrender.com)** (free pl
 
 - **Hear it.** Next to the image, one click asks Google's Lyria to compose a 30-second instrumental music tone from the run's music taste: the genres, moods and instruments that the artists this crowd favours carry on Qloo (read from their own tags), the gap's lanes, the look and the brief's mood, at a tempo that fits the format (a reel's opener, a film's titles, a café's background). It is described by genre, tempo, mood and instruments only; no artist or song is ever named to the model. Play it on the page or download the MP3. Optional: it needs `GEMINI_API_KEY` (a paid-tier Gemini API key) on the server (capped at 40 a day, 6 an hour per visitor).
 
+- **Hear the story.** One more click has Sarvam's Bulbul read the brief aloud in its own words: a film's story ("the story, simply"), or a drop's positioning, a café's concept, a book's premise, after the title. It speaks the brief's language: write the brief in Telugu ("Write in") and Hyderabad hears it in Telugu; an English brief is read in Indian English. Bulbul speaks English and ten Indian languages. Optional: it needs `SARVAM_API_KEY` on the server (a key from the Sarvam dashboard at indus.sarvam.ai, under Key management; capped at 30 a day, 6 an hour per visitor).
+
 Every name on the page comes from a Qloo request you can open. It never says "hit"; it says "built on what this city already loves".
 
 ---

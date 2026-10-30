@@ -8,6 +8,7 @@ import { after, before, test } from "node:test";
 const MP3 = Buffer.from([0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, 0, 0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4]);
 const calls = [];
 let block = false;
+let noQuota = false;
 let fake;
 let app;
 let base;
@@ -21,6 +22,11 @@ before(async () => {
       if (!req.url.endsWith(":generateContent")) return res.writeHead(404).end();
       const parsed = JSON.parse(body || "{}");
       calls.push({ path: req.url, key: req.headers["x-goog-api-key"], prompt: parsed.contents?.[0]?.parts?.[0]?.text ?? "" });
+      if (noQuota) {
+        // What Google answers for a key whose project has no billing: Lyria isn't on the free tier.
+        res.writeHead(429, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ error: { code: 429, status: "RESOURCE_EXHAUSTED", message: "You exceeded your current quota, please check your plan and billing details. Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: lyria-3-clip-preview" } }));
+      }
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(block ? { promptFeedback: { blockReason: "PROHIBITED_CONTENT" } } : { candidates: [{ content: { parts: [{ text: "[0:00] Intro" }, { inlineData: { mimeType: "audio/mpeg", data: MP3.toString("base64") } }] }, finishReason: "STOP" }] }));
     });
@@ -169,4 +175,26 @@ test("the prompt keeps the taste and drops the names", async () => {
   assert.match(prompt, /Mood: Late tea where plays low\./);
   assert.equal(musicPrompt({ stages: {} }), undefined, "nothing written, nothing to compose");
   assert.equal(audioOf({ steps: [{ type: "model_output", content: [{ type: "text", text: "x" }, { type: "audio", data: "QUJD" }] }] }), "QUJD", "the Interactions shape works too");
+});
+
+// Last, since it switches music off for the day.
+test("a key with no Lyria quota turns music off for the day, without Google's message", async () => {
+  const { resetMusic } = await import("../src/music.js");
+  noQuota = true;
+  try {
+    const run = await finishedRun("tiruppur-kidswear");
+    assert.equal((await post(`/api/runs/${run.id}/music`)).status, 202);
+    const failed = await settle(run.id);
+    assert.deepEqual(failed, { status: "error", error: "Music isn't available on this site right now.", unavailable: true });
+    assert.equal((await json("/api/presets")).body.music, false, "the button goes from every page loaded after this");
+    const other = await finishedRun("hyderabad-crime-film");
+    const refused = await post(`/api/runs/${other.id}/music`);
+    assert.equal(refused.status, 503);
+    assert.deepEqual(refused.body, { error: "Music isn't available on this site right now.", unavailable: true }, "a page loaded before it is told plainly too");
+    assert.equal(calls.filter((c) => c.prompt).length, calls.length);
+  } finally {
+    noQuota = false;
+    resetMusic();
+  }
+  assert.equal((await json("/api/presets")).body.music, true, "billing switched on comes back after a restart");
 });

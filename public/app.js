@@ -984,6 +984,7 @@ function renderStage(id, s = {}) {
   if (id === "write") body.append(conceptImage(state.run) ?? "");
   if (id === "write") body.append(shotDeck(state.run) ?? "");
   if (id === "write") body.append(musicTone(state.run) ?? "");
+  if (id === "write") body.append(spokenPitch(state.run) ?? "");
   if (s.output.edited) body.prepend(el("p", { class: "edited-note", text: "Edited by you. Stages after this were rerun with your changes." }));
 }
 
@@ -1103,6 +1104,8 @@ function musicTone(run) {
         el("figcaption", {}, `Music tone, composed by Google Lyria from this run's taste${basis ? ` (${basis})` : ""}. Original, instrumental, no real artist or song. `, el("a", { href: s.url, download: `${run.id}-music-tone.${s.url.split(".").pop()}`, text: "Download" })),
         s.prompt ? musicAsk(s, sound) : "",
       );
+    } else if (s.unavailable) {
+      box.replaceChildren(el("figcaption", { text: s.error }));
     } else if (s.status === "composing") {
       box.replaceChildren(el("div", { class: "music-wait skeleton" }), el("figcaption", { text: "Composing… about 20 to 60 seconds." }));
       polling = setTimeout(() => fetch(`/api/runs/${run.id}/music`).then((r) => r.json()).then(show).catch(() => show({ status: "error", error: "Lost the connection. Try again." })), 4000);
@@ -1113,7 +1116,7 @@ function musicTone(run) {
         try {
           show(await post(`/api/runs/${run.id}/music`, {}));
         } catch (error) {
-          show({ status: "error", error: error.message });
+          show({ status: "error", error: error.message, unavailable: /isn't available on this site/.test(error.message) });
         }
       });
       box.replaceChildren(
@@ -1145,6 +1148,53 @@ function musicAsk(s, sound) {
     el("p", { class: "music-prompt", text: s.prompt }),
     el("p", { class: "footnote", text: "Every word taken from the run went through the same name scrub as the concept image, so no artist, title, brand or venue reaches the model." }),
   );
+}
+
+/**
+ * Hear the story: the brief read aloud by Sarvam's Bulbul in the brief's own words and language (a film reads its
+ * story). Not a stage, so the run is complete without it.
+ */
+function spokenPitch(run) {
+  if (!state.presets.voice || !run?.id || run.status !== "done") return null;
+  const box = el("figure", { class: "music-tone spoken-pitch" });
+  let polling;
+  let language = "";
+  let hint = "";
+  const show = (s) => {
+    clearTimeout(polling);
+    if (!box.isConnected && s.status !== "none") return; // the card was redrawn; its new box takes over
+    if (s.language) language = s.language;
+    if (s.hint) hint = s.hint;
+    if (s.nothing) return box.replaceChildren();
+    if (s.status === "done") {
+      box.replaceChildren(
+        el("audio", { src: s.url, controls: true, preload: "metadata" }),
+        el("figcaption", {}, `The brief, read aloud in ${s.language ?? "its own language"} by Sarvam's Bulbul (an AI voice), in the brief's own words. `, el("a", { href: s.url, download: `${run.id}-story.${s.url.split("?")[0].split(".").pop()}`, text: "Download" })),
+        s.text ? el("details", { class: "music-ask" }, el("summary", { text: "What it reads" }), el("p", { class: "music-prompt", text: s.text })) : "",
+      );
+    } else if (s.status === "reading") {
+      box.replaceChildren(el("div", { class: "music-wait skeleton" }), el("figcaption", { text: "Reading it aloud… a few seconds." }));
+      polling = setTimeout(() => fetch(`/api/runs/${run.id}/voice`).then((r) => r.json()).then(show).catch(() => show({ status: "error", error: "Lost the connection. Try again." })), 2500);
+    } else {
+      const listen = el("button", { class: "secondary", type: "button", text: s.status === "error" ? "Try again" : `Hear the story${language && language !== "English" ? ` in ${language}` : ""}` });
+      listen.addEventListener("click", async () => {
+        listen.disabled = true;
+        try {
+          show(await post(`/api/runs/${run.id}/voice`, {}));
+        } catch (error) {
+          show({ status: "error", error: error.message });
+        }
+      });
+      const tip = hint ? ` To hear it in ${hint}, pick ${hint} under "Write in" and write it again.` : "";
+      box.replaceChildren(
+        listen,
+        el("figcaption", { text: s.error ? `Couldn't read it: ${s.error}` : `Sarvam's Bulbul reads the brief aloud${language ? ` in ${language}` : ""}, in its own words.${tip}` }),
+      );
+    }
+  };
+  show({ status: "none" });
+  fetch(`/api/runs/${run.id}/voice`).then((r) => r.json()).then(show).catch(() => {});
+  return box;
 }
 
 // ---------- small pieces ----------

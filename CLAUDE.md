@@ -44,6 +44,10 @@ server default is Groq; the live site runs DeepSeek (LLM_PROVIDER=deepseek, mode
 - src/music.js: music tone on demand (Gemini API, Lyria 3 Clip `lyria-3-clip-preview`, 30 s MP3, GEMINI_API_KEY, MAX_MUSIC_PER_DAY), never a stage;
   prompt = audio.output.sound (the shortlist's own genre/music/instrument tags from /entities, read in the audio stage) + lanes + look + city + the
   brief's mood line + a per-format tempo, every run word through image.js scrub(); POST/GET /api/runs/:id/music, /music.mp3 (sendFile, ranges).
+- src/voice.js: hear the story on demand (Sarvam Bulbul `bulbul:v3`, SARVAM_API_KEY, MAX_VOICE_PER_DAY), never a stage; voicePlan() = title + film story / concept /
+  logline / premise, markup stripped, in write.output.language (else English); >2400 chars goes as WAV pieces joined; a rewritten brief reads again;
+  POST/GET /api/runs/:id/voice (GET names the language + a hint, or `nothing` hides the button), /voice.mp3|wav?v=. music.js: a 403/429 with
+  limit: 0 / billing / free tier turns music off for the day (presets music:false, MUSIC_UNAVAILABLE), back after a restart.
 - src/llm.js (providers, redactor, boot probe), src/keys.js (per-run credentials, memory only), src/mcp.js, src/server.js.
 - src/languages.js: the brief's language (input.language; English when unset). languagesFor(city) = English + cityLanguages;
   languageRule() is appended to the writer's system prompt (empty for English); Qloo names stay in Latin letters, and the

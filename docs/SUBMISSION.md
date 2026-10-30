@@ -122,6 +122,8 @@ One click runs the full treatment for the city you pick.
 
 **Turn it in 3D.** A drop's styles stand on a mannequin you can orbit, now including maxi dresses, a saree with its pallu, a cape and an original cosplay set; one click has OpenAI draw a style's print onto the garment, and for a hero style, Stability's Stable Fast 3D makes a real `.glb` model to download.
 
+**Hear the story.** Sarvam's Bulbul reads the brief aloud in its own words and language, so a Hyderabad film-maker who writes the brief in Telugu hears the story in Telugu.
+
 **Agents can use it too.** AYTO is an MCP server at `/mcp` with four tools: `ayto_where_to_make`, `ayto_read_city`, `ayto_find_gap` and `ayto_write`. Claude, or any other MCP client, can ask where to make something and get back lanes with receipts.
 
 **How to try it:** open the live link (no login) and click a showcase (the Hyderabad film, the Las Vegas reel or the Tiruppur drop), or type your own sentence for any of the eight formats.
