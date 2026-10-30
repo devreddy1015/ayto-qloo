@@ -100,10 +100,10 @@ async function settle(id, status = async () => (await json(`/api/runs/${id}/voic
 test("a brief is read aloud in its own words, once", async () => {
   const { body: presets } = await json("/api/presets");
   assert.equal(presets.voice, true, "the page is told reading aloud is on");
-  const run = await finishedRun("tiruppur-kidswear");
+  const run = await finishedRun("paris-streetwear");
   const plan = run.stages.write.output.plan;
   const before = await json(`/api/runs/${run.id}/voice`);
-  assert.deepEqual(before.body, { status: "none", language: "English", hint: "Tamil" }, "an English brief is heard in English, and the page can say how to hear it in Tamil");
+  assert.deepEqual(before.body, { status: "none", language: "English" }, "an English brief in London is heard in English, with no other language to offer");
   assert.equal((await post(`/api/runs/${run.id}/voice`)).status, 202);
   const done = await settle(run.id);
   assert.equal(done.status, "done", JSON.stringify(done));
@@ -165,7 +165,7 @@ test("no key, no button: the page is told and the routes say so", async () => {
   process.env.SARVAM_API_KEY = "";
   try {
     assert.equal((await json("/api/presets")).body.voice, false);
-    const run = await finishedRun("hyderabad-crime-film");
+    const run = await finishedRun("london-crime-film");
     assert.equal((await post(`/api/runs/${run.id}/voice`)).status, 503);
     assert.deepEqual((await json(`/api/runs/${run.id}/voice`)).body, { status: "none" });
     assert.equal((await fetch(`${base}/api/runs/${run.id}/voice.mp3`)).status, 404);

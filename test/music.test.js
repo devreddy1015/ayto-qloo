@@ -182,12 +182,12 @@ test("a key with no Lyria quota turns music off for the day, without Google's me
   const { resetMusic } = await import("../src/music.js");
   noQuota = true;
   try {
-    const run = await finishedRun("tiruppur-kidswear");
+    const run = await finishedRun("paris-streetwear");
     assert.equal((await post(`/api/runs/${run.id}/music`)).status, 202);
     const failed = await settle(run.id);
     assert.deepEqual(failed, { status: "error", error: "Music isn't available on this site right now.", unavailable: true });
     assert.equal((await json("/api/presets")).body.music, false, "the button goes from every page loaded after this");
-    const other = await finishedRun("hyderabad-crime-film");
+    const other = await finishedRun("london-crime-film");
     const refused = await post(`/api/runs/${other.id}/music`);
     assert.equal(refused.status, 503);
     assert.deepEqual(refused.body, { error: "Music isn't available on this site right now.", unavailable: true }, "a page loaded before it is told plainly too");
