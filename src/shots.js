@@ -56,9 +56,12 @@ export function shotPlan(run) {
   const refs = arr(plan.references).map((r) => (r && typeof r === "object" ? { title: txt(r.title ?? r.name), borrow: txt(r.borrow ?? r.take) } : { title: txt(r), borrow: "" })).filter((r) => r.title && isKnownName(run, r.title));
   const venues = run.stages?.spots?.output?.venues ?? [];
   const characters = arr(plan.characters).filter((c) => c && typeof c === "object" && txt(c.name));
-  return beats.map((b, i) => {
+  const studies = spread(beats.map((b) => {
     const after = txt(b.after?.title ?? b.after);
-    const reference = refs.find((r) => same(r.title, after)) ?? (after && isKnownName(run, after) ? { title: after, borrow: "" } : refs.length ? refs[i % refs.length] : undefined);
+    return refs.find((r) => same(r.title, after)) ?? (after && isKnownName(run, after) ? { title: after, borrow: "" } : undefined);
+  }), refs);
+  return beats.map((b, i) => {
+    const reference = studies[i];
     const venue = venues.find((v) => same(v.name, txt(b.where?.name ?? b.where)));
     return {
       n: i + 1,
@@ -73,6 +76,30 @@ export function shotPlan(run) {
       reference,
     };
   });
+}
+
+/**
+ * The film each frame studies, spread across the brief's references. A frame takes its own beat's reference unless an
+ * earlier frame already has it; then the one used least so far, keeping back a film a later beat asks for and never the
+ * film of the frame before while another is free. A model often ties three beats in a row to one film.
+ */
+export function spread(wants, refs) {
+  const uses = new Map();
+  const count = (r) => uses.get(r.title.toLowerCase()) ?? 0;
+  const picked = [];
+  wants.forEach((want, i) => {
+    let ref = want && !count(want) ? want : undefined;
+    if (!ref) {
+      const pool = refs.length ? refs : want ? [want] : [];
+      const fewest = Math.min(...pool.map(count));
+      const later = (r) => wants.slice(i + 1).some((w) => w && !count(w) && same(w.title, r.title));
+      const options = pool.filter((r) => count(r) === fewest).sort((a, b) => later(a) - later(b));
+      ref = options.find((r) => !same(r.title, picked[i - 1]?.title)) ?? options[0];
+    }
+    if (ref) uses.set(ref.title.toLowerCase(), count(ref) + 1);
+    picked.push(ref);
+  });
+  return picked;
 }
 
 /** One shot per beat from the server's model: size, lens, light, movement. Undefined when there's no model or it fails. */

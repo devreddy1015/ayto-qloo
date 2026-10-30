@@ -3,6 +3,14 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: the shot deck spreads its films to study
+
+- **Each frame studies a different film where the brief has one.** A frame keeps its own beat's reference unless an
+  earlier frame already studies it; then it takes the reference used least so far, keeping back a film a later beat
+  asks for, and never the same film as the frame before while another is free. Found on a live run (a Hyderabad romcom
+  after Pelli Choopulu): Claude tied beats 1-3 to one film and 4-6 to another, so the deck named only two of its references.
+  Every film is still one the check traced to Qloo, with its own borrow note.
+
 ## PR #45 (31 Oct, 04:20): no rupee costing for a drop outside India
 
 - **The Paris showcase was costed in rupees with Indian GST.** The production stage (tech packs, unit economics,
