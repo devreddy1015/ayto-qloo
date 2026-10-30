@@ -4,7 +4,9 @@ export async function share(run) {
   const w = run.stages.write.output;
   const c = run.stages.check?.output;
   const p = w.plan ?? {};
-  const title = p.titles?.[0] || p.names?.[0] || p.title || p.drop_name || `${r.city.name} ${run.input.format}`;
+  // The first title as text, whether the model gave a string, a list, or { title }.
+  const first = (v) => (typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : Array.isArray(v) ? first(v[0]) : v && typeof v === "object" ? first(v.title ?? v.name ?? Object.values(v)[0]) : "");
+  const title = first(p.titles) || first(p.names) || first(p.title) || first(p.drop_name) || `${r.city.name} ${run.input.format}`;
   const base = String(title).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || run.input.format;
   const slug = `${base}-${run.id.replace(/[^a-z0-9]/gi, "").slice(-5).toLowerCase()}`;
   run.publish = {

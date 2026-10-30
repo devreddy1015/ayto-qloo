@@ -111,7 +111,8 @@ export async function extract(text) {
   const rules = heuristicParse(text);
   if (!text || !llmAvailable()) return { ...rules, by: "rules" };
   try {
-    const m = await chatJson({ system: EXTRACT, user: text.slice(0, 600), temperature: 0.1, maxTokens: 300 });
+    // Someone is waiting on the confirm step: a slow model gives way to the rules after 20 s.
+    const m = await chatJson({ system: EXTRACT, user: text.slice(0, 600), temperature: 0.1, maxTokens: 300, deadline: Date.now() + 20000 });
     const format = FORMAT_IDS.includes(m.format) ? m.format : rules.format;
     return {
       format,

@@ -66,7 +66,12 @@ function defaultPack(style) {
 
 export async function produce(run) {
   const plan = run.stages.write?.output?.plan ?? {};
-  const styles = (plan.styles ?? []).filter((s) => s?.name);
+  // A model can send a style's name as a number, its cues or colourways as one string: read them as text and lists.
+  const text = (v) => (typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : v && typeof v === "object" && !Array.isArray(v) ? text(v.name ?? v.title ?? "") : "");
+  const list = (v) => (Array.isArray(v) ? v.flat(Infinity) : typeof v === "string" ? v.split(/\s*[,;·|]\s*/) : v === undefined || v === null ? [] : [v]).map(text).filter(Boolean);
+  const styles = (Array.isArray(plan.styles) ? plan.styles : plan.styles && typeof plan.styles === "object" ? [plan.styles] : [])
+    .filter((s) => s && typeof s === "object" && text(s.name))
+    .map((s) => ({ ...s, name: text(s.name), category: text(s.category), garment: typeof s.garment === "string" ? s.garment : undefined, cues: list(s.cues), colourways: list(s.colourways) }));
   if (!styles.length) return { packs: [], economics: {}, styles: [], allocation: [], summary: "No styles to produce." };
   // A maker may change one cost component; the others keep their defaults.
   const given = run.input.assumptions ?? {};
@@ -78,11 +83,19 @@ export async function produce(run) {
   const credential = getRunCredential(run.id);
   let packs = [];
   let packsBy = "defaults";
-  if (credential || llmAvailable()) {
+  // New assumptions only: the tech packs written last time still describe these styles.
+  const carry = run.stages.produce?.carry;
+  if (carry) {
+    delete run.stages.produce.carry;
+    const names = new Set(styles.map((s) => s.name));
+    packs = carry.packs.filter((p) => names.has(p.style)).map(({ sizes, pointsOfMeasure, ...p }) => p);
+    packsBy = carry.packsBy;
+  } else if (credential || llmAvailable()) {
     emitEvent(run, { type: "thought", stage: "produce", text: "Writing minimum tech packs…" });
     const evidence = { styles: styles.map((s) => ({ name: s.name, category: s.category, garment: s.garment, cues: s.cues, print: s.print, colourways: s.colourways })), palette: (plan.palette ?? []).map((p) => `${p.name} ${p.hex}`), kids };
     try {
-      const call = () => chatJson({ credential, system: TECH_PACK, user: JSON.stringify(evidence), temperature: 0.3, maxTokens: 1800 });
+      const deadline = Date.now() + 90000; // inside the stage's two minutes; defaults stand in after it
+      const call = () => chatJson({ credential, system: TECH_PACK, user: JSON.stringify(evidence), temperature: 0.3, maxTokens: 1800, deadline });
       const out = credential ? await call() : await memo("llm", "techpack-v1", { evidence }, call);
       const names = new Set(styles.map((s) => s.name));
       packs = (out.packs ?? []).filter((p) => names.has(p.style));

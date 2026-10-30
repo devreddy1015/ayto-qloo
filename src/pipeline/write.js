@@ -7,6 +7,9 @@ import { memo } from "../qloo.js";
 import { WRITERS } from "../writers/index.js";
 import { emitEvent } from "./store.js";
 
+// A model call, retries included, ends this long after it starts: the stage itself has 120 s.
+const MODEL_BUDGET_MS = Number(process.env.LLM_STAGE_BUDGET_MS) || 95000;
+
 /**
  * One writing pass. `forbid` lists names a previous pass invented; the writer
  * is told they are not in the evidence and must not appear.
@@ -23,7 +26,9 @@ export async function writeWith(run, { forbid = [] } = {}) {
   if (canWrite) {
     emitEvent(run, { type: "thought", stage: "write", text: forbid.length ? `Writing again with ${forbid.length} name${forbid.length === 1 ? "" : "s"} banned…` : writer.thought });
     try {
-      const call = () => chatJson({ credential, system, user: JSON.stringify(evidence), temperature: 0.6, maxTokens: writer.maxTokens ?? 2400 });
+      // Inside the stage's two minutes, so a slow model ends in the template, not a failed stage.
+      const deadline = Date.now() + MODEL_BUDGET_MS;
+      const call = () => chatJson({ credential, system, user: JSON.stringify(evidence), temperature: 0.6, maxTokens: writer.maxTokens ?? 2400, deadline });
       // Server-key runs are cached by evidence so repeat visits are free; a user's own key always writes fresh.
       plan = credential ? await call() : await memo("llm", `write-${writer.id}-v1`, { system, evidence }, call);
     } catch (e) {
@@ -70,8 +75,13 @@ function coerce(v, t) {
   if (Array.isArray(t)) {
     const list = Array.isArray(v) ? v : v === undefined || v === null || v === "" ? [] : typeof v === "string" ? v.split(/\n+/).map((x) => x.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim()) : [v];
     // A plain text where the template has objects becomes an object on the template's first key ({ title }, { artist }).
-    const key = t[0] && typeof t[0] === "object" ? Object.keys(t[0])[0] : undefined;
-    return list.filter((x) => !isEmpty(x)).map((x) => (key && typeof x === "string" ? { [key]: x } : x));
+    const item = t[0] && typeof t[0] === "object" && !Array.isArray(t[0]) ? t[0] : undefined;
+    const key = item ? Object.keys(item)[0] : undefined;
+    return list
+      .flat(Infinity)
+      .filter((x) => !isEmpty(x))
+      .map((x) => (key && typeof x === "string" ? { [key]: x } : x))
+      .map((x) => (item && x && typeof x === "object" && !Array.isArray(x) ? shapeLike(x, item) : !item && t.length && x && typeof x === "object" && typeof t[0] === "string" ? textOf(x) : x));
   }
   if (typeof t === "string") return typeof v === "string" ? v : textOf(v);
   if (t && typeof t === "object") {
@@ -83,14 +93,27 @@ function coerce(v, t) {
   return v;
 }
 
+/** One list item in the shape of the template's items: only the keys the model gave, each in the template's shape. */
+function shapeLike(x, item) {
+  const out = { ...x };
+  for (const k of Object.keys(item)) if (k in out) out[k] = coerce(out[k], item[k]);
+  return out;
+}
+
 /**
  * A model's plan, made safe to render and complete: every field in the shape the writer's template has, and a
  * field the model left empty (no locations, no references) filled from the evidence template, which holds only
- * Qloo names. Returns the plan and the fields that were filled.
+ * Qloo names. Keys the template doesn't have are dropped (the check walks only the template's), and a plan the
+ * model wrapped ({ "plan": { … } }) is unwrapped. Returns the plan and the fields that were filled.
  */
 export function normalizePlan(plan, template) {
   const filled = [];
   const out = {};
+  const keys = Object.keys(template ?? {}).filter((k) => k !== "fallback");
+  if (plan && typeof plan === "object" && !keys.some((k) => k in plan)) {
+    const inner = Object.values(plan).find((v) => v && typeof v === "object" && !Array.isArray(v) && keys.filter((k) => k in v).length >= 2);
+    if (inner) plan = inner;
+  }
   for (const [k, t] of Object.entries(template ?? {})) {
     if (k === "fallback") continue;
     let v = coerce(plan?.[k], t);
@@ -103,6 +126,5 @@ export function normalizePlan(plan, template) {
     }
     if (v !== undefined) out[k] = v;
   }
-  for (const [k, v] of Object.entries(plan ?? {})) if (!(k in out) && !k.startsWith("_")) out[k] = v;
   return { plan: out, filled };
 }

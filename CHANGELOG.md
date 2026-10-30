@@ -3,6 +3,38 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: every name traces, whatever shape the model writes it in (bug hunt, batch 4)
+
+The writers had never met a real model. A fake one sending the shapes real models send found these.
+
+- **Invented names passed the check.** It walked fixed paths (`references[].title`) and stopped when the key was
+  missing, so a reference written as `{ name }`, a soundtrack pick as `{ name }`, a title given as a list, a beat's
+  `after` or `where` as plain text, or a list of lists went unchecked: in one run, 7 of 7 invented names passed
+  ("0 removed"). The check now walks to each list or object a path names and reads the name from whichever key
+  holds it, flattening nested lists. Keys a writer's template doesn't have (`similar_shows`) are dropped instead
+  of reaching the page unchecked, and a reply wrapped in one key (`{ "plan": { … } }`) is unwrapped.
+- **Real names were removed.** The evidence shows a lane's recent titles with their year, and a title copied as
+  "Quiet Hours (2022)" was removed and then banned. Names now match without a trailing year, without accents
+  ("Beyonce" is "Beyoncé") and without punctuation ("Spider Man"). A script bracket counts only when the other
+  side is another script: "HIT (హిట్)" and "హిట్ (HIT)" trace, "Gangs of Wasseypur — తెలుగు (HIT)" doesn't.
+- **A slow model failed the run.** A call could retry for about three minutes inside a two-minute stage, so the
+  write stage timed out and the run ended with no share page. Every model call now has a deadline inside its
+  stage; a model that doesn't answer in time gives the template, and the run publishes. The sentence reader gives
+  way to the rules after 20 seconds.
+- **Odd shapes crashed the drop or garbled the page.** A style named `101`, cues sent as one string, colourways as
+  one string: produce threw and the run ended. List items now take the shape of the template's items, produce
+  reads text and lists whatever they arrive as, and the share page and the Markdown read every field the same
+  way (no `[object Object]`, no "P i l o t", no `undefined · score`). A title given as `{ title }` no longer
+  becomes the page title "[object Object]" and the slug "object-object".
+- New assumptions on a drop keep the model's tech packs and the with/without card (they used to fall back to
+  defaults and "No model to run the comparison"). A rerun replaces its stages' receipts instead of adding to them
+  (one lane pick took a run from 34 to 49 "requests"); receipt ids stay unique.
+- The with/without card reads names given as objects or nested lists (four names showed as "1 of 1"), and asks
+  the no-evidence model with the city even when the city came from the picker.
+- The model's JSON is found after prose that has braces of its own, isn't marked "cut off" because of braces
+  after it, and a reply cut off at "fal" or "1e" keeps what came before. "Write again" without a key no longer
+  says the brief was written on your key.
+
 ## Unreleased: the engine on bad days (bug hunt, batch 3)
 
 - **A failed country read made everything "this city's".** When Qloo's country read timed out or came back empty,

@@ -23,19 +23,25 @@ export async function diff(run) {
   const format = run.input.format;
   const w = run.stages.write?.output;
   const input = run.input;
-  const sentence = input.text?.trim() || `I'm making a ${format} in ${input.city?.query ?? input.city}${input.theme?.query ? ` about ${input.theme.query}` : ""}.`;
+  // The same question the run answered, city included: a city picked in the confirm step may not be in the sentence.
+  const city = run.stages.resolve?.output?.city?.name ?? input.city?.query ?? input.city;
+  const said = input.text?.trim() || `I'm making a ${format}${input.theme?.query ? ` about ${input.theme.query}` : ""}.`;
+  const sentence = city && !said.toLowerCase().includes(String(city).toLowerCase()) ? `${said.replace(/[.\s]+$/, "")}, in ${city}.` : said;
   let without;
   let error;
   if (credential || llmAvailable()) {
     emitEvent(run, { type: "thought", stage: "diff", text: "Asking the same question with no Qloo evidence…" });
     try {
-      const call = () => chatJson({ credential, system: WITHOUT[format] ?? WITHOUT.film, user: sentence, temperature: 0.4, maxTokens: 600 });
+      const deadline = Date.now() + 90000; // inside the stage's two minutes
+      const call = () => chatJson({ credential, system: WITHOUT[format] ?? WITHOUT.film, user: sentence, temperature: 0.4, maxTokens: 600, deadline });
       without = credential ? await call() : await memo("llm", `diff-${format}-v1`, { sentence }, call);
     } catch (e) {
       error = redact(e.message).slice(0, 200);
     }
   }
-  const flat = (o) => Object.values(o ?? {}).flatMap((v) => (Array.isArray(v) ? v : [v])).filter((x) => typeof x === "string" && x.trim());
+  // Names however they come: strings, lists, lists of lists, or objects ({ title }, { name }, { artist }).
+  const namesIn = (v) => (typeof v === "string" ? (v.trim() ? [v.trim()] : []) : Array.isArray(v) ? v.flatMap(namesIn) : v && typeof v === "object" ? namesIn(v.title ?? v.name ?? v.artist ?? v.city ?? v.brand ?? v.place ?? Object.values(v).find((x) => typeof x === "string")) : []);
+  const flat = (o) => Object.entries(o ?? {}).filter(([k]) => !k.startsWith("_")).flatMap(([, v]) => namesIn(v));
   const withoutNames = flat(without);
   // Writers differ in shape: a field may be a list, one object, or missing. Normalise before reading names.
   const list = (v) => (Array.isArray(v) ? v : v && typeof v === "object" ? [v] : v ? [v] : []);

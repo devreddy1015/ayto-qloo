@@ -56,9 +56,10 @@ export async function createRun(input, meta = {}) {
   return run;
 }
 
-export function startRun(run, fromIndex = 0) {
+/** Run the plan from one stage on. Stages in `keep` stay as they are (their output doesn't depend on what changed). */
+export function startRun(run, fromIndex = 0, { keep = [] } = {}) {
   if (active.has(run.id)) return active.get(run.id);
-  const p = execute(run, fromIndex).finally(() => {
+  const p = execute(run, fromIndex, keep).finally(() => {
     active.delete(run.id);
     clearRunCredential(run.id);
   });
@@ -68,15 +69,19 @@ export function startRun(run, fromIndex = 0) {
 
 export const isRunning = (runId) => active.has(runId);
 
-async function execute(run, fromIndex) {
+async function execute(run, fromIndex, keep = []) {
   run.status = "running";
   run.version += 1;
-  for (let i = fromIndex; i < run.plan.length; i += 1) run.stages[run.plan[i]] = { ...run.stages[run.plan[i]], status: i === fromIndex ? "running" : "stale", output: undefined, error: undefined };
+  const rerun = run.plan.slice(fromIndex).filter((id) => !keep.includes(id));
+  for (const id of rerun) run.stages[id] = { ...run.stages[id], status: id === run.plan[fromIndex] ? "running" : "stale", output: undefined, error: undefined };
+  // The receipts of the stages that run again are replaced by the new ones, not added to (34 became 49).
+  run.ledger = (run.ledger ?? []).filter((e) => !rerun.includes(e.stage));
   emitEvent(run, { type: "run", status: "running", from: run.plan[fromIndex] });
   await saveRun(run);
 
   for (let i = fromIndex; i < run.plan.length; i += 1) {
     const id = run.plan[i];
+    if (!rerun.includes(id)) continue;
     const state = run.stages[id];
     state.status = "running";
     state.startedAt = new Date().toISOString();
@@ -165,12 +170,18 @@ export async function rerunFrom(run, stageId, { assumptions } = {}) {
   if (index < 0) throw new Error("This run has no such stage.");
   if (isRunning(run.id)) throw new Error("This run is still working. Wait for it to finish.");
   if (index > 0 && run.stages[run.plan[index - 1]]?.status !== "done") throw new Error("The stages before it must finish first.");
+  let keep = [];
   if (assumptions) {
     const prev = run.input.assumptions ?? {};
     run.input.assumptions = { ...prev, ...assumptions, unitCost: { ...(prev.unitCost ?? {}), ...(assumptions.unitCost ?? {}) } };
+    // New numbers change the costing, not the tech packs or the with/without card: a model's packs carry over
+    // (the server may have no model, and a maker's key is gone after the run), and the diff stays as it was.
+    const out = run.stages[stageId]?.output;
+    if (out?.packs?.length) run.stages[stageId].carry = { packs: out.packs, packsBy: out.packsBy };
+    keep = ["diff"].filter((id) => run.stages[id]?.status === "done");
   }
   // The rerun saves the new assumptions itself; no await before it, so nothing can start in between.
-  return { done: startRun(run, index) };
+  return { done: startRun(run, index, { keep }) };
 }
 
 /** Rerun from the write stage, with a (new) credential, and in another language if one is given ("English" clears it). */
@@ -186,7 +197,7 @@ export async function regenerate(run, credential, { language } = {}) {
   if (credential) {
     setRunCredential(run.id, credential);
     run.llm = { provider: credential.provider, model: credential.model, byok: true };
-  }
+  } else delete run.llm; // the server's model writes this time, not the key from before
   return { done: startRun(run, index) };
 }
 
