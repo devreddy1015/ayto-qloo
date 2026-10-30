@@ -21,6 +21,8 @@ Live demo: **[ayto-ocx1.onrender.com](https://ayto-ocx1.onrender.com)** (free pl
 
 - **Hear the story.** One more click has Sarvam's Bulbul read the brief aloud in its own words: a film's story ("the story, simply"), or a drop's positioning, a café's concept, a book's premise, after the title. It speaks the brief's language: write the brief in Telugu ("Write in") and Hyderabad hears it in Telugu; an English brief is read in Indian English. Bulbul speaks English and ten Indian languages. Optional: it needs `SARVAM_API_KEY` on the server (a key from the Sarvam dashboard at indus.sarvam.ai, under Key management; capped at 30 a day, 6 an hour per visitor).
 
+- **Three pages, so you find things fast.** A finished run opens on **The brief**: the written piece, the check, with vs without Qloo and the share link. **The evidence** holds every Qloo read with the receipts beside it; a run still working opens here, so you watch Qloo read, and moves to the brief when it's done. **Make it** is the studio: the concept image, the shot deck, the music tone, and for a fashion drop the 3D garment and the production run, with Ask the analyst. Each page has its own link (`/run/:id#brief`, `#evidence`, `#make`), Back and Forward move between them, and the rail opens any stage's page at its card. The share page stays one printable page.
+
 Every name on the page comes from a Qloo request you can open. It never says "hit"; it says "built on what this city already loves".
 
 ---
@@ -55,7 +57,7 @@ The organisers' test: *"If your submission would work the same without Qloo, you
 
 ## What makes it Qloo-powered
 
-Nothing on the page exists without Qloo. Every step is a request you can open in the receipts panel:
+Nothing on the page exists without Qloo. Every step is a request you can open in the receipts panel, on the run's Evidence page:
 
 | Step | Qloo request | What AYTO reads from it |
 |---|---|---|

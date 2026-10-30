@@ -2,6 +2,7 @@
 // 4-11 stages streams in as cards, with a receipt for every Qloo request.
 // Vanilla JS; everything from Qloo or the model is inserted as text.
 import { pickReferences } from "./references.js";
+import { pages } from "./pages.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const el = (tag, attrs = {}, ...children) => {
@@ -755,6 +756,7 @@ function stageInfo(id, format) {
 }
 
 function resetResults() {
+  pages.reset();
   state.run = null;
   state.plan = [];
   state.askAbort?.abort();
@@ -825,7 +827,7 @@ function applySnapshot(run) {
   state.run = run;
   state.live = run.status === "running";
   state.plan = (run.plan ?? []).map((id) => stageInfo(id, run.input?.format));
-  if (first || $("#stage-cards").children.length !== state.plan.length) buildRunView();
+  if (first || document.querySelectorAll("#results section.stage").length !== state.plan.length) buildRunView();
   for (const s of state.plan) renderStage(s.id, run.stages?.[s.id]);
   for (const entry of run.ledger ?? []) upsertCall(entry);
   if (run.stages?.read?.status === "done") loadMosaic(run.id);
@@ -917,6 +919,7 @@ function updateStatus() {
   // The list, not the snapshot: calls stream in after the snapshot and only the list hears them.
   const calls = $("#trace-list").children.length;
   $("#trace-status").textContent = `${calls} Qloo request${calls === 1 ? "" : "s"}`;
+  pages.sync(run);
   if (run.status !== "running") setupAsk();
 }
 
@@ -2487,7 +2490,10 @@ function drawMap(key, box, points, home) {
     label.append(el("strong", { text: p.name }), el("br"), `lift ${signed(p.lift)}${isHome ? " · home" : ""}`);
     marker.bindPopup(label);
   }
-  if (pts.length) map.fitBounds(L.latLngBounds(pts.map((p) => [p.lat, p.lon])).pad(0.2));
+  const fit = () => pts.length && map.fitBounds(L.latLngBounds(pts.map((p) => [p.lat, p.lon])).pad(0.2));
+  fit();
+  // A map drawn on a page that isn't open has no size yet: fit it once the page opens.
+  if (!box.clientWidth) new ResizeObserver((_, watch) => box.clientWidth && (watch.disconnect(), map.invalidateSize(), fit())).observe(box);
   state.maps.set(key, map);
 }
 
