@@ -50,7 +50,7 @@ export function marketFrom(text) {
  * Returns the cities (with coordinates for the map) each with its own lanes, the flavours every city shares
  * (crowded, not a gap), and the receipts.
  */
-export async function whereToMake({ format = "film", theme, market = "India", text = "" } = {}, { cities: n = 10 } = {}) {
+export async function whereToMake({ format = "film", theme, market = "United States", text = "" } = {}, { cities: n = 10 } = {}) {
   const f = FORMATS[format] ?? FORMATS.film;
   const run = { id: newId("w"), input: { format: f.id, theme: { query: theme }, text }, ledger: [], names: {}, entities: {}, events: [], stages: {} };
   const q = evidenceFor(run, "where");

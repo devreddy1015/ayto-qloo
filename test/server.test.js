@@ -59,7 +59,7 @@ test("a share slug belongs to the run that published it, not to a plan that ment
 });
 
 test("a lane edit changes the owner's run; anyone else gets a copy and the original stays", async () => {
-  const started = await call("POST", "/api/runs", { showcase: "hyderabad-crime-film" });
+  const started = await call("POST", "/api/runs", { showcase: "london-crime-film" });
   assert.equal(started.status, 201);
   assert.ok(started.json.editKey, "the starter gets an edit key");
   const run = await finished(started.json.id);

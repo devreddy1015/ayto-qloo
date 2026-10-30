@@ -93,7 +93,7 @@ after(async () => {
 const json = (path, init) => fetch(`${base}${path}`, init).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) }));
 const post = (path, body) => json(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body ?? {}) });
 
-async function finishedRun(showcase = "hyderabad-crime-film") {
+async function finishedRun(showcase = "london-crime-film") {
   const { body } = await post("/api/runs", { showcase });
   for (let i = 0; i < 300; i += 1) {
     const { body: r } = await json(`/api/runs/${body.id}`);
@@ -136,7 +136,7 @@ test("a film gets its shot deck: one frame per beat, six at most, two at a time,
   assert.ok(names.length > 3, "the run has Qloo names to keep out");
   for (const { body } of images) {
     for (const n of names) assert.equal(named(body.prompt, n), false, `"${n}" reached an image prompt`);
-    assert.match(body.prompt, /Hyderabad/);
+    assert.match(body.prompt, /London/);
     assert.match(body.prompt, /No text, letters/);
     assert.match(body.prompt, /no real, famous or recognisable person/);
     assert.match(body.prompt, /Shot: Wide · 24mm · sodium light as in · slow push-in/, "the model's shot line, its title taken out");

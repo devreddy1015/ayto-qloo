@@ -140,7 +140,7 @@ const json = (path, init) => fetch(`${base}${path}`, init).then(async (r) => ({ 
 const post = (path, body) => json(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body ?? {}) });
 
 async function fashionRun() {
-  const { body } = await post("/api/runs", { showcase: "tiruppur-kidswear" });
+  const { body } = await post("/api/runs", { showcase: "paris-streetwear" });
   for (let i = 0; i < 300; i += 1) {
     const { body: r } = await json(`/api/runs/${body.id}`);
     if ((r.run ?? r).status === "done") return r.run ?? r;

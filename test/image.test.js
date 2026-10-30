@@ -49,7 +49,7 @@ const json = (path, init) => fetch(`${base}${path}`, init).then(async (r) => ({ 
 const post = (path, body) => json(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body ?? {}) });
 
 async function finishedRun() {
-  const { body } = await post("/api/runs", { showcase: "hyderabad-crime-film" });
+  const { body } = await post("/api/runs", { showcase: "london-crime-film" });
   for (let i = 0; i < 200; i += 1) {
     const { body: r } = await json(`/api/runs/${body.id}`);
     if ((r.run ?? r).status === "done") return r.run ?? r;
@@ -77,7 +77,7 @@ test("a finished run gets one concept image, drawn without a single Qloo name", 
   assert.equal(ask.auth, "Bearer sk-test-image-key-abcdefghijklmnop");
   assert.equal(ask.body.size, "1536x1024");
   assert.match(ask.body.prompt, /No text, letters/);
-  assert.match(ask.body.prompt, /Hyderabad/, "the city sets the scene");
+  assert.match(ask.body.prompt, /London/, "the city sets the scene");
   const names = Object.values(run.names ?? {}).filter((n) => !["city", "neighbourhood", "tag"].includes(n.kind) && String(n.name).length >= 3);
   assert.ok(names.length > 3, "the run has Qloo names to keep out");
   for (const n of names) assert.equal(new RegExp(`(^|[^\\p{L}\\p{N}])${n.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=$|[^\\p{L}\\p{N}])`, "iu").test(ask.body.prompt), false, `"${n.name}" reached the prompt`);

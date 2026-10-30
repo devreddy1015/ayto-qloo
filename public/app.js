@@ -494,7 +494,7 @@ async function findWhere() {
   const button = $("#where-button");
   if (!text && !theme) {
     box.hidden = false;
-    box.replaceChildren(el("p", { class: "confirm-error", text: "Say what you're making and what it's about first, e.g. “a crime short film in India”." }));
+    box.replaceChildren(el("p", { class: "confirm-error", text: "Say what you're making and what it's about first, e.g. “a crime short film in the UK”." }));
     return;
   }
   button.disabled = true;
@@ -673,7 +673,7 @@ function renderConfirm(found) {
     "div",
     { class: "confirm-inner" },
     el("p", { class: "confirm-lead" }, el("strong", { text: "Qloo found → " }), found.cityFound ? el("strong", { class: "confirm-city", text: cities[0]?.name ?? input.city?.query }) : el("span", { class: "confirm-missing", text: input.city?.query || "no city" }), found.cityFound && cities[0]?.qlooName ? el("span", { class: "confirm-sub", text: ` (${cities[0].qlooName})` }) : null, (found.themes ?? []).length ? el("span", {}, " · Theme: ", (found.themes ?? []).map((t, i) => el("strong", { text: (i ? ", " : "") + (t.candidates[0]?.name ?? t.word) }))) : null, " · Format: ", el("strong", { text: formatLabel(input.format || "film") })),
-    !found.cityFound ? el("p", { class: "confirm-error" }, "Qloo couldn't place that city. Try its common English name with the country, e.g. “Hyderabad, India”, or ", el("button", { type: "button", class: "linkish", text: "let AYTO pick the city", onclick: () => findWhere() }), ".") : null,
+    !found.cityFound ? el("p", { class: "confirm-error" }, "Qloo couldn't place that city. Try its common English name with the country, e.g. “London, United Kingdom”, or ", el("button", { type: "button", class: "linkish", text: "let AYTO pick the city", onclick: () => findWhere() }), ".") : null,
     found.corrected ? el("p", { class: "confirm-note", text: `Qloo has no “${found.corrected.from}”, so AYTO read it as ${found.corrected.to}. Pick another city below or change the sentence if that's wrong.` }) : null,
     el(
       "div",

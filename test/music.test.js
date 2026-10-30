@@ -56,7 +56,7 @@ const post = (path, body) => json(path, { method: "POST", headers: { "content-ty
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const named = (name, text) => new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRe(name)}(?=$|[^\\p{L}\\p{N}])`, "iu").test(text);
 
-async function finishedRun(showcase = "hyderabad-crime-film") {
+async function finishedRun(showcase = "london-crime-film") {
   const { body } = await post("/api/runs", { showcase });
   for (let i = 0; i < 200; i += 1) {
     const { body: r } = await json(`/api/runs/${body.id}`);
@@ -93,7 +93,7 @@ test("a finished run gets one music tone, composed from Qloo's tags without a si
   assert.equal(ask.path, "/v1beta/models/lyria-3-clip-preview:generateContent");
   assert.equal(ask.key, "AIzaTestMusicKey-abcdefghijklmnopqrstu");
   assert.match(ask.prompt, /Instrumental only: no vocals/);
-  assert.match(ask.prompt, /short film set in Hyderabad/, "the format and the city set the job");
+  assert.match(ask.prompt, /short film set in London/, "the format and the city set the job");
   assert.match(ask.prompt, /BPM/);
   assert.ok(ask.prompt.includes(sound.genres[0].name), "the shortlist's top genre leads the description");
   assert.ok(ask.prompt.toLowerCase().includes(sound.instruments[0].name.toLowerCase()), "and its top instrument");
@@ -138,7 +138,7 @@ test("no key, no button: the page is told and the routes say so", async () => {
   try {
     const { body: presets } = await json("/api/presets");
     assert.equal(presets.music, false);
-    const run = await finishedRun("tiruppur-kidswear");
+    const run = await finishedRun("paris-streetwear");
     assert.equal((await post(`/api/runs/${run.id}/music`)).status, 503);
     assert.equal((await json(`/api/runs/${run.id}/music`)).body.status, "none");
     assert.equal((await fetch(`${base}/api/runs/${run.id}/music.mp3`)).status, 404);

@@ -79,11 +79,11 @@ test("the sentence and the pickers set the language; a language word is never a 
 test("a Telugu brief keeps every Qloo name traceable, and a finished run switches back to English", async () => {
   const { parseInput } = await import("../src/parse.js");
   const { createRun, regenerate, startRun } = await import("../src/pipeline/runner.js");
-  const { SHOWCASES } = await import("../src/presets.js");
   const { renderSharePage } = await import("../src/pipeline/page.js");
 
-  const showcase = SHOWCASES.find((s) => s.format === "film");
-  const run = await createRun(await parseInput({ ...showcase, language: "Telugu" }), { showcase: showcase.id });
+  // A Hyderabad film (the showcases are now London, Las Vegas and Paris): the city that offers Telugu.
+  const hyderabad = { text: "I'm making a crime short film in Hyderabad.", format: "film", city: { query: "Hyderabad, India" }, theme: { query: "crime" }, loves: [] };
+  const run = await createRun(await parseInput({ ...hyderabad, language: "Telugu" }), {});
   await startRun(run, 0);
   assert.equal(run.status, "done");
 

@@ -14,6 +14,7 @@ const CITIES = {
   "United Kingdom": [["London", 51.51, -0.13], ["Manchester", 53.48, -2.24], ["Birmingham", 52.49, -1.89], ["Glasgow", 55.86, -4.25]],
   Mexico: [["Ciudad de México", 19.43, -99.13], ["Guadalajara", 20.66, -103.35], ["Monterrey", 25.69, -100.32]],
   Spain: [["Madrid", 40.42, -3.7], ["Barcelona", 41.39, 2.17], ["Valencia", 39.47, -0.38]],
+  France: [["Paris", 48.86, 2.35], ["Marseille", 43.3, 5.37], ["Lyon", 45.76, 4.84]],
 };
 const COUNTRY_NAME = { "United States": "United States of America" };
 
