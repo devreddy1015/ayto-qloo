@@ -3,6 +3,31 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: a motion pass
+
+- **One motion system.** Tokens for duration, easing and stagger (`--dur-1` to `--dur-4`, `--ease-in-out`, `--stagger`)
+  close `styles.css`. Rise, fade and blur-to-focus only, transform and opacity only, each element once. The new
+  `public/motion.js` watches the page `app.js` draws and never calls into it. No new dependencies.
+- **The hero comes in with the intro.** As the mark lifts, the wordmark comes into focus, "Are you the one?" arrives
+  word by word, then the line under it, the composer and the button: about a second, quicker when the intro has
+  already played this visit.
+- **Background:** a slow warm and cool light and a fine grain over the mosaic, one layer moved by transform; still on
+  phones.
+- **The field:** a luminous edge on focus. Three example sentences under it (a crime film in New York, a food reel in
+  Bengaluru, a fashion drop in Mumbai) type themselves in when clicked. The Check button has an arrow that nudges, a
+  soft ring once there is a sentence, and leans toward the pointer on desktop.
+- **A run unfolds like a report.** A stage's content rises in when the stream says the stage is done and its card is
+  on screen. Lane, travel and age bars grow from zero to their real values, and the brief's first title comes into
+  focus. A finished run unfolds as you scroll.
+- **The rail is the loading indicator.** A done stage lights its stretch of the line, the running one carries a signal
+  down its own stretch, and a running stage or receipt shows the mark with its dot going round. All of it follows
+  the stream's stage states, so nothing lights early.
+- **Smaller things:** receipts slide in as they stream and their count ticks; drawers and receipts open with a short
+  rise; buttons and chips have pressed states; header links draw their underline; Now showing cards light their
+  border under the pointer; How it works, Watch it work and Now showing come in once as you reach them; home and run,
+  the confirm step and errors fade in.
+- **Reduced motion:** nothing hides and nothing moves. The intro's still frame now leaves after 0.6 s; before, the
+  global reduced-motion rule stopped the animation that ends it, and it waited for the 2.5 s backstop.
 ## PR #47 (31 Oct, 05:06): the shot deck fits a phone
 
 - **On a phone, the "Make it" tab ran 51 px wider than the screen** (441 px on a 390 px phone), found in a layout pass

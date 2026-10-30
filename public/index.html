@@ -36,17 +36,30 @@
     <script>
       (() => {
         const intro = document.getElementById("intro");
+        const root = document.documentElement;
+        const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const home = location.pathname === "/";
         let seen = false;
         try {
           seen = sessionStorage.getItem("ayto-intro") === "1";
           sessionStorage.setItem("ayto-intro", "1");
         } catch {}
-        if (seen || location.pathname !== "/") return intro.remove();
-        const done = () => intro.remove();
+        // The hero comes in as the mark lifts, or at once (and quicker) when there is no intro. "Motion pass" in styles.css.
+        // hero-go is taken off once the reveal is over, so going back home from a run never replays it.
+        const go = () => root.classList.replace("hero-wait", "hero-go") && setTimeout(() => root.classList.remove("hero-go"), 1600);
+        if (home && !still) root.classList.add("hero-wait");
+        if (seen || !home) {
+          root.style.setProperty("--hero-pace", "0.6");
+          go();
+          return intro.remove();
+        }
+        const done = () => (intro.remove(), go());
         intro.classList.add("play");
         intro.addEventListener("animationend", (e) => e.target === intro && done());
         for (const type of ["pointerdown", "keydown", "wheel", "touchstart"]) addEventListener(type, done, { once: true, passive: true });
-        setTimeout(done, 2500); // a backstop: the intro never outlives this, whatever the animation does
+        setTimeout(go, 900);
+        // A backstop: the intro never outlives this. Reduced motion stops its animations, so its still frame goes sooner.
+        setTimeout(done, still ? 600 : 2500);
       })();
     </script>
     <div id="canvas" class="canvas" aria-hidden="true">
@@ -71,7 +84,7 @@
     <main>
       <div id="home">
         <section class="hero" aria-labelledby="hero-title">
-          <h1 id="hero-title">Are you the one?</h1>
+          <h1 id="hero-title"><span class="w">Are</span> <span class="w">you</span> <span class="w">the</span> <span class="w">one?</span></h1>
           <p class="lede">Tell AYTO what you're making and where. It finds the gap in what the city loves and writes you into it.</p>
           <p class="hero-steps" aria-hidden="true"><span>The city loves it</span><span>The gap: your lane</span><span>The thing arrives</span></p>
         </section>
@@ -82,6 +95,12 @@
               <span class="field-label">What are you making, and where?</span>
               <textarea id="text-input" name="text" rows="2" maxlength="600" required placeholder="I'm making a crime short film in London."></textarea>
             </label>
+            <p class="try">
+              <span class="try-label">Try</span>
+              <button type="button" class="try-chip" data-text="I'm making a crime short film in New York.">a crime film in New York</button>
+              <button type="button" class="try-chip" data-text="I make food reels in Bengaluru.">a food reel in Bengaluru</button>
+              <button type="button" class="try-chip" data-text="I'm making a fashion drop in Mumbai.">a fashion drop in Mumbai</button>
+            </p>
 
             <fieldset class="field">
               <legend class="field-label">Format <span class="hint">Optional. Leave it and AYTO reads it from the sentence.</span></legend>
@@ -214,5 +233,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
     <script src="/app.js" type="module"></script>
+    <script src="/motion.js" type="module"></script>
   </body>
 </html>

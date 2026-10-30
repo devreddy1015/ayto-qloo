@@ -2413,3 +2413,318 @@ details.raw > summary {
   .page-tab-unit { display: none; }
   .page-blocks > *, .page > .ask { padding: 0.9rem 1rem 1rem; }
 }
+
+/* ==========================================================================
+   Motion pass (public/motion.js, and the intro script in index.html).
+   One system: the tokens below; rise, fade and blur-to-focus only; transform
+   and opacity only (a blur on a few headings, once); each element once. The
+   only loops are the background glow, the running stage's orbit and the
+   signal on the rail, and each shows something real. Reduced motion: the
+   global rule above stops every animation and transition, index.html never
+   hides the hero, and motion.js does nothing. Phones: a still background and
+   no pointer effects.
+   ========================================================================== */
+:root {
+  --dur-1: 140ms; /* press, hover */
+  --dur-2: 240ms; /* small things: a receipt, a drawer opening */
+  --dur-3: 420ms; /* a panel or a card coming in */
+  --dur-4: 640ms; /* headings into focus, bars growing */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --stagger: 60ms;
+  --rise: 14px;
+  --hero-pace: 1; /* 0.6 when the intro has already played this visit */
+}
+@keyframes m-rise {
+  from { opacity: 0; transform: translateY(var(--rise)); }
+}
+@keyframes m-focus {
+  from { opacity: 0; transform: translateY(0.12em); filter: blur(8px); }
+}
+@keyframes m-fade {
+  from { opacity: 0; }
+}
+@keyframes m-pop {
+  from { opacity: 0; transform: scale(0.94); }
+}
+
+/* Background: a slow warm and cool light over the mosaic, and a fine grain. One layer, transform only. */
+.canvas::after {
+  content: "";
+  position: absolute;
+  inset: -12%;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 34% at 22% 18%, rgba(242, 190, 34, 0.075), transparent 70%),
+    radial-gradient(42% 38% at 82% 78%, rgba(143, 176, 255, 0.065), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.09 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: m-drift 46s var(--ease-in-out) infinite alternate;
+}
+@keyframes m-drift {
+  to { transform: translate3d(5%, 4%, 0); }
+}
+
+/* Hero, folded into the intro: as the mark lifts, the wordmark comes into focus, the question arrives word by word,
+   then the line under it, the composer and the button. Hidden only while index.html says to wait. */
+.hero h1 .w {
+  display: inline-block;
+}
+html.hero-wait :is(.site .wordmark, .site nav, .hero h1 .w, .hero .lede, .hero .hero-steps, .composer, #parse-button) {
+  opacity: 0;
+}
+html.hero-go .site .wordmark {
+  animation: m-focus var(--dur-4) var(--ease-out) both;
+}
+html.hero-go .site nav {
+  animation: m-fade var(--dur-3) var(--ease-out) calc(var(--hero-pace) * 120ms) both;
+}
+html.hero-go .hero h1 .w {
+  animation: m-focus var(--dur-4) var(--ease-out) both;
+}
+html.hero-go .hero h1 .w:nth-child(2) { animation-delay: calc(var(--hero-pace) * 70ms); }
+html.hero-go .hero h1 .w:nth-child(3) { animation-delay: calc(var(--hero-pace) * 140ms); }
+html.hero-go .hero h1 .w:nth-child(4) { animation-delay: calc(var(--hero-pace) * 210ms); }
+html.hero-go .hero .lede {
+  animation: m-rise var(--dur-3) var(--ease-out) calc(var(--hero-pace) * 280ms) both;
+}
+html.hero-go .hero .hero-steps {
+  animation: m-rise var(--dur-3) var(--ease-out) calc(var(--hero-pace) * 350ms) both;
+}
+html.hero-go .composer {
+  animation: m-rise var(--dur-3) var(--ease-out) calc(var(--hero-pace) * 420ms) both;
+}
+html.hero-go #parse-button {
+  animation: m-pop var(--dur-3) var(--ease-out) calc(var(--hero-pace) * 600ms) both;
+}
+
+/* The main field: a luminous edge when it has focus. */
+textarea#text-input {
+  transition: border-color var(--dur-2) var(--ease-out), background-color var(--dur-2), box-shadow var(--dur-3) var(--ease-out);
+}
+textarea#text-input:focus {
+  border-color: rgba(242, 190, 34, 0.7);
+  box-shadow: 0 0 0 1px rgba(242, 190, 34, 0.35), 0 0 32px -6px rgba(242, 190, 34, 0.4);
+}
+
+/* Example sentences under the field: a click types one in (motion.js). */
+.try {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: -0.35rem;
+  font-size: var(--step--1);
+}
+.try-label {
+  color: var(--fg-mute);
+  margin-right: 0.15rem;
+}
+.try-chip {
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  color: var(--fg-soft);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: var(--step--1);
+  cursor: pointer;
+  transition: color var(--dur-1), border-color var(--dur-1), background-color var(--dur-1), scale var(--dur-1) var(--ease-out);
+}
+.try-chip:hover {
+  color: var(--fg);
+  border-color: rgba(255, 255, 255, 0.45);
+  background: var(--well);
+}
+
+/* The main CTA: an arrow that nudges, a soft ring once there is a sentence to check, a lean toward the pointer. */
+#parse-button::after {
+  content: "→" / "";
+  display: inline-block;
+  margin-left: 0.45em;
+  transition: transform var(--dur-2) var(--ease-out);
+}
+#parse-button:hover:not(:disabled)::after,
+#parse-button:focus-visible::after {
+  transform: translateX(3px);
+}
+#run-form:has(#text-input:not(:placeholder-shown)) #parse-button:not(:disabled) {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 10px 30px -12px rgba(242, 190, 34, 0.55);
+}
+button.primary {
+  transition: background-color 0.15s, transform 0.15s, box-shadow var(--dur-3) var(--ease-out), scale var(--dur-1) var(--ease-out), translate var(--dur-3) var(--ease-out);
+}
+
+/* Pressed: everything you can press gives a little. */
+:is(button.primary, button.secondary, .secondary-link, .chip, .example, .try-chip):active:not(:disabled) {
+  scale: 0.97;
+}
+:is(button.secondary, .secondary-link, .chip, .example) {
+  transition: background-color 0.15s, border-color 0.15s, scale var(--dur-1) var(--ease-out);
+}
+
+/* Header links: an underline that draws from the left. */
+.site nav a {
+  position: relative;
+}
+.site nav a:hover {
+  text-decoration: none;
+}
+.site nav a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.site nav a:hover::after,
+.site nav a:focus-visible::after {
+  transform: scaleX(1);
+}
+
+/* Now showing: a soft light on the card's border under the pointer (motion.js sets --mx, --my; desktop only). */
+@media (hover: hover) and (pointer: fine) {
+  .showing-card {
+    position: relative;
+  }
+  .showing-card::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: radial-gradient(160px circle at var(--mx, 50%) var(--my, 0), rgba(242, 190, 34, 0.7), transparent 70%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    opacity: 0;
+    transition: opacity var(--dur-2) var(--ease-out);
+    pointer-events: none;
+  }
+  .showing-card:hover::before {
+    opacity: 1;
+  }
+}
+
+/* Home sections wait off screen until motion.js lets them in (once). The glass panels fade whole; Now showing's
+   cards are glass themselves, so its items wait one by one. */
+#how[data-reveal="wait"],
+#watch[data-reveal="wait"],
+#showing[data-reveal="wait"] :is(h2, .showing-head .block-note, .showing-card) {
+  opacity: 0;
+}
+
+/* The run: a done stage's content waits until it is on screen, then unfolds (motion.js). Bars grow from their start. */
+.stage[data-unfold="wait"] .stage-body > * {
+  opacity: 0;
+}
+.lane-bars .bar,
+.bar-fill {
+  transform-origin: left center;
+}
+.agefill {
+  transform-origin: bottom center;
+}
+
+/* The rail is the loading indicator, wired only to the stream's real stage states: a done stage lights its stretch of
+   the line, the running one carries a signal down its own stretch, and nothing ahead of it lights early. */
+.rail-item a {
+  position: relative;
+}
+.rail-item.done a,
+.rail-item.running a {
+  border-left-color: var(--line);
+}
+.rail-item a::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--fg);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform var(--dur-3) var(--ease-out);
+}
+.rail-item.done a::before {
+  transform: scaleY(1);
+}
+.rail-item.running a::before {
+  height: 45%;
+  background: linear-gradient(transparent, var(--tape), transparent);
+  transform: none;
+  animation: m-signal 1.6s var(--ease-in-out) infinite;
+}
+@keyframes m-signal {
+  0% { transform: translateY(0); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translateY(122%); opacity: 0; }
+}
+@media (max-width: 1100px) {
+  /* The rail runs across on narrow screens; the line is under each stage instead of beside it. */
+  .rail-item a::before {
+    left: 0;
+    top: auto;
+    bottom: 0;
+    width: 100%;
+    height: 2px;
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  .rail-item.done a::before {
+    transform: scaleX(1);
+  }
+  .rail-item.running a::before {
+    width: 45%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--tape), transparent);
+    animation-name: m-signal-x;
+  }
+}
+@keyframes m-signal-x {
+  0% { transform: translateX(0); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translateX(122%); opacity: 0; }
+}
+
+/* A running stage or receipt shows the mark: the ring holds still and the dot (you) goes round it, looking for the gap. */
+.stage.running .stage-state,
+.trace-item.running .state {
+  position: relative;
+  border-color: var(--fg-mute);
+  animation: none;
+}
+.stage.running .stage-state::after,
+.trace-item.running .state::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 1px, var(--tape) 0 2.6px, transparent 3.2px);
+  animation: m-orbit 1.8s linear infinite;
+}
+@keyframes m-orbit {
+  to { transform: rotate(1turn); }
+}
+
+/* Receipts slide in as the requests stream; any drawer or receipt opens with a short rise. */
+.trace-item {
+  animation: m-rise var(--dur-2) var(--ease-out) both;
+  --rise: 6px;
+}
+details[open] > :not(summary) {
+  animation: m-rise var(--dur-2) var(--ease-out);
+  --rise: -4px;
+}
+
+/* Phones: a still background, and the grain a touch lighter. */
+@media (max-width: 720px) {
+  .canvas::after {
+    inset: 0;
+    animation: none;
+    opacity: 0.8;
+  }
+}
