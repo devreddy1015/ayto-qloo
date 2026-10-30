@@ -11,3 +11,5 @@ samples/qloo/
 probe-out/
 # local Claude Code session files (launch config, worktrees)
 .claude/
+# Submission frames and video assets (show Qloo output and film posters; not for the repo)
+submission/

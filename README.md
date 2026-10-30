@@ -6,10 +6,12 @@
 
 Live demo: _coming before submission_ · Source: [github.com/devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) · Built for the [Qloo Agentic Hackathon](https://qloo.devpost.com).
 
+**An agent with taste.** It plans its Qloo reads for the format you're making, calls Qloo's tools, writes, checks its own output against the evidence and rewrites what it can't trace. It is also an MCP server that other agents can call (`/mcp`).
+
 **Who it's for.** The filmmaker in Hyderabad, and the production house behind them, deciding what to make next. Everything else is the same engine in another format.
 
 - Making a **crime short film in Hyderabad**? You get the lanes the city loves and isn't getting (Folk, Finance, Revenge and Justice: Hyderabad ranks each 15 to 17 places higher than India does and than the median of Bengaluru, Chennai and Kolkata, and not one recent crime film carries them), the look its crime crowd leans to (Cinematic, Moody, Atmospheric, Gritty; not Observational or Clinical), three titles, a logline, three acts, five or six beats, characters (what each wants and hides, their look, their arc), the films to study with the shot to borrow from each, the actors Hyderabad favours beyond India, a shoot base and locations from the places this crowd goes, camera and light notes for your budget, a palette, a composer shortlist, and the cities that lean the same way.
-- Not sure **where** yet? Say "a crime short film in India" and click **Let AYTO compare cities**. AYTO reads the theme across the country's ten largest cities, measures each city against the country and against the other nine, and maps where the widest open lane is: Kolkata's is Crime Lord, Delhi's Finance, Mumbai's Gender Violence, while Martial Arts and Biographical are crowded in nearly every city. One click runs the full treatment for the city you pick.
+- Not sure **where** yet? Say "a crime short film in India" and click **Let AYTO compare cities**. AYTO reads the theme across the country's ten largest cities, measures each city against the country and against the other nine, and maps where the widest open lane is: Kolkata's is Crime Lord, Bengaluru's Documentary, Mumbai's Gender Violence, while Martial Arts leans high in all ten cities and Biographical in nine. One click runs the full treatment for the city you pick.
 - Same engine, seven other formats: a **reel** (hook, beats, song, spots, caption), a **fashion drop** (styles you can turn in 3D, a palette, brands to study, a first production run with costing), a **podcast**, an **indie game**, a **café menu and playlist**, a **live event night**, a **book or web novel**. Say which, or let AYTO read it from the sentence.
 
 Every name on the page comes from a Qloo request you can open. It never says "hit"; it says "built on what this city already loves".
@@ -20,10 +22,10 @@ Every name on the page comes from a Qloo request you can open. It never says "hi
 
 | Criterion | How AYTO answers it |
 |---|---|
-| **Uses Qloo deeply** | Every step is a Qloo move and every one is a receipt: locality resolve, tag resolve, the three-column read (city vs country vs a contrast city), flavour over-index, a tagged catalogue read for supply, audience skew, artists, places, and a heatmap with lift. Nothing on the page exists without Qloo. |
-| **Complete product** | Sentence → confirm what Qloo found → run → the written film, reel or drop → a share page. Three showcases, synthetic sample mode, bring-your-own-key for 12 LLM providers, an MCP door for agents, abuse caps. |
-| **Real problem, real audience** | The filmmaker in Hyderabad deciding what to make. India released 1,972 films in 2025 (313 Telugu) and only six Telugu releases succeeded; producers say on record they no longer know what "commercial" means; the research they buy today starts only after a film is announced. AYTO works before greenlight. Reel creators and small makers are the same engine in other formats. |
-| **Non-obvious** | The gap: what a city loves and is under-served in. City vs city difference (Hyderabad's crime list is not Mumbai's). Hidden gems: high affinity, low popularity. |
+| **Technological implementation** (how deeply it uses Qloo) | Every step is a Qloo move and every one is a receipt: locality resolve, tag resolve, the three-column read (city vs country vs a contrast city), flavour over-index, a tagged catalogue read for supply, audience skew, artists, places, and a heatmap with lift. Nothing on the page exists without Qloo. |
+| **Design** (a complete product) | Sentence → confirm what Qloo found → run → the written film, reel or drop → a share page. Three showcases, synthetic sample mode, bring-your-own-key for 12 LLM providers, an MCP door for agents, abuse caps. |
+| **Potential impact** (a real problem for a real audience) | The filmmaker in Hyderabad deciding what to make. India released 1,972 films in 2025 (313 Telugu) and only six Telugu releases succeeded; producers say on record they no longer know what "commercial" means; the research they buy today starts only after a film is announced. AYTO works before greenlight. Reel creators and small makers are the same engine in other formats. |
+| **Quality of the idea** (non-obvious) | The gap: what a city loves and is under-served in. City vs city difference (Hyderabad's crime list is not Mumbai's). Hidden gems: high affinity, low popularity. |
 
 The organisers' test: *"If your submission would work the same without Qloo, you're building the wrong thing."* The **with vs without Qloo** card runs the same sentence through the same model with no evidence and counts how many of its names trace to anything. It is the one-card answer.
 
