@@ -3,6 +3,21 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: the write-up leads with London and Paris
+
+- **Devpost text (`docs/SUBMISSION.md`), README and video script** now walk through the live London crime film, using
+  the run Claude Sonnet 5.5 wrote on 31 Oct:
+  - lanes Autobiographical, Indietronica and Tragedy, with controls Glasgow, Liverpool and Leeds and zero recent supply;
+  - the look Naturalistic, Intimate, Documentary-like and Gritty;
+  - *Fourteen Minutes*, with 27 of 27 names traced;
+  - without Qloo, 0 of 10 (*Mona Lisa*, *Nil by Mouth*, *Top Boy*).
+
+  They also cover the Paris drop (43 of 43), the Las Vegas reel, the UK compare-cities read (Glasgow's Consequences of
+  Crime, +26), the three-page run, and every extra (concept image, shot deck, 3D, Sarvam narration, and music when
+  the key allows).
+- **The gallery** is twelve new live images (London, Paris, Las Vegas, the UK map), with captions of 140 characters or
+  fewer.
+
 ## PR #44 (31 Oct, 04:25): three pages on the run page
 
 - **The run page is three tabs now, not one long page.** **The brief** has the written piece (the story, simply,
