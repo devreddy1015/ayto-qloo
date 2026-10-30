@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: an intro from the mark, and one simple type style
+## PR #34 (31 Oct, 03:25): an intro from the mark, and one simple type style
 
 - **An intro animation from the AYTO mark**, once per visit on the home page:
   - the ring (what a city loves) draws itself, leaving its opening (what it isn't getting);
