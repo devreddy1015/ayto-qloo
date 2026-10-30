@@ -4,24 +4,29 @@ import { GROUND } from "../writers/index.js";
 import { isKnownName } from "./evidence.js";
 import { emitEvent } from "./store.js";
 
+/**
+ * Visit every name a GROUND path points at, whatever shape the model gave it. "plan.references[].title" means the
+ * items of plan.references; the last key only says where a name usually sits, so a reference written as
+ * { name }, as a plain string, or with its title as a list is still read. A list given as one value, or as a
+ * list of lists, is made a flat list first (the page reads the same shape).
+ */
 function walk(obj, path, visit) {
-  const [head, ...rest] = path.split(".");
-  if (head === undefined) return;
-  const key = head.replace("[]", "");
-  const isArray = head.endsWith("[]");
-  const value = key ? obj?.[key] : obj;
-  if (value === undefined || value === null) return;
-  const items = isArray ? (Array.isArray(value) ? value : []) : [value];
-  items.forEach((item, i) => {
-    if (rest.length) return walk(item, rest.join("."), visit);
-    // A removed string inside an array is replaced in place; a removed string field marks its whole
-    // parent object (the reference, the lane, the audio pick), so the object goes, not just the name.
-    visit(item, (replacement) => {
-      if (isArray) obj[key][i] = replacement;
-      else if (typeof item === "string") obj.removed = true;
-      else obj[key] = replacement;
-    });
-  });
+  const segs = path.split(".");
+  const parts = segs.at(-1).endsWith("[]") ? segs : segs.slice(0, -1);
+  const step = (holder, [head, ...rest]) => {
+    if (!holder || typeof holder !== "object") return;
+    const key = head.replace("[]", "");
+    let value = holder[key];
+    if (value === undefined || value === null || value === "") return;
+    if (head.endsWith("[]")) {
+      value = holder[key] = Array.isArray(value) ? value.flat(Infinity) : [value];
+      if (rest.length) return value.forEach((item) => step(item, rest));
+      return value.forEach((item, i) => visit(item, (replacement) => (value[i] = replacement)));
+    }
+    if (rest.length) return step(value, rest);
+    visit(value, (replacement) => (holder[key] = replacement));
+  };
+  step(obj, parts);
 }
 
 function prune(node) {
@@ -40,10 +45,36 @@ function prune(node) {
   }
 }
 
-const nameOf = (item) => (typeof item === "string" ? item : item?.title ?? item?.artist ?? item?.name ?? item?.city ?? item?.flavour ?? item?.partner);
-// A brief written in Telugu may give a Qloo name in its own script with Qloo's spelling in brackets ("హిట్ (HIT)"):
-// the bracketed Latin spelling is the one checked.
-const latinOf = (name) => (/[^\p{Script=Latin}\p{Script=Common}\p{Script=Inherited}]/u.test(name) ? name.match(/\(([^()]*\p{Script=Latin}[^()]*)\)\s*$/u)?.[1]?.trim() : undefined);
+const NAME_KEYS = ["title", "artist", "name", "city", "flavour", "brand", "place", "venue", "show", "film", "guest", "partner"];
+/** The names one written item carries: itself if a string, the strings in a list, or the value under a name key. */
+function namesOf(item) {
+  if (typeof item === "string") return item.trim() ? [item] : [];
+  if (typeof item === "number") return [String(item)];
+  if (Array.isArray(item)) return item.flatMap(namesOf);
+  if (!item || typeof item !== "object") return [];
+  const key = NAME_KEYS.find((k) => item[k] !== undefined && item[k] !== null && item[k] !== "");
+  return key ? namesOf(item[key]) : [];
+}
+
+const LATIN = /\p{Script=Latin}/u;
+/**
+ * The spellings of a written name that may be Qloo's: as written; without a trailing "(2022)" (the digest shows
+ * years); and, when one side of a bracket is another script, the other side. A brief in Telugu may write "హిట్
+ * (HIT)" or "HIT (హిట్)"; "Gangs of Wasseypur — తెలుగు (HIT)" is neither, so it is checked whole.
+ */
+function spellings(name) {
+  const s = String(name).trim();
+  const out = [s];
+  const plain = s.replace(/\s*\((?:19|20)\d\d\)\s*$/, "").trim();
+  if (plain !== s) out.push(plain);
+  const m = plain.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+  if (m) {
+    const [outer, inner] = [m[1].trim(), m[2].trim()];
+    if (outer && !LATIN.test(outer) && LATIN.test(inner)) out.push(inner);
+    if (inner && !LATIN.test(inner) && LATIN.test(outer)) out.push(outer);
+  }
+  return out;
+}
 
 export function checkEvidence(run) {
   const output = run.stages.write?.output;
@@ -54,16 +85,20 @@ export function checkEvidence(run) {
   if (output) {
     for (const [path, kind] of paths) {
       walk(output, path, (item, replace) => {
-        const name = nameOf(item);
-        if (!name) return;
-        const latin = latinOf(String(name));
-        const ok = isKnownName(run, name) || Boolean(latin && isKnownName(run, latin));
-        checked.push({ kind, name, ok });
-        if (ok) grounded += 1;
-        else {
-          removed += 1;
-          replace(typeof item === "string" ? `[removed: not in Qloo evidence] ${name}` : { ...item, removed: true });
+        const names = namesOf(item);
+        if (!names.length) return;
+        let bad = false;
+        for (const name of names) {
+          const ok = spellings(name).some((n) => isKnownName(run, n));
+          checked.push({ kind, name, ok });
+          if (ok) grounded += 1;
+          else {
+            removed += 1;
+            bad = true;
+          }
         }
+        // An item with any name not in the evidence goes whole: the reference, the cast idea, the lane.
+        if (bad) replace(typeof item === "string" ? `[removed: not in Qloo evidence] ${item}` : Array.isArray(item) ? [] : { ...item, removed: true });
       });
     }
     prune(output.plan);

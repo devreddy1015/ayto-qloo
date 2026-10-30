@@ -69,8 +69,8 @@ export function credentialFrom(body) {
   return { provider, key, model };
 }
 
-async function postJson(url, headers, body) {
-  const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body), signal: AbortSignal.timeout(60000) });
+async function postJson(url, headers, body, timeoutMs = 60000) {
+  const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body), signal: AbortSignal.timeout(Math.max(1000, timeoutMs)) });
   const text = await response.text();
   let json;
   try {
@@ -81,15 +81,15 @@ async function postJson(url, headers, body) {
   return { status: response.status, json, text, headers: response.headers };
 }
 
-function openaiCall(p, cred, model, { messages, tools, json, temperature, maxTokens }) {
+function openaiCall(p, cred, model, { messages, tools, json, temperature, maxTokens, timeoutMs }) {
   const body = { model, messages, temperature, max_tokens: maxTokens, ...(tools?.length ? { tools, tool_choice: "auto" } : {}), ...(json && p.json ? { response_format: { type: "json_object" } } : {}) };
   const headers = { authorization: `Bearer ${cred.key}` };
   if (cred.provider === "openrouter") Object.assign(headers, { "http-referer": "https://ayto.app", "x-title": "AYTO" });
-  return postJson(`${p.baseUrl}/chat/completions`, headers, body).then((r) => ({ ...r, message: r.status === 200 ? r.json?.choices?.[0]?.message : undefined, usage: r.status === 200 ? { input: r.json?.usage?.prompt_tokens ?? 0, output: r.json?.usage?.completion_tokens ?? 0 } : undefined }));
+  return postJson(`${p.baseUrl}/chat/completions`, headers, body, timeoutMs).then((r) => ({ ...r, message: r.status === 200 ? r.json?.choices?.[0]?.message : undefined, usage: r.status === 200 ? { input: r.json?.usage?.prompt_tokens ?? 0, output: r.json?.usage?.completion_tokens ?? 0 } : undefined }));
 }
 
 /** OpenAI-style messages and tools → Anthropic Messages API, and the reply back to the OpenAI shape ask.js expects. */
-function anthropicCall(p, cred, model, { messages, tools, json, temperature, maxTokens }) {
+function anthropicCall(p, cred, model, { messages, tools, json, temperature, maxTokens, timeoutMs }) {
   const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n") + (json ? "\n\nReturn only a JSON object. No prose, no code fences." : "");
   const turns = [];
   const push = (role, blocks) => {
@@ -114,7 +114,7 @@ function anthropicCall(p, cred, model, { messages, tools, json, temperature, max
   }
   const body = { model, max_tokens: maxTokens, temperature, system, messages: turns };
   if (tools?.length) body.tools = tools.map((t) => ({ name: t.function.name, description: t.function.description ?? "", input_schema: t.function.parameters ?? { type: "object", properties: {} } }));
-  return postJson(`${p.baseUrl}/messages`, { "x-api-key": cred.key, "anthropic-version": "2023-06-01" }, body).then((r) => {
+  return postJson(`${p.baseUrl}/messages`, { "x-api-key": cred.key, "anthropic-version": "2023-06-01" }, body, timeoutMs).then((r) => {
     if (r.status !== 200) return { ...r, message: undefined };
     const blocks = r.json?.content ?? [];
     const text = blocks.filter((c) => c.type === "text").map((c) => c.text).join("");
@@ -127,9 +127,10 @@ let workingModel; // the server default model that last worked
 
 /**
  * One chat completion. `credential` picks the provider and key; without one the
- * server default is used and its model list is tried in order.
+ * server default is used and its model list is tried in order. `deadline` (a time in ms) bounds every attempt
+ * and retry together, so a slow model gives up inside its stage's budget and the stage can fall back.
  */
-export async function chat({ credential, messages, tools, json = false, temperature = 0.3, maxTokens = 2048 }) {
+export async function chat({ credential, messages, tools, json = false, temperature = 0.3, maxTokens = 2048, deadline }) {
   const cred = credential ?? serverCredential();
   if (!cred) throw new LlmError("No language model configured. Add a key in the drawer or set GROQ_API_KEY.");
   const p = PROVIDERS[cred.provider];
@@ -139,8 +140,10 @@ export async function chat({ credential, messages, tools, json = false, temperat
   for (const model of models) {
     let useJson = json;
     for (let attempt = 0; attempt < 3; attempt += 1) {
+      const left = deadline ? deadline - Date.now() : 60000;
+      if (left < 5000) throw lastError ?? new LlmError(`${p.label} ${model}: no answer in time.`);
       const call = p.kind === "anthropic" ? anthropicCall : openaiCall;
-      const r = await call(p, cred, model, { messages, tools, json: useJson, temperature, maxTokens }).catch((error) => ({ status: 0, text: error?.name === "TimeoutError" ? "timed out" : String(error?.message ?? error) }));
+      const r = await call(p, cred, model, { messages, tools, json: useJson, temperature, maxTokens, timeoutMs: Math.min(60000, left) }).catch((error) => ({ status: 0, text: error?.name === "TimeoutError" ? "timed out" : String(error?.message ?? error) }));
       if (r.message) {
         if (cred.server) workingModel = model;
         if (r.usage) recordUsage({ provider: cred.provider, model, input: r.usage.input, output: r.usage.output, byok: !cred.server });
@@ -149,7 +152,9 @@ export async function chat({ credential, messages, tools, json = false, temperat
       const detail = redact(r.json?.error?.message || r.json?.error?.msg || r.text || "").slice(0, 240);
       lastError = new LlmError(`${p.label} ${model} ${r.status || "network"}: ${detail}`);
       if (r.status === 429 || r.status >= 500 || r.status === 0) {
-        await new Promise((res) => setTimeout(res, Math.min(Number(r.headers?.get?.("retry-after")) * 1000 || 1500 * 2 ** attempt, 8000)));
+        const wait = Math.min(Number(r.headers?.get?.("retry-after")) * 1000 || 1500 * 2 ** attempt, 8000);
+        if (deadline && Date.now() + wait > deadline - 5000) break;
+        await new Promise((res) => setTimeout(res, wait));
         continue;
       }
       if (r.status === 400 && useJson && /response_format|json/i.test(detail)) {
@@ -164,8 +169,8 @@ export async function chat({ credential, messages, tools, json = false, temperat
 }
 
 /** Ask for a JSON object and parse it. */
-export async function chatJson({ credential, system, user, temperature = 0.2, maxTokens = 2048 }) {
-  const message = await chat({ credential, messages: [{ role: "system", content: system }, { role: "user", content: user }], json: true, temperature, maxTokens });
+export async function chatJson({ credential, system, user, temperature = 0.2, maxTokens = 2048, deadline }) {
+  const message = await chat({ credential, messages: [{ role: "system", content: system }, { role: "user", content: user }], json: true, temperature, maxTokens, deadline });
   const parsed = parseModelJson(message.content);
   if (!parsed) throw new LlmError("Model did not return JSON");
   return parsed;
@@ -177,24 +182,49 @@ export async function chatJson({ credential, system, user, temperature = 0.2, ma
  * half-written last item dropped, and the object is marked _repaired). Undefined when there is no object at all.
  */
 export function parseModelJson(content) {
-  let text = String(content ?? "").replace(/<think>[\s\S]*?(<\/think>|$)/gi, "").replace(/```(?:json)?/gi, "");
-  const start = text.indexOf("{");
-  if (start < 0) return undefined;
-  text = text.slice(start);
-  const end = text.lastIndexOf("}");
-  if (end >= 0) {
+  const text = String(content ?? "").replace(/<think>[\s\S]*?(<\/think>|$)/gi, "").replace(/```(?:json)?/gi, "");
+  // Any "{" may start the object: the prose before it can hold braces of its own ("a film for {city}").
+  for (let start = text.indexOf("{"); start >= 0; start = text.indexOf("{", start + 1)) {
+    const rest = text.slice(start);
+    const whole = closedObject(rest);
+    if (whole) {
+      try {
+        const value = JSON.parse(whole);
+        if (value && typeof value === "object" && !Array.isArray(value)) return value;
+      } catch {}
+      continue;
+    }
+    // Never closed: the reply was cut off. Mend it if it starts the way a JSON object does.
+    if (!/^\{\s*("|\})/.test(rest)) continue;
+    const fixed = repairJson(rest);
     try {
-      return JSON.parse(text.slice(0, end + 1));
-    } catch {}
+      const value = fixed && JSON.parse(fixed);
+      return value && typeof value === "object" ? Object.assign(value, { _repaired: true }) : undefined;
+    } catch {
+      return undefined;
+    }
   }
-  const fixed = repairJson(text);
-  if (!fixed) return undefined;
-  try {
-    const value = JSON.parse(fixed);
-    return value && typeof value === "object" ? Object.assign(value, { _repaired: true }) : undefined;
-  } catch {
-    return undefined;
+  return undefined;
+}
+
+/** The object that opens at text[0], up to its own closing brace (strings respected); undefined if it never closes. */
+function closedObject(text) {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{" || ch === "[") depth += 1;
+    else if ((ch === "}" || ch === "]") && --depth === 0) return text.slice(0, i + 1);
   }
+  return undefined;
 }
 
 /** Close a JSON text that stopped mid-way: trim back to the last complete value, then close what is open. */
@@ -220,7 +250,13 @@ export function repairJson(text) {
       stack.pop();
       lastSafe = i + 1;
       if (!stack.length) return text.slice(0, i + 1);
-    } else if (/[0-9el]/.test(ch)) lastSafe = i + 1; // numbers, true, false, null
+    } else if (/[-0-9tfn]/.test(ch)) {
+      // A number or true/false/null counts only when whole: a reply cut off at "fal" or "1e" ends before it.
+      let j = i;
+      while (j < text.length && /[A-Za-z0-9.+-]/.test(text[j])) j += 1;
+      if (/^(?:true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)$/.test(text.slice(i, j))) lastSafe = j;
+      i = j - 1;
+    }
   }
   if (lastSafe < 0) return undefined;
   // Cut back to the last complete value, then drop a dangling key, colon or comma.

@@ -7,54 +7,68 @@ const ICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3
 const BRAND = '<a class="brand" href="/" aria-label="AYTO home"><span aria-hidden="true">AYT</span><svg viewBox="4 4 24 24" aria-hidden="true"><path d="M25.487 15.503A9.5 9.5 0 1 1 16.497 6.513"/><circle cx="22.718" cy="9.282" r="2.7"/></svg></a>';
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const hex = (h) => (/^#[0-9a-f]{6}$/i.test(String(h)) ? h : "#3b4a8c");
-const chips = (list = []) => (list.length ? `<div class="chips">${list.map((x) => `<span>${esc(x)}</span>`).join("")}</div>` : "");
+// A model's plan can hold a string where a list was asked for, a list of lists, or an object where text was.
+// Every field is read through these, so nothing prints as [object Object] or one letter per line.
+const arr = (v) => (Array.isArray(v) ? v.flat(Infinity) : v === undefined || v === null || v === "" ? [] : [v]);
+const txt = (v) => (v === undefined || v === null || typeof v === "boolean" ? "" : typeof v === "string" ? v : typeof v === "number" ? String(v) : Array.isArray(v) ? v.map(txt).filter(Boolean).join(", ") : txt(v.title ?? v.name ?? v.artist ?? v.shot ?? v.text ?? Object.values(v).filter((x) => typeof x === "string" || typeof x === "number").join(" · ")));
+/** A list item as an object: a plain string stands for its name or title. */
+const rec = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : { title: txt(v), name: txt(v), artist: txt(v) });
+const chips = (list = []) => {
+  const items = arr(list).map(txt).filter(Boolean);
+  return items.length ? `<div class="chips">${items.map((x) => `<span>${esc(x)}</span>`).join("")}</div>` : "";
+};
 const section = (title, body) => (body ? `<h2>${esc(title)}</h2>${body}` : "");
-const para = (s) => (s ? `<p>${esc(s)}</p>` : "");
+const para = (s) => (txt(s) ? `<p>${esc(txt(s))}</p>` : "");
 
 function filmBody(p) {
   const li = (items) => (items.length ? `<ul>${items.join("")}</ul>` : "");
-  const palette = (p.palette ?? []).filter((c) => /^#[0-9a-f]{6}$/i.test(String(c?.hex)));
+  const palette = arr(p.palette).filter((c) => /^#[0-9a-f]{6}$/i.test(String(c?.hex)));
+  const synopsis = p.synopsis && typeof p.synopsis === "object" ? p.synopsis : undefined;
+  const camera = p.camera && typeof p.camera === "object" ? p.camera : {};
+  const base = p.shoot_base && typeof p.shoot_base === "object" ? p.shoot_base : p.shoot_base ? { name: txt(p.shoot_base) } : undefined;
   return [
     section("Logline", para(p.logline)),
     section("Theme", para(p.theme)),
     section("Look", para(p.look)),
-    p.lane ? section("The lane", para(`${p.lane.flavour}. ${p.lane.why ?? ""}`)) : "",
-    p.synopsis && Object.values(p.synopsis).some(Boolean) ? section("Synopsis", ["act1", "act2", "act3"].map((k, i) => (p.synopsis[k] ? `<p><strong>Act ${i + 1}.</strong> ${esc(p.synopsis[k])}</p>` : "")).join("")) : "",
-    p.beats?.length ? section("Beats", `<ol>${p.beats.map((b) => `<li><strong>${esc(b.title)}</strong> ${esc(b.what)}${b.where?.name || b.after?.title ? `<br><small>${[b.where?.name && `At ${esc(b.where.name)}`, b.after?.title && `after ${esc(b.after.title)}`].filter(Boolean).join(" · ")}</small>` : ""}</li>`).join("")}</ol>`) : "",
-    p.characters?.length ? section("Characters", li(p.characters.map((c) => `<li><strong>${esc(c.name ?? c.role)}</strong>${c.name && c.role ? ` ${esc(c.role)}` : ""}${[c.wants && `Wants: ${c.wants}`, c.hides && `Hides: ${c.hides}`, c.look && `Look: ${c.look}`, c.arc && `Arc: ${c.arc}`, c.note].filter(Boolean).map((x) => `<br><small>${esc(x)}</small>`).join("")}</li>`))) : "",
-    p.references?.length ? section("Study these", li(p.references.map((c) => `<li><strong>${esc(c.title)}</strong> ${esc(c.borrow ?? c.take)}</li>`))) : "",
-    p.cast_ideas?.length ? section("Cast ideas", li(p.cast_ideas.map((c) => `<li><strong>${esc(c.name)}</strong>${c.role ? ` as ${esc(c.role)}` : ""}${c.why ? ` · ${esc(c.why)}` : ""}</li>`))) : "",
-    p.shoot_base?.name || p.locations?.length ? section("Where to shoot", `${p.shoot_base?.name ? para(`Base: ${p.shoot_base.name}. ${p.shoot_base.why ?? ""}`) : ""}${li((p.locations ?? []).map((l) => `<li><strong>${esc(l.name)}</strong>${l.beat ? ` (beat ${esc(l.beat)})` : ""} ${esc(l.use)}</li>`))}`) : "",
-    p.camera?.lighting?.length || p.camera?.shots?.length ? section("Camera and light", `${li((p.camera.lighting ?? []).map((x) => `<li>${esc(x)}</li>`))}${li((p.camera.shots ?? []).map((x) => `<li>${esc(x)}</li>`))}`) : "",
-    palette.length ? section("Palette", `<div class="pal">${palette.slice(0, 6).map((c) => `<span style="background:${hex(c.hex)}">${esc(c.name)} ${esc(c.hex)}</span>`).join("")}</div>`) : "",
-    p.soundtrack?.length ? section("Soundtrack", chips(p.soundtrack.map((s) => `${s.artist}${s.use ? ` · ${s.use}` : ""}${s.beat ? ` · beat ${s.beat}` : ""}`))) : "",
-    p.travels_next?.length ? section("Travels next", chips(p.travels_next)) : "",
-    p.avoid?.length ? section("Avoid", li(p.avoid.map((a) => `<li>${esc(a)}</li>`))) : "",
+    p.lane ? section("The lane", para(`${txt(p.lane.flavour ?? p.lane)}. ${txt(p.lane.why)}`)) : "",
+    synopsis && Object.values(synopsis).some(Boolean) ? section("Synopsis", ["act1", "act2", "act3"].map((k, i) => (txt(synopsis[k]) ? `<p><strong>Act ${i + 1}.</strong> ${esc(txt(synopsis[k]))}</p>` : "")).join("")) : section("Synopsis", typeof p.synopsis === "string" ? para(p.synopsis) : ""),
+    arr(p.beats).length ? section("Beats", `<ol>${arr(p.beats).map(rec).map((b) => `<li><strong>${esc(txt(b.title))}</strong> ${esc(txt(b.what))}${txt(b.where) || txt(b.after) ? `<br><small>${[txt(b.where) && `At ${esc(txt(b.where))}`, txt(b.after) && `after ${esc(txt(b.after))}`].filter(Boolean).join(" · ")}</small>` : ""}</li>`).join("")}</ol>`) : "",
+    arr(p.characters).length ? section("Characters", li(arr(p.characters).map(rec).map((c) => `<li><strong>${esc(txt(c.name ?? c.role))}</strong>${c.name && c.role ? ` ${esc(txt(c.role))}` : ""}${[txt(c.wants) && `Wants: ${txt(c.wants)}`, txt(c.hides) && `Hides: ${txt(c.hides)}`, txt(c.look) && `Look: ${txt(c.look)}`, txt(c.arc) && `Arc: ${txt(c.arc)}`, txt(c.note)].filter(Boolean).map((x) => `<br><small>${esc(x)}</small>`).join("")}</li>`))) : "",
+    arr(p.references).length ? section("Study these", li(arr(p.references).map(rec).map((c) => `<li><strong>${esc(txt(c.title ?? c.name))}</strong> ${esc(txt(c.borrow ?? c.take))}</li>`))) : "",
+    arr(p.cast_ideas).length ? section("Cast ideas", li(arr(p.cast_ideas).map(rec).map((c) => `<li><strong>${esc(txt(c.name))}</strong>${txt(c.role) ? ` as ${esc(txt(c.role))}` : ""}${txt(c.why) ? ` · ${esc(txt(c.why))}` : ""}</li>`))) : "",
+    base?.name || arr(p.locations).length ? section("Where to shoot", `${base?.name ? para(`Base: ${txt(base.name)}. ${txt(base.why)}`) : ""}${li(arr(p.locations).map(rec).map((l) => `<li><strong>${esc(txt(l.name))}</strong>${txt(l.beat) ? ` (beat ${esc(txt(l.beat))})` : ""} ${esc(txt(l.use))}</li>`))}`) : "",
+    arr(camera.lighting).length || arr(camera.shots).length ? section("Camera and light", `${li(arr(camera.lighting).map((x) => `<li>${esc(txt(x))}</li>`))}${li(arr(camera.shots).map((x) => `<li>${esc(typeof x === "object" && x ? [txt(x.shot), txt(x.lens)].filter(Boolean).join(", ") : txt(x))}</li>`))}`) : "",
+    palette.length ? section("Palette", `<div class="pal">${palette.slice(0, 6).map((c) => `<span style="background:${hex(c.hex)}">${esc(txt(c.name))} ${esc(c.hex)}</span>`).join("")}</div>`) : "",
+    arr(p.soundtrack).length ? section("Soundtrack", chips(arr(p.soundtrack).map(rec).map((s) => `${txt(s.artist ?? s.name)}${txt(s.use) ? ` · ${txt(s.use)}` : ""}${txt(s.beat) ? ` · beat ${txt(s.beat)}` : ""}`))) : "",
+    arr(p.travels_next).length ? section("Travels next", chips(p.travels_next)) : "",
+    arr(p.avoid).length ? section("Avoid", li(arr(p.avoid).map((a) => `<li>${esc(txt(a))}</li>`))) : "",
   ].join("");
 }
 
 function reelBody(p) {
+  const audio = p.audio && typeof p.audio === "object" ? p.audio : p.audio ? { artist: txt(p.audio) } : undefined;
   return [
     section("Hook", para(p.hook)),
-    p.beats?.length ? section("Beats", `<ol>${p.beats.map((b) => `<li>${esc(b)}</li>`).join("")}</ol>`) : "",
-    p.audio?.artist ? section("Audio", para(`${p.audio.artist}. ${p.audio.why ?? ""}`)) : "",
-    p.spots?.length ? section("Shoot at", `<ul>${p.spots.map((s) => `<li><strong>${esc(s.name)}</strong> ${esc(s.why)}</li>`).join("")}</ul>`) : "",
-    p.references?.length ? section("Nod to", chips(p.references)) : "",
+    arr(p.beats).length ? section("Beats", `<ol>${arr(p.beats).map((b) => `<li>${esc(txt(b))}</li>`).join("")}</ol>`) : "",
+    txt(audio?.artist) ? section("Audio", para(`${txt(audio.artist)}. ${txt(audio.why)}`)) : "",
+    arr(p.spots).length ? section("Shoot at", `<ul>${arr(p.spots).map(rec).map((s) => `<li><strong>${esc(txt(s.name))}</strong> ${esc(txt(s.why))}</li>`).join("")}</ul>`) : "",
+    arr(p.references).length ? section("Nod to", chips(p.references)) : "",
     section("Caption", para(p.caption)),
-    p.hashtags?.length ? chips(p.hashtags) : "",
-    p.alternates?.length ? section("Or", `<ul>${p.alternates.map((a) => `<li><strong>${esc(a.title)}</strong> ${esc(a.hook)}</li>`).join("")}</ul>`) : "",
+    chips(p.hashtags),
+    arr(p.alternates).length ? section("Or", `<ul>${arr(p.alternates).map(rec).map((a) => `<li><strong>${esc(txt(a.title))}</strong> ${esc(txt(a.hook))}</li>`).join("")}</ul>`) : "",
   ].join("");
 }
 
 function fashionBody(p, pg) {
+  const styles = arr(p.styles).filter((s) => s && typeof s === "object");
   return [
     section("Positioning", para(p.positioning)),
-    p.palette?.length ? `<div class="pal">${p.palette.slice(0, 6).map((c) => `<span style="background:${hex(c.hex)}">${esc(c.name)}</span>`).join("")}</div>` : "",
-    p.styles?.length ? section("The pieces", `<div class="grid">${p.styles.map((s) => `<article class="card${s.hero ? " hero" : ""}"><h3>${esc(s.name)}</h3><p>${esc(s.category)}${s.garment ? ` · ${esc(String(s.garment).replace(/_/g, " "))}` : ""}</p>${s.cues?.length ? `<p>${esc(s.cues.join(" · "))}</p>` : ""}${s.print?.type && s.print.type !== "none" ? `<p>${esc(s.print.type)} print, ${esc(String(s.print.placement ?? "").replace(/_/g, " "))}${s.print.motif ? `: ${esc(s.print.motif)}` : ""}</p>` : ""}${s.colourways?.length ? `<p>${esc(s.colourways.join(" · "))}</p>` : ""}</article>`).join("")}</div>`) : "",
-    p.brands_to_study?.length ? section("Study these", chips(p.brands_to_study)) : "",
-    p.first_cities?.length ? section("Land first in", chips(p.first_cities)) : "",
-    p.soundtrack?.length ? section("Launch soundtrack", chips(p.soundtrack)) : "",
-    p.channels?.length ? section("Channels", chips(p.channels)) : "",
+    arr(p.palette).length ? `<div class="pal">${arr(p.palette).slice(0, 6).map(rec).map((c) => `<span style="background:${hex(c.hex)}">${esc(txt(c.name))}</span>`).join("")}</div>` : "",
+    styles.length ? section("The pieces", `<div class="grid">${styles.map((s) => `<article class="card${s.hero ? " hero" : ""}"><h3>${esc(txt(s.name))}</h3><p>${esc(txt(s.category))}${typeof s.garment === "string" ? ` · ${esc(s.garment.replace(/_/g, " "))}` : ""}</p>${arr(s.cues).length ? `<p>${esc(arr(s.cues).map(txt).join(" · "))}</p>` : ""}${s.print && typeof s.print === "object" && s.print.type && s.print.type !== "none" ? `<p>${esc(txt(s.print.type))} print, ${esc(txt(s.print.placement).replace(/_/g, " "))}${txt(s.print.motif) ? `: ${esc(txt(s.print.motif))}` : ""}</p>` : ""}${arr(s.colourways).length ? `<p>${esc(arr(s.colourways).map(txt).join(" · "))}</p>` : ""}</article>`).join("")}</div>`) : "",
+    arr(p.brands_to_study).length ? section("Study these", chips(p.brands_to_study)) : "",
+    arr(p.first_cities).length ? section("Land first in", chips(p.first_cities)) : "",
+    arr(p.soundtrack).length ? section("Launch soundtrack", chips(p.soundtrack)) : "",
+    arr(p.channels).length ? section("Channels", chips(p.channels)) : "",
     pg.produce?.mrp ? section("First run (editable assumptions)", para(`MRP ₹${pg.produce.mrp} incl. ${Math.round((pg.produce.gstRate ?? 0) * 100)}% GST · ${pg.produce.totalUnits} units` + (pg.produce.allocation?.length ? ` · ${pg.produce.allocation.map((a) => `${a.city} ${a.units}`).join(", ")}` : ""))) : "",
   ].join("");
 }
@@ -64,13 +78,15 @@ const SKIP = new Set(["titles", "names", "fallback", "lane"]);
 /** Any format: strings as paragraphs, string lists as chips, object lists as bullet lists, objects as lines. */
 function genericBody(p) {
   const out = [];
-  if (p.lane?.flavour) out.push(section("The lane", para(`${p.lane.flavour}. ${p.lane.why ?? ""}`)));
+  if (p.lane?.flavour) out.push(section("The lane", para(`${txt(p.lane.flavour)}. ${txt(p.lane.why)}`)));
   for (const [k, v] of Object.entries(p)) {
-    if (SKIP.has(k) || v === undefined || v === null || v === "") continue;
-    if (typeof v === "string") out.push(section(LABEL(k), para(v)));
-    else if (Array.isArray(v) && v.every((x) => typeof x === "string")) out.push(v.length ? section(LABEL(k), chips(v)) : "");
-    else if (Array.isArray(v)) out.push(v.length ? section(LABEL(k), `<ul>${v.map((x) => `<li>${Object.entries(x ?? {}).map(([kk, vv], i) => (i === 0 ? `<strong>${esc(vv)}</strong>` : esc(String(vv ?? "")))).join(" ")}</li>`).join("")}</ul>`) : "");
-    else if (typeof v === "object") out.push(section(LABEL(k), para(Object.values(v).filter((x) => typeof x === "string" && x).join(". "))));
+    if (SKIP.has(k) || v === undefined || v === null || v === "" || typeof v === "boolean") continue;
+    const list = arr(v);
+    if (typeof v === "string" || typeof v === "number") out.push(section(LABEL(k), para(v)));
+    else if (Array.isArray(v) && list.every((x) => typeof x === "string" || typeof x === "number")) out.push(list.length ? section(LABEL(k), chips(list)) : "");
+    // A list of records: the first field bold, the rest as text; a plain string in the list stays whole.
+    else if (Array.isArray(v)) out.push(list.length ? section(LABEL(k), `<ul>${list.map((x) => `<li>${x && typeof x === "object" ? Object.values(x).map((vv, i) => (i === 0 ? `<strong>${esc(txt(vv))}</strong>` : esc(txt(vv)))).join(" ") : esc(txt(x))}</li>`).join("")}</ul>`) : "");
+    else if (typeof v === "object") out.push(section(LABEL(k), para(Object.values(v).map(txt).filter(Boolean).join(". "))));
   }
   return out.join("");
 }
@@ -81,10 +97,10 @@ export function renderShareMarkdown(run) {
   if (!pg) return undefined;
   const p = pg.plan ?? {};
   const NOUN = { film: "A film", reel: "A reel", fashion: "A drop", podcast: "A podcast", game: "A game", cafe: "A café", event: "A night", book: "A book" };
-  const lines = [`# ${pg.title}`, "", `${NOUN[pg.format] ?? "An idea"} for ${pg.city}${pg.theme?.length ? ` · ${pg.theme.join(", ")}` : ""}${pg.loves?.length ? ` · ${pg.loves.join(", ")}` : ""}`, ""];
-  if (pg.lanes?.length) {
+  const lines = [`# ${pg.title}`, "", `${NOUN[pg.format] ?? "An idea"} for ${pg.city}${arr(pg.theme).length ? ` · ${arr(pg.theme).map(txt).join(", ")}` : ""}${arr(pg.loves).length ? ` · ${arr(pg.loves).map(txt).join(", ")}` : ""}`, ""];
+  if (arr(pg.lanes).length) {
     lines.push("## The gap", "");
-    for (const l of pg.lanes) lines.push(`- **${l.name}**: ${pg.city} #${l.cityRank} · ${pg.country} #${l.countryRank ?? "–"}${l.supplyCount !== undefined ? ` · ${l.supplyCount} recent titles` : ""}`);
+    for (const l of arr(pg.lanes).map(rec)) lines.push(`- **${l.name}**: ${pg.city} #${l.cityRank} · ${pg.country} #${l.countryRank ?? "–"}${l.supplyCount !== undefined ? ` · ${l.supplyCount} recent titles` : ""}`);
     lines.push("");
   }
   const label = (k) => k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
@@ -103,7 +119,7 @@ export function renderShareMarkdown(run) {
     lines.push(`## ${label(k)}`, "");
     if (typeof v === "string") lines.push(v, "");
     else if (Array.isArray(v) && v.every((x) => typeof x === "string")) lines.push(...v.map((x) => `- ${x}`), "");
-    else if (Array.isArray(v)) lines.push(...v.map((x) => `- ${Object.entries(x ?? {}).filter(([, vv]) => present(vv)).map(([kk, vv], i) => (i === 0 ? `**${flat(vv)}**` : `${label(kk).toLowerCase()}: ${flat(vv)}`)).join(" · ")}`), "");
+    else if (Array.isArray(v)) lines.push(...v.flat(Infinity).map((x) => (x && typeof x === "object" ? `- ${Object.entries(x).filter(([, vv]) => present(vv)).map(([kk, vv], i) => (i === 0 ? `**${flat(vv)}**` : `${label(kk).toLowerCase()}: ${flat(vv)}`)).join(" · ")}` : `- ${flat(x)}`)), "");
     else if (typeof v === "object") lines.push(...Object.entries(v).filter(([, vv]) => present(vv)).map(([kk, vv]) => `- ${label(kk)}: ${flat(vv)}`), "");
   }
   if (pg.produce?.mrp) lines.push("## First run (editable assumptions)", "", `MRP ₹${pg.produce.mrp} incl. ${Math.round((pg.produce.gstRate ?? 0) * 100)}% GST · ${pg.produce.totalUnits} units${pg.produce.allocation?.length ? ` · ${pg.produce.allocation.map((a) => `${a.city} ${a.units}`).join(", ")}` : ""}`, "");
@@ -178,9 +194,9 @@ p,li{max-width:66ch;font-size:1.05rem}p{margin:.4rem 0 .8rem}ul,ol{padding-left:
 ${BRAND}<br>
 <span class="k">${esc(kicker)}</span>
 <h1${langAttr}>${titleWords}</h1>
-<div class="meta">${[...(pg.theme ?? []), ...(pg.loves ?? [])].map((x) => `<span>${esc(x)}</span>`).join(" · ")}</div>
+<div class="meta">${[...arr(pg.theme), ...arr(pg.loves)].map((x) => `<span>${esc(txt(x))}</span>`).join(" · ")}</div>
 <div class="tools"><a href="${esc(run.publish.url)}.md" download>Download as Markdown</a><a href="${esc(run.publish.url)}">Print or save as PDF: Ctrl+P</a></div>
-${pg.lanes?.length ? `<section class="s" style="--i:0"><h2>The gap</h2><div class="lanes">${pg.lanes.map((l) => `<div class="lane"><b>${esc(l.name)}</b><div><div class="bar" style="width:${Math.max(8, Math.round((l.gap ?? 0) * 100))}%"></div><span>${esc(pg.city)} #${esc(l.cityRank)} · ${esc(pg.country)} #${esc(l.countryRank ?? "–")}${l.supplyCount !== undefined ? ` · ${esc(l.supplyCount)} recent` : ""}</span></div></div>`).join("")}</div></section>` : ""}
+${arr(pg.lanes).length ? `<section class="s" style="--i:0"><h2>The gap</h2><div class="lanes">${arr(pg.lanes).map(rec).map((l) => `<div class="lane"><b>${esc(l.name)}</b><div><div class="bar" style="width:${Math.max(8, Math.round((l.gap ?? 0) * 100))}%"></div><span>${esc(pg.city)} #${esc(l.cityRank)} · ${esc(pg.country)} #${esc(l.countryRank ?? "–")}${l.supplyCount !== undefined ? ` · ${esc(l.supplyCount)} recent` : ""}</span></div></div>`).join("")}</div></section>` : ""}
 <div${langAttr}>${staged}</div>
 <p class="fine">${esc(fine)}</p>
 </main></body></html>`;

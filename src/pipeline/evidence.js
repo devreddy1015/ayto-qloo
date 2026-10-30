@@ -6,7 +6,9 @@ import { emitEvent } from "./store.js";
 export function evidenceFor(run, stageId) {
   run.ledger ??= [];
   const record = async (title, tool, args, fn) => {
-    const id = `c_${String(run.ledger.length + 1).padStart(3, "0")}`;
+    // A running number, so a rerun that replaces some receipts never repeats an id.
+    run.ledgerSeq = Math.max(run.ledgerSeq ?? 0, run.ledger.length) + 1;
+    const id = `c_${String(run.ledgerSeq).padStart(3, "0")}`;
     const entry = { id, stage: stageId, title, tool, args, status: "running", at: new Date().toISOString() };
     run.ledger.push(entry);
     emitEvent(run, { type: "call", ...entry });
@@ -55,8 +57,21 @@ export function registerName(run, name, kind, extra = {}) {
 
 /** Is this name something Qloo actually returned (entity, brand, tag, city)? */
 export function isKnownName(run, name) {
-  return Boolean(run.names?.[nameKey(name)]);
+  if (run.names?.[nameKey(name)]) return true;
+  // Runs saved before keys were folded: compare folded spellings directly.
+  const want = nameKey(name);
+  return Boolean(want) && Object.values(run.names ?? {}).some((n) => nameKey(n?.name) === want);
 }
 
-/** Names match whatever their case or spacing ("underground  rap" is "Underground Rap"). */
-const nameKey = (name) => String(name ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+/**
+ * Names match whatever their case, spacing, accents or punctuation: "underground  rap" is "Underground Rap",
+ * "Beyonce" is "Beyoncé", "Spider Man" is "Spider-Man".
+ */
+const nameKey = (name) =>
+  String(name ?? "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .replace(/&/g, " and ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
