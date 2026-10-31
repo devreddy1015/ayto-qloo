@@ -1,5 +1,12 @@
 # AYTO demo video
 
+Two cuts, one project:
+- **AytoDrop** (1:41) leads with a streetwear drop in Los Angeles. Script: [docs/YOUTUBE_SCRIPT_DROP.md](../docs/YOUTUBE_SCRIPT_DROP.md).
+  Render it with `npx remotion render src/index.ts AytoDrop out/ayto-drop.mp4`. Its timeline and scenes are in
+  `src/drop/`, its captions are built with `node scripts/cues.mjs src/drop/timeline.ts src/drop/cues.json`, and its
+  voice is in `public/vo/drop/`.
+- **AytoDemo** (2:12) leads with a crime film in London (below).
+
 The 2-minute YouTube demo, in Remotion, made with the video-shotcraft workflow: real screens of the live app, a 2.5D
 camera, shot cards from its gallery, its sound library. The script it follows is [docs/YOUTUBE_SCRIPT.md](../docs/YOUTUBE_SCRIPT.md).
 

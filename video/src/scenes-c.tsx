@@ -36,7 +36,7 @@ export const Where: React.FC<{ dur: number }> = ({ dur }) => {
 };
 
 /** A white frame that moves between boxes of a card (page space), for "this part, then this part". */
-const Pointer: React.FC<{ f: number; stops: { at: number; x: number; y: number; w: number; h: number }[] }> = ({ f, stops }) => {
+export const Pointer: React.FC<{ f: number; stops: { at: number; x: number; y: number; w: number; h: number }[] }> = ({ f, stops }) => {
   if (f < stops[0].at) return null;
   let a = stops[0], b = stops[0];
   for (let i = 0; i < stops.length; i++) if (f >= stops[i].at) { a = stops[Math.max(0, i - 1)]; b = stops[i]; }
@@ -141,15 +141,17 @@ export const Drop: React.FC<{ dur: number }> = ({ dur }) => {
 
 // ---------- 15 · five more formats (word-relay-filmstrip) ----------
 
-const FORMAT_CARDS = [
-  { key: "podcast", label: "Podcast · Los Angeles", at: 72 },
-  { key: "cafe", label: "Café · Austin", at: 128 },
-  { key: "night", label: "Live night · Chicago", at: 170 },
-  { key: "novel", label: "Novel · New York", at: 226 },
-  { key: "game", label: "Indie game · Seattle", at: 266 },
+export type FormatCard = { label: string; at: number; page: string; name?: string; cropY?: number };
+
+const FORMAT_CARDS: FormatCard[] = [
+  { page: "podcast-brief", label: "Podcast · Los Angeles", at: 72 },
+  { page: "cafe-brief", label: "Café · Austin", at: 128 },
+  { page: "night-brief", label: "Live night · Chicago", at: 170 },
+  { page: "novel-brief", label: "Novel · New York", at: 226 },
+  { page: "game-brief", label: "Indie game · Seattle", at: 266 },
 ];
 
-export const Formats: React.FC<{ dur: number }> = ({ dur }) => {
+export const Formats: React.FC<{ dur: number; cards?: FormatCard[] }> = ({ dur, cards = FORMAT_CARDS }) => {
   const f = useCurrentFrame();
   const CW = 963, CH = 360, k = 1.12;
   return (
@@ -158,23 +160,27 @@ export const Formats: React.FC<{ dur: number }> = ({ dur }) => {
         <div style={{ position: "absolute", left: 0, right: 0, top: 70, textAlign: "center" }}>
           <Rise text="Same engine, any format" at={6} size={60} stagger={3} />
         </div>
-        {FORMAT_CARDS.map((c, i) => {
-          const next = FORMAT_CARDS[i + 1]?.at ?? 9999;
+        {cards.map((c, i) => {
+          const next = cards[i + 1]?.at ?? 9999;
           const enter = ramp(f, c.at, c.at + 16, 0, 1, EASE);
           const leave = ramp(f, next, next + 16, 0, 1, EASE);
           const x = 960 - (CW * k) / 2 + (1 - enter) * 900 - leave * 760;
           const sc = 1 - 0.22 * leave;
-          const write = cut(`${c.key}-brief`, "write");
+          const write = cut(c.page, c.name ?? "write");
+          const y0 = c.cropY ?? 0;
           return (
-            <div key={c.key} style={{ position: "absolute", left: x, top: 250, opacity: enter * (1 - 0.75 * leave), transform: `scale(${sc})`, transformOrigin: "100% 50%" }}>
+            <div key={c.label} style={{ position: "absolute", left: x, top: 250, opacity: enter * (1 - 0.75 * leave), transform: `scale(${sc})`, transformOrigin: "100% 50%" }}>
               <div style={{ fontSize: 34, fontWeight: 700, marginBottom: 16 }}>{c.label}</div>
-              <Shot c={write} scale={k} clipH={CH} style={{ position: "relative" }} />
+              <div style={{ width: CW * k, height: CH * k, borderRadius: 18, overflow: "hidden", position: "relative", boxShadow: "0 40px 120px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)" }}>
+                <Img src={staticFile(`textures/${write.file}`)} style={{ position: "absolute", left: 0, top: -y0 * k, width: write.w * k, height: write.h * k }} />
+                <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 70 * k, background: "linear-gradient(180deg, rgba(20,20,23,0), rgba(20,20,23,1))" }} />
+              </div>
             </div>
           );
         })}
         <div style={{ position: "absolute", left: 0, right: 0, top: 790, display: "flex", justifyContent: "center", gap: 18 }}>
-          {FORMAT_CARDS.map((c, i) => (
-            <Pill key={c.key} size={24} tone={f >= c.at && f < (FORMAT_CARDS[i + 1]?.at ?? 9999) ? "plain" : "dim"} style={{ opacity: ramp(f, c.at - 6, c.at + 6) }}>
+          {cards.map((c, i) => (
+            <Pill key={c.label} size={24} tone={f >= c.at && f < (cards[i + 1]?.at ?? 9999) ? "plain" : "dim"} style={{ opacity: ramp(f, c.at - 6, c.at + 6) }}>
               {c.label.split(" · ")[0]}
             </Pill>
           ))}
