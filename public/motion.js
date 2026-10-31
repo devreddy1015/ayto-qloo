@@ -304,7 +304,7 @@ function accordions() {
   document.addEventListener("click", (e) => {
     const summary = e.target.closest?.("summary");
     const d = summary?.parentElement;
-    if (!d || d.tagName !== "DETAILS" || !d.open || e.defaultPrevented) return;
+    if (!d || d.tagName !== "DETAILS" || !d.open || e.defaultPrevented || summary.contains(e.target.closest("a, button"))) return; // a link or button in the summary does its own thing
     const list = parts(d);
     if (!list.length) return;
     e.preventDefault();
