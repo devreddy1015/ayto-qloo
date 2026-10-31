@@ -20,6 +20,8 @@ const BASE = process.env.AYTO_BASE ?? "https://ayto-ocx1.onrender.com";
 const RUNS = {
   london: "r_II8RRiQ", vegas: "r_v1UPYbI", paris: "r_zMOGrbI",
   // The second pass (31 Oct, 05:20): a fresh Paris drop and five more formats.
+  // The drop-led video (31 Oct, 06:05): a streetwear drop in Los Angeles.
+  la: "r_ftChx5Q",
   paris2: "r__YIcZgo", podcast: "r_0VEYXak", cafe: "r_2JR1XV0", night: "r_2HLTtTI", novel: "r_RYJLaBw", game: "r_vlWXKdk",
   ...Object.fromEntries((process.env.AYTO_RUNS ?? "").split(",").filter(Boolean).map((kv) => kv.split(":"))),
 };
@@ -202,6 +204,77 @@ const PAGES = [
       }
     },
     cutouts: [],
+  },
+  // The Los Angeles drop: every screen the drop-led video uses.
+  {
+    name: "la-confirm",
+    path: "/",
+    ready: "#text-input",
+    prep: async (page) => {
+      await page.fill("#text-input", "I'm making a streetwear drop in Los Angeles.");
+      await page.click("#parse-button");
+      // The confirm box shows "Finding the city…" first; wait for its pickers.
+      await page.waitForSelector("#confirm select", { timeout: 120000 });
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(1500);
+    },
+    shots: [],
+    cutouts: [{ name: "confirm", selector: "#confirm" }],
+  },
+  {
+    name: "la-evidence",
+    path: `/run/${RUNS.la}#evidence`,
+    ready: "#stage-gap",
+    shots: [],
+    cutouts: [
+      { name: "tabs", selector: ".page-tabs" },
+      { name: "resolve", selector: "#stage-resolve" },
+      { name: "read", selector: "#stage-read" },
+      { name: "gap", selector: "#stage-gap" },
+      { name: "look", selector: "#stage-look" },
+      { name: "trace", selector: "#trace-list" },
+    ],
+  },
+  {
+    name: "la-receipt",
+    path: `/run/${RUNS.la}#evidence`,
+    ready: "#trace-list .trace-item",
+    prep: async (page) => {
+      await page.evaluate(() => {
+        const items = [...document.querySelectorAll("#trace-list .trace-item")];
+        const pick = items.find((i) => i.dataset.stage === "gap") ?? items[0];
+        pick.querySelector("details").open = true;
+        pick.id = "picked-receipt";
+      });
+      await page.waitForTimeout(400);
+    },
+    shots: [],
+    cutouts: [{ name: "item", selector: "#picked-receipt" }],
+  },
+  {
+    name: "la-brief",
+    path: `/run/${RUNS.la}#brief`,
+    ready: "#stage-write",
+    shots: [],
+    cutouts: [{ name: "write", selector: "#stage-write" }, { name: "diff", selector: "#stage-diff" }, { name: "chips", selector: "#stage-write .q", all: true, max: 4 }],
+    boxes: [{ key: "heads", selector: "#stage-write h3", all: true }],
+  },
+  {
+    name: "la-make",
+    path: `/run/${RUNS.la}#make`,
+    ready: ".garment-tabs button",
+    wait: 6000,
+    shots: [],
+    prep: async (page) => {
+      const count = Math.min(await page.locator(".garment-tabs button").count(), 4);
+      for (let i = 0; i < count; i++) {
+        await page.locator(".garment-tabs button").nth(i).click();
+        await page.waitForTimeout(2500);
+        await page.locator(".sect.garment").first().screenshot({ path: `${OUT}/la-style${i + 1}.png` });
+        console.log(`  captured la-style${i + 1}.png`);
+      }
+    },
+    cutouts: [{ name: "image", selector: ".concept-image" }],
   },
   // Each other format: its gap card and its brief.
   ...["podcast", "cafe", "night", "novel", "game"].flatMap((key) => [

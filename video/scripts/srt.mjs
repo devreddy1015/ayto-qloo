@@ -1,15 +1,15 @@
 // Writes the captions as an .srt for the YouTube upload (and for an editor): every voice line, cut where the video
 // cuts it (src/cues.json), including the lines the picture shows in big type and so leaves uncaptioned.
 //
-//   node scripts/srt.mjs out/ayto-demo.srt
+//   node scripts/srt.mjs out/ayto-demo.srt [timeline.ts] [cues.json]
 
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const timeline = fs.readFileSync(path.join(root, "src/timeline.ts"), "utf8");
-const cues = JSON.parse(fs.readFileSync(path.join(root, "src/cues.json"), "utf8"));
+const timeline = fs.readFileSync(path.resolve(root, process.argv[3] ?? "src/timeline.ts"), "utf8");
+const cues = JSON.parse(fs.readFileSync(path.resolve(root, process.argv[4] ?? "src/cues.json"), "utf8"));
 const FPS = 30;
 
 // Scene starts, the same sum timeline.ts makes.

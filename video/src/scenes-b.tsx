@@ -213,9 +213,11 @@ export const Make: React.FC<{ dur: number }> = ({ dur }) => {
 
 const PALETTE = ["#5b6770", "#3c4147", "#b5833a", "#d9d4cc", "#4f5d4a", "#8a5a48"];
 
-export const Outro: React.FC<{ dur: number }> = ({ dur }) => {
+export const Outro: React.FC<{ dur: number; lane?: string; palette?: string[]; chipPage?: string; thumb?: string; trace?: string }> = ({
+  dur, lane = "Autobiographical +17", palette = PALETTE, chipPage = "brief", thumb = "deck/f3.png", trace = "13 of 13 trace",
+}) => {
   const f = useCurrentFrame();
-  const chip = cut("brief", "chips1");
+  const chip = cut(chipPage, "chips1");
   const gather = ramp(f, 34, 58, 0, 1, Easing2);
   const ring = ramp(f, 44, 60);
   const drop = interpolate(f, [52, 62], [-16, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE_IN });
@@ -223,12 +225,12 @@ export const Outro: React.FC<{ dur: number }> = ({ dur }) => {
   const dot = f >= 50 ? 1 : 0;
   const glow = f >= 62 ? 14 * (1 - ramp(f, 62, 110, 0, 0.7)) : 0;
   const items: { x: number; y: number; at: number; node: React.ReactNode }[] = [
-    { x: -520, y: -250, at: 0, node: <Pill tone="tape" size={34}>Autobiographical +17</Pill> },
+    { x: -520, y: -250, at: 0, node: <Pill tone="tape" size={34}>{lane}</Pill> },
     { x: 360, y: -280, at: 5, node: <Img src={staticFile(`textures/${chip.file}`)} style={{ width: chip.w * 2.2, height: chip.h * 2.2 }} /> },
-    { x: -600, y: 140, at: 10, node: <div style={{ display: "flex", gap: 8 }}>{PALETTE.map((c) => <div key={c} style={{ width: 56, height: 56, borderRadius: 12, background: c, boxShadow: "0 0 0 1px rgba(255,255,255,0.12)" }} />)}</div> },
-    { x: 420, y: 160, at: 15, node: <div style={{ width: 240, height: 160, borderRadius: 12, overflow: "hidden", boxShadow: "0 0 0 1px rgba(255,255,255,0.12)" }}><Img src={staticFile("textures/deck/f3.png")} style={{ width: 244, height: 164, objectFit: "cover" }} /></div> },
+    { x: -600, y: 140, at: 10, node: <div style={{ display: "flex", gap: 8 }}>{palette.map((c) => <div key={c} style={{ width: 56, height: 56, borderRadius: 12, background: c, boxShadow: "0 0 0 1px rgba(255,255,255,0.12)" }} />)}</div> },
+    { x: 420, y: 160, at: 15, node: <div style={{ width: 240, height: 160, borderRadius: 12, overflow: "hidden", boxShadow: "0 0 0 1px rgba(255,255,255,0.12)" }}><Img src={staticFile(`textures/${thumb}`)} style={{ width: 244, height: 164, objectFit: "cover" }} /></div> },
     { x: -120, y: 300, at: 20, node: <div style={{ display: "flex", gap: 5, alignItems: "center", height: 60 }}>{Array.from({ length: 18 }, (_, i) => <div key={i} style={{ width: 7, height: 10 + 40 * Math.abs(Math.sin(i * 0.9 + f / 4)), borderRadius: 4, background: T.fg }} />)}</div> },
-    { x: -40, y: -330, at: 25, node: <Pill size={30}>13 of 13 trace</Pill> },
+    { x: -40, y: -330, at: 25, node: <Pill size={30}>{trace}</Pill> },
   ];
   return (
     <SceneFade dur={dur} outF={20}>

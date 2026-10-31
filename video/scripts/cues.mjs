@@ -2,7 +2,7 @@
 // each chunk starts where the speaker resumes after a pause (ffmpeg silencedetect on the clip), so captions don't
 // lag the voice. Writes src/cues.json: { "<clip>": [{ text, at }] }, with `at` in frames from the clip's start.
 //
-//   node scripts/cues.mjs
+//   node scripts/cues.mjs [timeline.ts] [cues.json]     (default: src/timeline.ts → src/cues.json)
 
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -11,7 +11,8 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
-const timeline = fs.readFileSync(path.join(root, "src/timeline.ts"), "utf8");
+const timeline = fs.readFileSync(path.resolve(root, process.argv[2] ?? "src/timeline.ts"), "utf8");
+const outFile = path.resolve(root, process.argv[3] ?? "src/cues.json");
 const dir = timeline.match(/VOICE_DIR = "([^"]+)"/)[1];
 const FPS = 30, MAX = 52;
 
@@ -20,6 +21,12 @@ const OVERRIDE = {
   s02: ["The real question is which kind of crime story", "London loves, and isn't getting."],
   s06d: ["Then it counts the recent crime films that carry them."],
   s11: ["Then make it: a concept still,", "a storyboard frame for every beat,", "and the story, read aloud."],
+  // "L.A." ends in a period, which the splitter would read as a sentence end.
+  d01: ["Every drop starts with a blank sketchbook, and a guess.", "You know L.A. loves streetwear.", "Everyone does."],
+  d02: ["The real question is which kind of streetwear", "L.A. loves, and isn't getting."],
+  d05: ["It plans its own reads on Qloo's taste graph:", "what L.A. loves more than the U.S.,", "and more than Houston, Phoenix and Philadelphia."],
+  d06: ["Visual arts. Skate punk. Alternative dance.", "L.A. ranks them in its top twelve.", "The rest of the country?", "Not even in its top thirty."],
+  d12: ["Same engine, any format:", "a crime film in London,", "a reel in Las Vegas,", "a live music night in Chicago,", "an indie game in Seattle,", "a café in Austin."],
   s16: ["Same engine, any format:", "a podcast in Los Angeles,", "a café in Austin,", "a live music night in Chicago,", "a novel in New York,", "an indie game in Seattle."],
 };
 
@@ -64,5 +71,5 @@ for (const v of voice) {
   });
 }
 
-fs.writeFileSync(path.join(root, "src/cues.json"), JSON.stringify(cues, null, 1));
+fs.writeFileSync(outFile, JSON.stringify(cues, null, 1));
 for (const [k, list] of Object.entries(cues)) console.log(k, list.map((c) => `${c.at}:${c.text}`).join(" | "));

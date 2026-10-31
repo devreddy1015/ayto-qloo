@@ -810,5 +810,185 @@
   "pageH": 2932,
   "cutouts": {},
   "boxes": {}
+ },
+ "la-confirm": {
+  "pageH": 3360,
+  "cutouts": {
+   "confirm": {
+    "file": "la-confirm-confirm.png",
+    "x": 379,
+    "y": 908,
+    "w": 933,
+    "h": 204
+   }
+  },
+  "boxes": {}
+ },
+ "la-evidence": {
+  "pageH": 6940,
+  "cutouts": {
+   "tabs": {
+    "file": "la-evidence-tabs.png",
+    "x": 602,
+    "y": 90,
+    "w": 617,
+    "h": 69
+   },
+   "resolve": {
+    "file": "la-evidence-resolve.png",
+    "x": 602,
+    "y": 219,
+    "w": 617,
+    "h": 287
+   },
+   "read": {
+    "file": "la-evidence-read.png",
+    "x": 602,
+    "y": 525,
+    "w": 617,
+    "h": 1046
+   },
+   "gap": {
+    "file": "la-evidence-gap.png",
+    "x": 602,
+    "y": 1590,
+    "w": 617,
+    "h": 839
+   },
+   "look": {
+    "file": "la-evidence-look.png",
+    "x": 602,
+    "y": 2448,
+    "w": 617,
+    "h": 1378
+   },
+   "trace": {
+    "file": "la-evidence-trace.png",
+    "x": 1263,
+    "y": 2377,
+    "w": 283,
+    "h": 2890
+   }
+  },
+  "boxes": {}
+ },
+ "la-receipt": {
+  "pageH": 6940,
+  "cutouts": {
+   "item": {
+    "file": "la-receipt-item.png",
+    "x": 1263,
+    "y": 467,
+    "w": 283,
+    "h": 294
+   }
+  },
+  "boxes": {}
+ },
+ "la-brief": {
+  "pageH": 4300,
+  "cutouts": {
+   "write": {
+    "file": "la-brief-write.png",
+    "x": 602,
+    "y": 837,
+    "w": 962,
+    "h": 1363
+   },
+   "diff": {
+    "file": "la-brief-diff.png",
+    "x": 602,
+    "y": 2412,
+    "w": 962,
+    "h": 1045
+   },
+   "chips1": {
+    "file": "la-brief-chips1.png",
+    "x": 639,
+    "y": 1493,
+    "w": 132,
+    "h": 30
+   },
+   "chips2": {
+    "file": "la-brief-chips2.png",
+    "x": 639,
+    "y": 1531,
+    "w": 129,
+    "h": 30
+   },
+   "chips3": {
+    "file": "la-brief-chips3.png",
+    "x": 872,
+    "y": 1506,
+    "w": 117,
+    "h": 27
+   },
+   "chips4": {
+    "file": "la-brief-chips4.png",
+    "x": 872,
+    "y": 1540,
+    "w": 134,
+    "h": 27
+   }
+  },
+  "boxes": {
+   "heads": [
+    {
+     "x": 623,
+     "y": 1157,
+     "w": 919,
+     "h": 18
+    },
+    {
+     "x": 623,
+     "y": 1309,
+     "w": 919,
+     "h": 18
+    },
+    {
+     "x": 623,
+     "y": 1627,
+     "w": 919,
+     "h": 18
+    },
+    {
+     "x": 623,
+     "y": 1747,
+     "w": 919,
+     "h": 18
+    },
+    {
+     "x": 623,
+     "y": 1825,
+     "w": 919,
+     "h": 18
+    },
+    {
+     "x": 623,
+     "y": 1903,
+     "w": 919,
+     "h": 18
+    },
+    {
+     "x": 623,
+     "y": 2032,
+     "w": 919,
+     "h": 18
+    }
+   ]
+  }
+ },
+ "la-make": {
+  "pageH": 3493,
+  "cutouts": {
+   "image": {
+    "file": "la-make-image.png",
+    "x": 602,
+    "y": 1343,
+    "w": 962,
+    "h": 683
+   }
+  },
+  "boxes": {}
  }
 }

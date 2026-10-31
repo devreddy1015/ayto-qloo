@@ -11,7 +11,7 @@ const CC = 7, CR = 4; // the empty slot, dead centre
 const gx = (c: number) => 960 - TW / 2 + (c - CC) * (TW + GAP);
 const gy = (r: number) => 540 - TH / 2 + (r - CR) * (TH + GAP);
 
-const GuessGrid: React.FC<{ f: number; zoom: number; slotGlow: number }> = ({ f, zoom, slotGlow }) => {
+export const GuessGrid: React.FC<{ f: number; zoom: number; slotGlow: number }> = ({ f, zoom, slotGlow }) => {
   const tiles: React.ReactNode[] = [];
   for (let r = 0; r < ROWS; r++)
     for (let c = 0; c < COLS; c++) {
@@ -48,20 +48,20 @@ const GuessGrid: React.FC<{ f: number; zoom: number; slotGlow: number }> = ({ f,
   );
 };
 
-export const Guess: React.FC<{ dur: number }> = ({ dur }) => {
+export const Guess: React.FC<{ dur: number; title?: string }> = ({ dur, title = "Every film starts with a guess." }) => {
   const f = useCurrentFrame();
   return (
     <Bg>
       <GuessGrid f={f} zoom={1 + 0.06 * ramp(f, 0, dur, 0, 1, INOUT)} slotGlow={ramp(f, 140, 175)} />
       <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(11,11,13,0) 45%, rgba(11,11,13,0.92) 78%)" }} />
       <div style={{ position: "absolute", left: 0, right: 0, top: 690, textAlign: "center" }}>
-        <Rise text="Every film starts with a guess." at={36} size={76} />
+        <Rise text={title} at={36} size={76} />
       </div>
     </Bg>
   );
 };
 
-export const Question: React.FC<{ dur: number }> = ({ dur }) => {
+export const Question: React.FC<{ dur: number; lines?: [string, string] }> = ({ dur, lines = ["Which kind of crime", "is London missing?"] }) => {
   const f = useCurrentFrame();
   const z = interpolate(f, [0, 70], [1.06, 11], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: CAM });
   return (
@@ -70,8 +70,8 @@ export const Question: React.FC<{ dur: number }> = ({ dur }) => {
         <GuessGrid f={999} zoom={z} slotGlow={1} />
         <AbsoluteFill style={{ background: `rgba(11,11,13,${ramp(f, 40, 70, 0, 0.55)})` }} />
         <div style={{ position: "absolute", left: 0, right: 0, top: 390, textAlign: "center" }}>
-          <Rise text="Which kind of crime" at={52} size={76} stagger={4} />
-          <Rise text="is London missing?" at={64} size={76} stagger={4} style={{ marginTop: 6 }} />
+          <Rise text={lines[0]} at={52} size={76} stagger={4} />
+          <Rise text={lines[1]} at={64} size={76} stagger={4} style={{ marginTop: 6 }} />
         </div>
       </Bg>
     </SceneFade>
@@ -111,12 +111,10 @@ export const Ayto: React.FC<{ dur: number }> = ({ dur }) => {
 
 // ---------- 4 · the sentence and what Qloo found (hashtag-to-pill-materialize) ----------
 
-const SENTENCE = "I'm making a crime short film in London.";
-
-export const Compose: React.FC<{ dur: number }> = ({ dur }) => {
+export const Compose: React.FC<{ dur: number; sentence?: string; confirmPage?: string }> = ({ dur, sentence: SENTENCE = "I'm making a crime short film in London.", confirmPage = "confirm" }) => {
   const f = useCurrentFrame();
   const empty = cut("compose", "empty");
-  const confirm = cut("confirm", "confirm");
+  const confirm = cut(confirmPage, "confirm");
   const k = 1.3;
   const left = 960 - (empty.w * k) / 2;
   const typed = Math.floor(interpolate(f, [16, 74], [0, SENTENCE.length], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
@@ -153,12 +151,12 @@ export const Compose: React.FC<{ dur: number }> = ({ dur }) => {
 
 // ---------- 5 · Qloo reads the city (ai-stream-response) ----------
 
-export const Evidence: React.FC<{ dur: number }> = ({ dur }) => {
+export const Evidence: React.FC<{ dur: number; page?: string; title?: string; count?: number }> = ({ dur, page = "evidence", title = "London  vs  the UK  vs  Glasgow · Liverpool · Leeds", count = 45 }) => {
   const f = useCurrentFrame();
-  const tabs = cut("evidence", "tabs");
-  const resolve = cut("evidence", "resolve");
-  const read = cut("evidence", "read");
-  const trace = cut("evidence", "trace");
+  const tabs = cut(page, "tabs");
+  const resolve = cut(page, "resolve");
+  const read = cut(page, "read");
+  const trace = cut(page, "trace");
   const k = 1.12;
   const land = (at: number) => ({ o: ramp(f, at, at + 16), y: (1 - ramp(f, at, at + 20)) * 50 });
   const a = land(10), b = land(34), cR = land(64), d = land(20);
@@ -168,7 +166,7 @@ export const Evidence: React.FC<{ dur: number }> = ({ dur }) => {
     <SceneFade dur={dur}>
       <Bg>
         <div style={{ position: "absolute", left: 150, top: 64 }}>
-          <Rise text="London  vs  the UK  vs  Glasgow · Liverpool · Leeds" at={24} size={42} weight={700} stagger={2} />
+          <Rise text={title} at={24} size={42} weight={700} stagger={2} />
         </div>
         <AbsoluteFill style={{ perspective: 2200 }}>
           <AbsoluteFill style={{ transform: `rotateY(${yaw}deg)`, transformStyle: "preserve-3d" }}>
@@ -184,7 +182,7 @@ export const Evidence: React.FC<{ dur: number }> = ({ dur }) => {
             <div style={{ position: "absolute", left: 1010, top: 150, width: trace.w * 1.55, height: 800, opacity: d.o, transform: `translateY(${d.y}px)`, borderRadius: 18, overflow: "hidden", boxShadow: "0 40px 120px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)", background: T.card }}>
               <div style={{ position: "relative", zIndex: 2, background: T.card, padding: "18px 24px", fontSize: 26, fontWeight: 700, borderBottom: `1px solid ${T.line}`, display: "flex", justifyContent: "space-between" }}>
                 <span>Receipts</span>
-                <span style={{ color: T.soft, fontVariantNumeric: "tabular-nums" }}>Qloo · 45 requests</span>
+                <span style={{ color: T.soft, fontVariantNumeric: "tabular-nums" }}>Qloo · {count} requests</span>
               </div>
               <div style={{ position: "absolute", top: 70, left: 0, transform: `translateY(${-scroll}px)` }}>
                 <Img src={staticFile(`textures/${trace.file}`)} style={{ width: trace.w * 1.55, height: trace.h * 1.55, display: "block" }} />

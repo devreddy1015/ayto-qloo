@@ -1,0 +1,202 @@
+{
+ "d01": [
+  {
+   "text": "Every drop starts with a blank sketchbook, and a guess.",
+   "at": 0
+  },
+  {
+   "text": "You know L.A. loves streetwear.",
+   "at": 100
+  },
+  {
+   "text": "Everyone does.",
+   "at": 149
+  }
+ ],
+ "d02": [
+  {
+   "text": "The real question is which kind of streetwear",
+   "at": 0
+  },
+  {
+   "text": "L.A. loves, and isn't getting.",
+   "at": 83
+  }
+ ],
+ "d03": [
+  {
+   "text": "AYTO answers that before you design a thing.",
+   "at": 0
+  }
+ ],
+ "d04": [
+  {
+   "text": "Tell it what you're making, and where.",
+   "at": 0
+  },
+  {
+   "text": "A streetwear drop in Los Angeles.",
+   "at": 66
+  }
+ ],
+ "d05": [
+  {
+   "text": "It plans its own reads on Qloo's taste graph:",
+   "at": 0
+  },
+  {
+   "text": "what L.A. loves more than the U.S.,",
+   "at": 77
+  },
+  {
+   "text": "and more than Houston, Phoenix and Philadelphia.",
+   "at": 134
+  }
+ ],
+ "d06": [
+  {
+   "text": "Visual arts. Skate punk. Alternative dance.",
+   "at": 0
+  },
+  {
+   "text": "L.A. ranks them in its top twelve.",
+   "at": 58
+  },
+  {
+   "text": "The rest of the country?",
+   "at": 156
+  },
+  {
+   "text": "Not even in its top thirty.",
+   "at": 189
+  }
+ ],
+ "s07": [
+  {
+   "text": "That's the gap.",
+   "at": 0
+  },
+  {
+   "text": "Loved here, under-served.",
+   "at": 38
+  }
+ ],
+ "d08": [
+  {
+   "text": "Then it reads the look: unique silhouettes,",
+   "at": 0
+  },
+  {
+   "text": "high fashion, artisanal.",
+   "at": 78
+  },
+  {
+   "text": "Silk and leather, three times the country's share.",
+   "at": 140
+  },
+  {
+   "text": "Not polished.",
+   "at": 217
+  },
+  {
+   "text": "Not colourful.",
+   "at": 248
+  }
+ ],
+ "d09": [
+  {
+   "text": "Your own AI writes the drop into that gap:",
+   "at": 0
+  },
+  {
+   "text": "Sunset Static.",
+   "at": 66
+  },
+  {
+   "text": "Four styles, a palette, the labels to study,",
+   "at": 103
+  },
+  {
+   "text": "and the first cities to launch in.",
+   "at": 193
+  }
+ ],
+ "d10": [
+  {
+   "text": "Every name opens the Qloo request it came from.",
+   "at": 0
+  },
+  {
+   "text": "Ask the same AI without Qloo:",
+   "at": 79
+  },
+  {
+   "text": "two of ten names trace.",
+   "at": 136
+  }
+ ],
+ "d11": [
+  {
+   "text": "Then see it: every style on a mannequin, in 3D,",
+   "at": 0
+  },
+  {
+   "text": "in the drop's own colours,",
+   "at": 78
+  },
+  {
+   "text": "with its print drawn for it.",
+   "at": 158
+  }
+ ],
+ "d12": [
+  {
+   "text": "Same engine, any format:",
+   "at": 0
+  },
+  {
+   "text": "a crime film in London,",
+   "at": 62
+  },
+  {
+   "text": "a reel in Las Vegas,",
+   "at": 106
+  },
+  {
+   "text": "a live music night in Chicago,",
+   "at": 152
+  },
+  {
+   "text": "an indie game in Seattle,",
+   "at": 206
+  },
+  {
+   "text": "a café in Austin.",
+   "at": 257
+  }
+ ],
+ "s12d": [
+  {
+   "text": "And any agent can call it.",
+   "at": 0
+  }
+ ],
+ "s13a": [
+  {
+   "text": "AYTO.",
+   "at": 0
+  }
+ ],
+ "s13b": [
+  {
+   "text": "Are you the one?",
+   "at": 0
+  }
+ ],
+ "s13c": [
+  {
+   "text": "Built on what your city already loves.",
+   "at": 0
+  }
+ ]
+}
