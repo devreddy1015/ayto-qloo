@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: the references strip leads with photos
+## PR #49 (31 Oct, 05:32): the references strip leads with photos
 
 - **The strip under a drop's 3D preview now opens with photos, not logos:** after the love the maker named, up to two
   style icons the city's crowd follows (the audio stage's artists, which carry Qloo photos: for the Las Vegas drop,
