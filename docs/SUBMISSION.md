@@ -7,12 +7,12 @@ The app must stay up, free and with no login, until judging ends on **5 Nov 2026
 
 | Required by the rules | Status |
 |---|---|
-| A live, working app judges can try end to end, hosted externally | Done: https://ayto-ocx1.onrender.com (Render, free plan, DeepSeek as the server model). Checked on 31 Oct: a real model wrote the Hyderabad treatment, 25 of 25 names traced |
+| A live, working app judges can try end to end, hosted externally | Done: https://ayto-ocx1.onrender.com (Render, free plan, Claude Sonnet 5.5 as the server model). Checked on 31 Oct: the London film written live, 27 of 27 names traced |
 | A public repo with all source and instructions | Done: [github.com/devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) |
 | An open-source licence visible in the repo's About section | Done: MIT, shown in About |
 | A text description of the features and what makes it Qloo-powered | Done: "About the project" below |
-| Video (optional, but judges may score on text, images and video alone) | Script ready: [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md) |
-| Gallery images | Done: 10 images in `submission/gallery/` (kept out of git), film, reel and fashion drop, all from the live site |
+| Video (optional, but judges may score on text, images and video alone) | Done: https://youtu.be/pM4jVRt6DUc, on Devpost |
+| Gallery images | Done: the 12 images below, in `submission/gallery-v2/` (kept out of git), on Devpost in order with their captions |
 
 **Once the live URL exists, put it in:**
 1. the README's "Live demo" line;
@@ -224,7 +224,7 @@ Without Qloo there is no lane, no list and no map: only a prompt.
 
 ## Video demo link
 
-`<YouTube or Vimeo link>`. Script: [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md).
+https://youtu.be/pM4jVRt6DUc ("AYTO: what L.A. loves and isn't getting, a streetwear drop built on Qloo"). It follows a streetwear drop for Los Angeles; the written script in [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md) follows the London film.
 
 ## Image gallery (in this order)
 
