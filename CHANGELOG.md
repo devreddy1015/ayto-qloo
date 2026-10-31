@@ -3,6 +3,20 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: the other two pages say what they hold
+
+- **After running an example, a visitor didn't know the evidence and Make it tabs held more.** Nothing marked them.
+  Now, once a run is done:
+  - a tab the run hasn't shown yet gets a white dot in its corner, with a ring that breathes twice, until it's opened;
+  - Make it says how many tools it holds ("studio · 4 tools");
+  - under the main results, two cards say what each page holds: "Every Qloo read behind this brief, 45 Qloo
+    requests" and "Turn the brief into something to show: concept image, shot deck, music and narration". A card
+    opens its page.
+- The tool names come from the blocks the studio really shows, so a site without an image key doesn't promise one, and
+  a voice with nothing to read isn't counted. Nothing moves under reduced motion; the dot sits in the tab's corner so
+  a phone's labels keep one line.
+- Checked in a browser on London (desktop) and Paris (phone): marks clear as each page opens, no overflow, no errors.
+
 ## PR #48 (31 Oct, 05:34): main results first on the brief
 
 - **A client opening a run met a long story before any result.** The brief page now opens on a "Main results"

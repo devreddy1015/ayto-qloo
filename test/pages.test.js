@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { FORMATS, STAGE_LABELS } from "../src/formats.js";
-import { defaultPage, MAKE_BLOCKS, PAGES, pageFromHash, pageOf } from "../public/pages.js";
+import { defaultPage, listWords, MAKE_BLOCKS, PAGES, pageFromHash, pageOf, studioTools } from "../public/pages.js";
 
 const QLOO_STAGES = ["resolve", "read", "gap", "look", "audio", "spots", "audience", "travels"];
 
@@ -47,4 +47,21 @@ test("with no hash, a run still working opens on the evidence and a finished one
 
 test("the studio takes the write card's on-demand extras by class", () => {
   for (const cls of [".concept-image", ".shot-deck", ".music-tone", ".spoken-pitch", ".sect.garment", ".sect.refs"]) assert.ok(MAKE_BLOCKS.split(", ").includes(cls), cls);
+});
+
+// A stand-in for a studio block: the classes app.js gives it, and whether anything is in it.
+const block = (cls, { empty = false, hidden = false, stage } = {}) => ({
+  hidden,
+  childElementCount: empty ? 0 : 1,
+  matches: (sel) => sel.split(", ").some((one) => (one.startsWith("[data-stage") ? one === `[data-stage="${stage}"]` : one.split(".").filter(Boolean).every((c) => cls.split(" ").includes(c)))),
+});
+
+test("the studio's tools are named from its blocks, in one order, and an empty block doesn't count", () => {
+  const film = [block("shot-deck"), block("concept-image"), block("music-tone spoken-pitch"), block("music-tone")];
+  assert.deepEqual(studioTools(film), ["concept image", "shot deck", "narration", "music"], "narration isn't counted as music");
+  assert.deepEqual(studioTools([block("music-tone spoken-pitch", { empty: true }), block("concept-image", { hidden: true })]), [], "a voice with nothing to read and a hidden block are not tools");
+  assert.deepEqual(studioTools([block("sect refs"), block("sect garment")]), ["3D styles", "references"]);
+  assert.equal(listWords(["concept image", "shot deck", "music"]), "concept image, shot deck and music");
+  assert.equal(listWords(["narration"]), "narration");
+  assert.equal(listWords([]), "");
 });

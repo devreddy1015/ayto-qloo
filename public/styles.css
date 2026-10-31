@@ -2404,6 +2404,27 @@ details.raw > summary {
 .page-tab-label { font-size: var(--step--1); font-weight: 700; display: inline-flex; align-items: center; gap: 0.45rem; }
 .page-tab-meta { font-size: var(--step--2); color: var(--fg-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .page-tab.running .page-tab-label::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--tape); animation: pulse 1.1s ease-in-out infinite; }
+/* A page the finished run hasn't shown yet: a white dot and a ring that breathes twice, until it's opened (pages.js). */
+.page-tab { position: relative; }
+/* In the tab's corner, so it never takes room from the label on a phone. */
+.page-tab.unseen:not(.running)::after { content: ""; position: absolute; top: 0.55rem; right: 0.6rem; width: 7px; height: 7px; border-radius: 50%; background: var(--fg); box-shadow: 0 0 0 0 rgba(245, 245, 247, 0.5); animation: tab-call 1.6s var(--ease-out) 0.6s 2; }
+.page-tab.unseen:not(.running) { color: var(--fg); }
+.page-tab.unseen .page-tab-meta { color: var(--fg-soft); }
+@keyframes tab-call { 0% { box-shadow: 0 0 0 0 rgba(245, 245, 247, 0.5); } 100% { box-shadow: 0 0 0 9px rgba(245, 245, 247, 0); } }
+/* Under the main results: what the other two pages hold. */
+.page-next { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 0.7rem; }
+.page-next-card { position: relative; display: grid; gap: 0.2rem; min-width: 0; padding: 0.95rem 2.6rem 1rem 1.1rem; text-align: left; font: inherit; color: var(--fg); cursor: pointer; background: var(--glass); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: var(--radius-md); transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out); }
+.page-next-card::after { content: "→"; position: absolute; right: 1rem; top: 50%; translate: 0 -50%; font-size: var(--step-1); color: var(--fg-soft); transition: translate 160ms var(--ease-out); }
+.page-next-card.unseen { border-color: var(--line-strong); }
+.page-next-card:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .page-next-card:hover { background: var(--well-2); border-color: var(--line-strong); }
+  .page-next-card:hover::after { translate: 4px -50%; color: var(--fg); }
+}
+.page-next-kicker { font-size: var(--step--2); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-mute); }
+.page-next-card strong { font-size: var(--step-0); font-weight: 700; line-height: 1.3; }
+.page-next-line { font-size: var(--step--1); color: var(--fg-soft); line-height: 1.4; }
+@media (prefers-reduced-motion: reduce) { .page-tab.unseen::after { animation: none; } .page-next-card, .page-next-card::after { transition: none; } }
 .page, .page-stages, .page-blocks { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.2rem; min-width: 0; pointer-events: none; }
 .page > *, .page-stages > *, .page-blocks > * { pointer-events: auto; }
 .page:focus-visible { outline-offset: 4px; border-radius: var(--radius); }
