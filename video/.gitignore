@@ -1,0 +1,7 @@
+node_modules/
+out/
+# Screens of the live app carry Qloo response data: never committed (see the repo's hard rules).
+public/textures/
+public/vo/**/*.wav
+build/
+public/audio/

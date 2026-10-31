@@ -1,0 +1,24 @@
+{
+  "name": "ayto-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The AYTO demo video, in Remotion (video-shotcraft workflow). Screens come from the live app; see scripts/capture.mjs.",
+  "scripts": {
+    "capture": "node scripts/capture.mjs",
+    "dev": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts AytoDemo out/ayto-demo.mp4",
+    "still": "remotion still src/index.ts AytoDemo"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.484",
+    "@remotion/google-fonts": "^4.0.484",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "remotion": "4.0.484"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.17",
+    "playwright-core": "1.56.1",
+    "typescript": "6.0.3"
+  }
+}
