@@ -2371,6 +2371,16 @@ details.raw > summary {
   background: rgba(255, 255, 255, 0.06);
   display: block;
 }
+/* Photos frame the face; a label's Qloo picture is its logo, shown whole on a light card instead of cropped. */
+.ref-artist img,
+.ref-love img {
+  object-position: 50% 20%;
+}
+.ref-brand img {
+  object-fit: contain;
+  padding: 14%;
+  background: #f2f1ee;
+}
 .ref-card figcaption {
   display: grid;
   gap: 0.25rem;

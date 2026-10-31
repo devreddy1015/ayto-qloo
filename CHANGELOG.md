@@ -3,6 +3,16 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: the references strip leads with photos
+
+- **The strip under a drop's 3D preview now opens with photos, not logos:** after the love the maker named, up to two
+  style icons the city's crowd follows (the audio stage's artists, which carry Qloo photos: for the Las Vegas drop,
+  Amber Rose and Dita Von Teese), then the labels it favours. More icons fill in when a run has few labels.
+- **A label's Qloo picture is its logo, so it shows whole** on a light card instead of cropped ("ettyLittleThi" no
+  more); photos frame the face. Each card says what it is ("Style icon", "Label", "Your love") and why, in Qloo's own words.
+- Still no web search and no new key: every picture is one Qloo returned in the run. Checked against the live Las
+  Vegas run's data in a browser; tests cover the new order and the fill.
+
 ## PR #47 (31 Oct, 05:06): the shot deck fits a phone
 
 - **On a phone, the "Make it" tab ran 51 px wider than the screen** (441 px on a 390 px phone), found in a layout pass
