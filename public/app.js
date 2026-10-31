@@ -2299,15 +2299,15 @@ function referenceStrip(run) {
     refs.map((r) =>
       el(
         "figure",
-        { class: "ref-card", role: "listitem" },
+        { class: `ref-card ref-${r.kind}`, role: "listitem" },
         el("img", { src: r.image, alt: r.name, loading: "lazy", referrerpolicy: "no-referrer", onerror: (e) => e.target.closest(".ref-card")?.remove() }),
-        el("figcaption", {}, q(r.name), el("span", { class: "garment-note", text: r.why })),
+        el("figcaption", {}, q(r.name), el("span", { class: "garment-note" }, el("strong", { text: r.tag ? `${r.tag} · ` : "" }), r.why)),
       ),
     ),
   );
   const step = (dir) => track.scrollBy({ left: dir * (track.querySelector(".ref-card")?.offsetWidth ?? 200) * 1.05, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   const arrows = el("div", { class: "ref-arrows" }, el("button", { type: "button", class: "secondary", "aria-label": "Previous reference", text: "‹", onclick: () => step(-1) }), el("button", { type: "button", class: "secondary", "aria-label": "Next reference", text: "›", onclick: () => step(1) }));
-  return el("div", { class: "sect refs" }, el("div", { class: "refs-head" }, h3("References from Qloo"), refs.length > 2 ? arrows : null), track, note("What this crowd already loves, from Qloo's read of this run. Swipe or use the arrows."));
+  return el("div", { class: "sect refs" }, el("div", { class: "refs-head" }, h3("References from Qloo"), refs.length > 2 ? arrows : null), track, note("Who and what this crowd already loves, from Qloo's read of this run: its style icons and the labels it favours. Swipe or use the arrows."));
 }
 
 // ---------- with vs without Qloo, in 3D (fashion) ----------
