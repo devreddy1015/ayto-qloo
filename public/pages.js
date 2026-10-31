@@ -21,6 +21,30 @@ export const pageOf = (stage) => STAGE_PAGE[stage] ?? "evidence";
  */
 export const MAKE_BLOCKS = [".concept-image", ".shot-deck", ".music-tone", ".spoken-pitch", ".sect.garment", ".sect.refs"].join(", ");
 
+/**
+ * The studio's tools in words, from the blocks app.js drew there, for the Make it tab and the "more in this run" row.
+ * Narration is checked before music: its block carries the music-tone class too.
+ */
+export const STUDIO_TOOLS = [
+  [".concept-image", "concept image"],
+  [".shot-deck", "shot deck"],
+  [".spoken-pitch", "narration"],
+  [".music-tone", "music"],
+  [".sect.garment", "3D styles"],
+  [".sect.refs", "references"],
+];
+export function studioTools(blocks) {
+  const names = [];
+  for (const b of blocks) {
+    if (b.hidden || b.childElementCount === 0) continue; // an empty block is one the site can't offer (no key, no voice)
+    const hit = STUDIO_TOOLS.find(([sel]) => b.matches(sel));
+    if (hit && !names.includes(hit[1])) names.push(hit[1]);
+  }
+  return STUDIO_TOOLS.map(([, name]) => name).filter((name) => names.includes(name));
+}
+/** "concept image, shot deck and music". */
+export const listWords = (names) => (names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0] ?? "");
+
 /** What a location hash asks for: a page by its id, or a stage card's own anchor. Null for any other hash (#how). */
 export function pageFromHash(hash) {
   const h = String(hash ?? "").replace(/^#/, "");
@@ -42,6 +66,7 @@ const ui = {
   status: null,
   stage: null, // a #stage-<id> from the URL, to scroll to once its card is drawn
   seen: "",
+  visited: new Set(), // pages this run has shown once its status was known: the others are marked until opened
 };
 
 const node = (tag, attrs = {}, ...children) => {
@@ -72,10 +97,13 @@ function build() {
     if (p.note) panel.append(node("p", { class: "block-note page-note", text: p.note }));
     // The brief opens on the run's main results (public/highlights.js), drawn by app.js into #highlights.
     const lead = p.id === "brief" ? node("section", { id: "highlights", class: "highlights", "aria-label": "Main results", hidden: "" }) : null;
+    // Under the results, the other two pages say what they hold, so a first-time visitor knows to look.
+    const next = p.id === "brief" ? node("nav", { class: "page-next", "aria-label": "More in this run", hidden: "" }) : null;
     const blocks = p.id === "make" ? node("div", { class: "page-blocks" }) : null;
     const stages = node("div", { class: "page-stages" });
     const empty = p.id === "make" ? node("p", { class: "block-note page-empty", hidden: "" }) : null;
-    panel.append(...[lead, blocks, stages, empty].filter(Boolean));
+    panel.append(...[lead, next, blocks, stages, empty].filter(Boolean));
+    if (next) ui.next = next;
     ui.tabs[p.id] = tab;
     ui.panels[p.id] = { el: panel, blocks, stages, empty };
     ui.bar.append(tab);
@@ -88,6 +116,10 @@ function build() {
   ui.bar.addEventListener("click", (e) => {
     const tab = e.target.closest(".page-tab");
     if (tab) choose(tab.dataset.page);
+  });
+  ui.next.addEventListener("click", (e) => {
+    const card = e.target.closest(".page-next-card");
+    if (card) choose(card.dataset.page);
   });
   ui.bar.addEventListener("keydown", (e) => {
     const at = PAGES.findIndex((p) => ui.tabs[p.id] === document.activeElement);
@@ -125,12 +157,13 @@ function show(id) {
   }
   ui.current = id;
   ui.results.dataset.page = id;
+  if (ui.status) ui.visited.add(id);
   for (const p of PAGES) {
     const on = p.id === id;
     ui.tabs[p.id].setAttribute("aria-selected", String(on));
     ui.tabs[p.id].tabIndex = on ? 0 : -1;
     ui.panels[p.id].el.hidden = !on;
-  }
+  }  if (ui.built) refresh(); // the tab just opened loses its "not opened yet" mark
 }
 
 /** The maker picked a page: its hash goes in the history, and the page starts in view under the sticky tabs. */
@@ -215,6 +248,31 @@ function refresh() {
   const nothing = !make.blocks.children.length && !make.stages.children.length && (!ask || ask.hidden);
   make.empty.hidden = !nothing;
   say(make.empty, ui.status === "done" ? "Nothing to make for this run: this site has no image or sound tools switched on." : "The studio opens when the brief is written.");
+  const tools = studioTools([...make.blocks.children]);
+  say(ui.tabs.make.querySelector(".page-tab-meta"), tools.length ? `studio · ${tools.length} tool${tools.length === 1 ? "" : "s"}` : "studio");
+  // Once the run is done, a page it hasn't shown yet is marked until it's opened.
+  const done = ui.status === "done";
+  for (const p of PAGES) ui.tabs[p.id].classList.toggle("unseen", done && p.id !== ui.current && !ui.visited.has(p.id) && (p.id !== "make" || tools.length > 0));
+  nextRow(done, calls, tools);
+}
+
+/** The "more in this run" row under the main results: one card for the evidence, one for the studio when it has tools. */
+function nextRow(done, calls, tools) {
+  const key = done ? `${calls}|${tools.join(",")}|${[...ui.visited].sort().join(",")}` : "";
+  if (ui.next.dataset.key === key) return;
+  ui.next.dataset.key = key;
+  const card = (page, kicker, title, line) =>
+    node("button", { type: "button", class: `page-next-card${ui.visited.has(page) ? "" : " unseen"}`, "data-page": page }, node("span", { class: "page-next-kicker", text: kicker }), node("strong", { text: title }), node("span", { class: "page-next-line", text: line }));
+  const tool = listWords(tools);
+  ui.next.replaceChildren(
+    ...(done
+      ? [
+          card("evidence", "The evidence", "Every Qloo read behind this brief", calls ? `${calls} Qloo request${calls === 1 ? "" : "s"}, each one a receipt you can open` : "The city, the gap and the look, read by Qloo"),
+          tools.length ? card("make", "Make it", "Turn the brief into something to show", `${tool[0].toUpperCase()}${tool.slice(1)}`) : null,
+        ].filter(Boolean)
+      : []),
+  );
+  ui.next.hidden = !done;
 }
 
 /**
@@ -227,6 +285,7 @@ function reset() {
   if (!ui.built) build();
   for (const old of ui.results.querySelectorAll(".page-stages > *, .page-blocks > *, #highlights > *")) old.remove();
   document.getElementById("highlights").hidden = true;
+  if (!redrawn) ui.visited = new Set();
   const want = location.hash ? pageFromHash(location.hash) : null;
   ui.stage = want?.stage ?? null;
   ui.status = null;
@@ -247,6 +306,7 @@ function sync(run) {
     ui.settled = true;
     if (ui.auto) show(defaultPage(run.status));
   } else if (ui.auto && was === "running" && run.status === "done" && ui.current === "evidence") show("brief");
+  ui.visited.add(ui.current); // the page left on screen once the status is known has been seen
   refresh();
 }
 
