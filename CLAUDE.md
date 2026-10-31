@@ -49,6 +49,9 @@ server default is Groq; the live site runs DeepSeek (LLM_PROVIDER=deepseek, mode
   logline / premise, markup stripped, in write.output.language (else English); >2400 chars goes as WAV pieces joined; a rewritten brief reads again;
   POST/GET /api/runs/:id/voice (GET names the language + a hint, or `nothing` hides the button), /voice.mp3|wav?v=. music.js: a 403/429 with
   limit: 0 / billing / free tier turns music off for the day (presets music:false, MUSIC_UNAVAILABLE), back after a restart.
+- public/motion.js: the motion pass (tokens and its CSS at the end of styles.css; the hero's timing in index.html's intro
+  script). It watches the DOM app.js and pages.js draw and never calls into them; everything that waits to be seen goes
+  through its one IntersectionObserver (whenSeen). app.js's only hook: renderWhere draws a strength bar per city.
 - src/llm.js (providers, redactor, boot probe), src/keys.js (per-run credentials, memory only), src/mcp.js, src/server.js.
 - public/pages.js: the run page as three tabs (#brief, #evidence, #make). app.js still draws every card into #stage-cards
   and appends its extras to the write card; pages.js moves cards by data-stage (pageOf) and the extras into Make it by
