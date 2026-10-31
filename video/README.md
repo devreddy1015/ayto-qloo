@@ -14,6 +14,10 @@ npm run render           # out/ayto-demo.mp4 (1920×1080, 30 fps)
 ffmpeg -i out/ayto-demo.mp4 -c:v copy -af loudnorm=I=-14:TP=-1.5:LRA=11 -c:a aac -b:a 192k out/ayto-demo-master.mp4
 ```
 
+Captions as a file, for the YouTube upload or an editor: `node scripts/srt.mjs out/ayto-demo.srt` (every voice line,
+cut where the video cuts it). For DaVinci Resolve on Linux, whose free build reads neither AAC nor H.264 exports:
+`ffmpeg -i out/ayto-demo.mp4 -c:v dnxhd -profile:v dnxhr_hq -pix_fmt yuv422p -c:a pcm_s16le out/ayto-demo.mov`.
+
 New voice lines: `SARVAM_API_KEY=… node scripts/sarvam.mjs public/vo/shubh s17="…"` (speaker shubh, bulbul:v3).
 
 A version without music: `npx remotion render src/index.ts AytoDemo out/ayto-demo-nobgm.mp4 --props='{"bgm":false,"captions":true}'`.
