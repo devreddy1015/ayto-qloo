@@ -105,7 +105,7 @@ For a city in India it can write in the city's own language (Telugu, Tamil, Hind
 - Glasgow's is Consequences of Crime (+26), London's is Autobiographical and Tragedy, and Liverpool's is the Entertainment Industry.
 - Social Issues, Occult, Horror and Science Fiction lean high almost everywhere, so they're nobody's gap.
 
-One click runs the full treatment for the city you pick. It works for the US, the UK, France, Germany, Spain, Canada, Australia, Japan, South Korea, Brazil, Mexico, India and more.
+Each city's bar and number come straight from that read. One click runs the full treatment for the city you pick. It works for the US, the UK, France, Germany, Spain, Canada, Australia, Japan, South Korea, Brazil, Mexico, India and more.
 
 **The other showcases** run the same way:
 - **A Las Vegas reel** about nightlife and food: lanes Club-like (+23) and Party-oriented (+18), written as *Last Call Is a Moving Target*.
@@ -115,19 +115,29 @@ One click runs the full treatment for the city you pick. It works for the US, th
   - Five styles you can turn in 3D, from a Salon Leather Jacket to a Cloister Cashmere Cape.
   - 43 of 43 names trace to Qloo. Without Qloo, 1 of 10.
 
-**Three pages per run.** *The brief* (the story, the treatment, the check, with vs without Qloo, and a share page), *The evidence* (every Qloo read and its receipt; the London run makes 45 requests), and *Make it* (the studio below).
+**Main results first.** A run opens on its answer, not its working. The top of the brief shows:
+- the title and logline;
+- the gap: three lanes, each with its rank in the city, its rank in the country and its recent titles;
+- names traced to Qloo, and with vs without Qloo, as two numbers;
+- the look, the shoot base, the crowd and where the taste travels.
+
+Each of these opens the stage behind it. A client sees the result in one glance and the proof one click below.
+
+**Three pages per run.** *The brief* (the main results, the story, the treatment, the check, with vs without Qloo, and a share page), *The evidence* (every Qloo read and its receipt; the London run makes 45 requests), and *Make it* (the studio below). While a run works, the stage rail is a live network: each stage lights when Qloo's read for it really finishes.
 
 **See it.** One click asks OpenAI to draw a concept image from the brief: a film's mood still, a café's room, a drop's hero garment. The prompt is built from Qloo's look words, the brief's palette and the area AYTO found, with every Qloo name kept out, so the picture is original art in the city's taste, never a real poster, logo or person.
 
 **Shoot it beat by beat.** For a film, one click builds a shot deck: a storyboard frame per beat with its shot line (size, lens, light, movement) and the Qloo-traced film to study, drawn as original art and downloadable as one file.
 
-**Turn it in 3D.** A drop's styles stand on a mannequin you can orbit, including maxi dresses, a saree with its pallu, a cape and an original cosplay set. One click has OpenAI draw a style's print onto the garment. For a hero style, Stability's Stable Fast 3D makes a real `.glb` model to download. Under the preview, a strip of pictures Qloo returned shows the labels the city favours, each with its receipt.
+**Turn it in 3D.** A drop's styles stand on a mannequin you can orbit, including maxi dresses, a saree with its pallu, a cape and an original cosplay set. One click has OpenAI draw a style's print onto the garment. For a hero style, Stability's Stable Fast 3D makes a real `.glb` model to download. Under the preview, a strip of Qloo's own pictures shows the style icons the city's crowd follows and the labels it favours, each with its receipt.
 
 **Hear the story.** Sarvam's Bulbul reads the brief aloud in its own words and language: English with an Indian voice, or Telugu, Tamil or Hindi when the brief is written in one. A music tone from Google's Lyria, described only by the genres, moods and instruments the city's favoured artists carry on Qloo, is offered when the server's key has Lyria quota.
 
 **Agents can use it too.** AYTO is an MCP server at `/mcp` with four tools: `ayto_where_to_make`, `ayto_read_city`, `ayto_find_gap` and `ayto_write`. Claude, or any other MCP client, can ask where to make something and get back lanes with receipts.
 
 **How to try it:** open the live link (no login) and click a showcase (the London film, the Las Vegas reel or the Paris drop), or type your own sentence for any of the eight formats and any city.
+
+The live site writes its showcases afresh on each deploy, so the titles and counts you see may differ from the run quoted here. On 31 Oct the London film came back as *Quiet Hour*: the same three lanes, 27 of 27 names traced, and 14 of 14 with Qloo against 0 of 10 without.
 
 ## How it's agentic
 
@@ -158,9 +168,10 @@ Without Qloo there is no lane, no list and no map: only a prompt.
 - A provider table for 12 LLM providers, OpenAI-compatible plus an Anthropic adapter. Keys stay in memory for one run and are redacted from errors.
 - A stateless MCP server.
 - A three.js garment viewer for the fashion drop.
+- One small motion system in plain CSS and the Web Animations API, with no framework. Sections reveal as they scroll in, and the stage network and city bars move only with real data. Reduced-motion settings are respected.
 - Claude Sonnet 5.5 writes on the live site. OpenAI's image API (`gpt-image-2.5-flare`) draws the concept images, shot decks and prints. Sarvam's Bulbul reads the story aloud.
 - One Docker image, deployed on Render.
-- 163 tests, including every showcase end to end on synthetic data, and a security pass on the live site (rate limits keyed on the real visitor, security headers, patched dependencies).
+- 170 tests, including every showcase end to end on synthetic data, and a security pass on the live site (rate limits keyed on the real visitor, security headers, patched dependencies).
 
 ## Challenges we ran into
 
