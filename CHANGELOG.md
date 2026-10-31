@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: a motion pass
+## PR #43 (31 Oct, 05:34): a motion pass
 
 - **One motion system.** One set of tokens (`--dur-fast` 150 ms, `--dur-base` 240 ms, `--dur-slow` 600 ms,
   `--dur-hero`; `--ease-out` and `--ease-in-out`; `--stagger` 50 ms) closes `styles.css`. There is one reveal: rise and
@@ -44,6 +44,15 @@ What changed in AYTO (Are You The One), newest first. Times are IST. Each entry 
   - The Now showing cards and Watch it work's link could not be clicked. `main` passes clicks through to the poster
     wall and these two sections never took them back.
   - Under reduced motion, the intro's still frame waited for the 2.5 s backstop; it now leaves after 0.6 s.
+## PR #49 (31 Oct, 05:32): the references strip leads with photos
+
+- **The strip under a drop's 3D preview now opens with photos, not logos:** after the love the maker named, up to two
+  style icons the city's crowd follows (the audio stage's artists, which carry Qloo photos: for the Las Vegas drop,
+  Amber Rose and Dita Von Teese), then the labels it favours. More icons fill in when a run has few labels.
+- **A label's Qloo picture is its logo, so it shows whole** on a light card instead of cropped ("ettyLittleThi" no
+  more); photos frame the face. Each card says what it is ("Style icon", "Label", "Your love") and why, in Qloo's own words.
+- Still no web search and no new key: every picture is one Qloo returned in the run. Checked against the live Las
+  Vegas run's data in a browser; tests cover the new order and the fill.
 
 ## PR #47 (31 Oct, 05:06): the shot deck fits a phone
 
