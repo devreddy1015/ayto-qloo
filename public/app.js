@@ -3,6 +3,7 @@
 // Vanilla JS; everything from Qloo or the model is inserted as text.
 import { pickReferences } from "./references.js";
 import { pages } from "./pages.js";
+import { renderHighlights } from "./highlights.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const el = (tag, attrs = {}, ...children) => {
@@ -885,6 +886,7 @@ function onEvent(event) {
       state.run.stages[event.id] = { ...prev, status: event.status, output: event.output ?? (event.status === "done" ? prev.output : undefined), error: event.error };
       if (event.output) state.index = nameIndex(state.run);
       renderStage(event.id, state.run.stages[event.id]);
+      if (event.status === "done") drawHighlights();
       if (event.status === "running" && state.live) document.getElementById(`stage-${event.id}`)?.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "nearest" });
       if (event.id === "read" && event.status === "done") loadMosaic(state.run.id);
       if (event.id === "gap" && event.status === "done" && state.mosaicRun === state.run.id && state.mosaicImages) {
@@ -921,8 +923,18 @@ function updateStatus() {
   // The list, not the snapshot: calls stream in after the snapshot and only the list hears them.
   const calls = $("#trace-list").children.length;
   $("#trace-status").textContent = `${calls} Qloo request${calls === 1 ? "" : "s"}`;
+  drawHighlights();
   pages.sync(run);
   if (run.status !== "running") setupAsk();
+}
+
+/** The brief page's main results: the idea, the gap and the proof, redrawn as stages finish. */
+function drawHighlights() {
+  const box = document.getElementById("highlights");
+  if (!box || !state.run) return;
+  const nodes = renderHighlights(state.run);
+  box.replaceChildren(...nodes);
+  box.hidden = !nodes.length;
 }
 
 function showError(message) {

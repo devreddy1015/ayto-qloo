@@ -3,6 +3,21 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## PR #48 (31 Oct, 05:34): main results first on the brief
+
+- **A client opening a run met a long story before any result.** The brief page now opens on a "Main results"
+  panel (public/highlights.js):
+  - the title and logline (or hook, or positioning);
+  - the gap: the top three lanes, each with its city rank, its country rank (or "outside the UK's top 30") and its
+    recent titles, plus the control cities it was read against;
+  - "Traced to Qloo" (30/30 for London);
+  - "With vs without Qloo" (13/13 against 2/10);
+  - a row of facts: the look, shoot base or hero piece, the track, the crowd, where it travels.
+- Every tile and fact opens the stage behind it, on its own page; Back returns to the brief.
+- Only finished stages count, so a live run fills the panel as stages land, and a stage waiting to rerun drops out.
+  Yellow stays the gap's colour. Hover only on a mouse; nothing moves under reduced motion.
+- Checked on copies of the live London, Vegas and Paris runs at 1440 px and 390 px: no overflow, no script errors.
+  test/highlights.test.js runs every showcase through it.
 ## PR #43 (31 Oct, 05:34): a motion pass
 
 - **One motion system.** One set of tokens (`--dur-fast` 150 ms, `--dur-base` 240 ms, `--dur-slow` 600 ms,
