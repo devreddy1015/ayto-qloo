@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: main results first on the brief
+## PR #48 (31 Oct, 05:34): main results first on the brief
 
 - **A client opening a run met a long story before any result.** The brief page now opens on a "Main results"
   panel (public/highlights.js):
@@ -18,6 +18,56 @@ What changed in AYTO (Are You The One), newest first. Times are IST. Each entry 
   Yellow stays the gap's colour. Hover only on a mouse; nothing moves under reduced motion.
 - Checked on copies of the live London, Vegas and Paris runs at 1440 px and 390 px: no overflow, no script errors.
   test/highlights.test.js runs every showcase through it.
+## PR #43 (31 Oct, 05:34): a motion pass
+
+- **One motion system.** One set of tokens (`--dur-fast` 150 ms, `--dur-base` 240 ms, `--dur-slow` 600 ms,
+  `--dur-hero`; `--ease-out` and `--ease-in-out`; `--stagger` 50 ms) closes `styles.css`. There is one reveal: rise and
+  fade, a heading coming into focus on wide screens, pictures and bars wiping or growing. Each element moves once,
+  through one IntersectionObserver helper in the new `public/motion.js`. It watches the page `app.js` and `pages.js`
+  draw and never calls into them. Transform, opacity and clip-path only. No new dependencies.
+- **Hero.** The intro's mark lifts, then "Are you the one?" rises word by word from under its own line, out of focus
+  and settling. The line under it, the composer and the button follow, in about 1.5 s, quicker when the intro has
+  already played this visit. There is no second logo animation, and phones get no blur.
+- **Background.** The poster wall gets depth (every third poster sits further back, smaller and dimmer), a slow warm
+  and cool light with a fine grain, and one slow crossfade at a time: a poster on screen trades places with one off
+  screen, so no picture shows twice and each keeps its name. It is desktop only and stops while the tab is hidden.
+- **Watch it work** is a timeline. Each step's edge and node light in order, replaying the one real finished run.
+  Under reduced motion they show lit.
+- **Now showing** is a film gallery. Each card gets a strip of posters from its run's own Qloo reads (`/api/mosaic`),
+  with its space held from the first frame. Each poster wipes in once loaded and seen. On a fine pointer the card
+  tilts up to 6° toward the pointer and lights its border.
+- **Receipts and every drawer** open by unrolling and close by rolling up, with a chevron, a tape hairline on the
+  request and tabular figures.
+- **Compare cities.** Each city gets a bar for its top lane's strength, on the same scale as the map's markers. The
+  bar grows from zero, its number counts up to the value `/api/where` returned, and the markers fade in in rank order.
+- **The run.** The rail is a network of the run's stages. A done node fills and lights its link to the next; the
+  running node shows the mark with its dot circling, and a signal travels its link. All of it follows the stage states
+  the stream sends, so nothing lights early. A stage's content unfolds when the stream marks it done and its card is
+  on screen, including after `pages.js` moves it to its tab. Lane, travel and age bars grow from zero to their real
+  values.
+- **Ready for the main results panel:** a `.highlights` panel on the brief reveals like a section, once per run, and
+  each `.hl-num` holding one whole number counts up to it. A value `app.js` redraws mid-count wins.
+- **Smaller things:**
+  - three example sentences under the field type themselves in;
+  - the field glows on focus;
+  - the Check button nudges its arrow and leans toward the pointer on desktop;
+  - buttons, chips and tabs have pressed states;
+  - header links draw their underline;
+  - receipts slide in as they stream and their count ticks;
+  - home and run, the confirm step and errors fade in.
+- **Fixes:**
+  - The Now showing cards and Watch it work's link could not be clicked. `main` passes clicks through to the poster
+    wall and these two sections never took them back.
+  - Under reduced motion, the intro's still frame waited for the 2.5 s backstop; it now leaves after 0.6 s.
+## PR #49 (31 Oct, 05:32): the references strip leads with photos
+
+- **The strip under a drop's 3D preview now opens with photos, not logos:** after the love the maker named, up to two
+  style icons the city's crowd follows (the audio stage's artists, which carry Qloo photos: for the Las Vegas drop,
+  Amber Rose and Dita Von Teese), then the labels it favours. More icons fill in when a run has few labels.
+- **A label's Qloo picture is its logo, so it shows whole** on a light card instead of cropped ("ettyLittleThi" no
+  more); photos frame the face. Each card says what it is ("Style icon", "Label", "Your love") and why, in Qloo's own words.
+- Still no web search and no new key: every picture is one Qloo returned in the run. Checked against the live Las
+  Vegas run's data in a browser; tests cover the new order and the fill.
 
 ## PR #47 (31 Oct, 05:06): the shot deck fits a phone
 

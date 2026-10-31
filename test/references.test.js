@@ -4,23 +4,33 @@ import { test } from "node:test";
 import { pickReferences } from "../public/references.js";
 
 const img = (n) => `https://images.qloo.com/i/${n}.jpg`;
-const run = (labels, loves = [], rows = []) => ({
-  input: { city: { query: "Tiruppur, India" } },
-  stages: { resolve: { output: { city: { name: "Tiruppur" }, loves } }, read: { output: { columns: { brand: { rows } } } }, look: { output: { labels } } },
+const run = (labels, loves = [], rows = [], shortlist = []) => ({
+  input: { city: { query: "Las Vegas, NV, United States" } },
+  stages: { resolve: { output: { city: { name: "Las Vegas" }, loves } }, read: { output: { columns: { brand: { rows } } } }, look: { output: { labels } }, audio: { output: { shortlist } } },
 });
 
-test("the love comes first, then the labels the country's list lacks, then the rest; four at most", () => {
+test("photos lead: the love, then two style icons, then the labels the country's list lacks; four at most", () => {
   const refs = pickReferences(
     run(
-      [{ name: "Common Label", image: img(1) }, { name: "Local Label", image: img(2) }, { name: "Second Label", image: img(3) }, { name: "Third Label", image: img(4) }, { name: "Fourth Label", image: img(5) }],
+      [{ name: "Common Label", image: img(1) }, { name: "Local Label", image: img(2) }, { name: "Second Label", image: img(3) }],
       [{ name: "KPop Demon Hunters", type: "movie", image: img(9) }],
       [{ name: "Local Label", onlyHere: true }, { name: "Common Label", onlyHere: false }],
+      [{ name: "Dita Von Teese", image: img(7), why: "favoured in Las Vegas, not nationally" }, { name: "Kat Von D", image: img(8), why: "hidden gem: loved here, small everywhere" }, { name: "Third Icon", image: img(6) }],
     ),
   );
-  assert.deepEqual(refs.map((r) => r.name), ["KPop Demon Hunters", "Local Label", "Common Label", "Second Label"]);
-  assert.equal(refs[0].kind, "movie");
-  assert.match(refs[1].why, /Tiruppur favours it; the country's top list doesn't/);
-  assert.match(refs[2].why, /A label Tiruppur favours/);
+  assert.deepEqual(refs.map((r) => r.name), ["KPop Demon Hunters", "Dita Von Teese", "Kat Von D", "Local Label"]);
+  assert.deepEqual(refs.map((r) => r.kind), ["love", "artist", "artist", "brand"]);
+  assert.equal(refs[1].tag, "Style icon");
+  assert.equal(refs[1].why, "favoured in Las Vegas, not nationally", "the audio stage's own reason");
+  assert.match(refs[3].why, /Las Vegas favours it; the country's top list doesn't/);
+});
+
+test("without a love: two icons and two labels; with few labels, more icons fill the strip", () => {
+  const icons = [1, 2, 3, 4].map((n) => ({ name: `Icon ${n}`, image: img(10 + n) }));
+  assert.deepEqual(pickReferences(run([{ name: "Label A", image: img(1) }, { name: "Label B", image: img(2) }, { name: "Label C", image: img(3) }], [], [], icons)).map((r) => r.name), ["Icon 1", "Icon 2", "Label A", "Label B"]);
+  assert.deepEqual(pickReferences(run([{ name: "Label A", image: img(1) }], [], [], icons)).map((r) => r.name), ["Icon 1", "Icon 2", "Label A", "Icon 3"]);
+  assert.equal(pickReferences(run([], [], [], [{ name: "Icon", image: img(1) }])).length, 0, "one picture is no strip");
+  assert.match(pickReferences(run([], [], [], icons))[0].why, /followed in Las Vegas/, "an icon with no reason still says why");
 });
 
 test("only https pictures from the read: no picture, a data: or javascript: URL, or a repeat is skipped", () => {
