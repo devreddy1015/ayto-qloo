@@ -3,6 +3,18 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
+## Unreleased: a visit counter in the log
+
+- **How many people opened the site couldn't be told.** The free host shows no request counts, and the app logged
+  only its own starts. Now the server writes one line per page opened and one per run started (src/visits.js):
+  - `visit home`, `visit run` or `visit share`, with ` (crawler)` added for link previews, search engines, uptime
+    checks, scripts and requests with no browser at all;
+  - `run started film (showcase london-crime-film)` or `run started reel (typed)`.
+- Nothing in a line can name a person: no address, no user agent, no sentence the maker typed (the run line keeps
+  only a plain format name). Scripts, styles and data requests aren't counted.
+- To count, search Render's logs for `visit ` or `run started `. The log keeps lines for days, across the free
+  plan's restarts.
+
 ## PR #48 (31 Oct, 05:34): main results first on the brief
 
 - **A client opening a run met a long story before any result.** The brief page now opens on a "Main results"
