@@ -53,6 +53,8 @@ server default is Groq; the live site runs DeepSeek (LLM_PROVIDER=deepseek, mode
   script). It watches the DOM app.js and pages.js draw and never calls into them; everything that waits to be seen goes
   through its one IntersectionObserver (whenSeen). app.js's only hook: renderWhere draws a strength bar per city.
 - src/llm.js (providers, redactor, boot probe), src/keys.js (per-run credentials, memory only), src/mcp.js, src/server.js.
+- src/visits.js: one log line per page opened ("visit home|run|share", "(crawler)" for bots) and per run started
+  ("run started <format> (showcase <id>|typed)"); never an address, user agent or typed text. Count = Render log search.
 - public/pages.js: the run page as three tabs (#brief, #evidence, #make). app.js still draws every card into #stage-cards
   and appends its extras to the write card; pages.js moves cards by data-stage (pageOf) and the extras into Make it by
   class (MAKE_BLOCKS) or because they come after the write card's .write-actions row, so a new extra needs no change.

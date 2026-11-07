@@ -20,6 +20,7 @@ import { createRun, editAndRerun, forkRun, isRunning, laneFirstEdit, regenerate,
 import { findRunBySlug, loadRun, ownsRun, publicRun, subscribe } from "./pipeline/store.js";
 import { formatList, MARKETS, SHOWCASES } from "./presets.js";
 import { closeQloo, qlooStatus } from "./qloo.js";
+import { countVisits, runLine } from "./visits.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -59,6 +60,8 @@ app.use((_req, res, next) => {
   res.set({ "x-content-type-options": "nosniff", "x-frame-options": "DENY", "content-security-policy": "frame-ancestors 'none'", "referrer-policy": "strict-origin-when-cross-origin" });
   next();
 });
+// One log line per page opened (home, a run, a share page), with nothing that names the visitor (src/visits.js).
+app.use(countVisits());
 app.use(express.json({ limit: "64kb" }));
 // Pages, scripts and styles revalidate on every load (an ETag makes that a cheap 304), so a deploy is never
 // half old and half new in someone's browser; images and data may be cached for five minutes.
@@ -228,6 +231,7 @@ app.post("/api/runs", async (req, res) => {
     // Counted only once the input is a real run, so empty or broken requests can't use up the day.
     if (!showcase && !allowGlobal({ llm: !credential && llmAvailable() })) return res.status(503).json({ error: "The demo has hit today's budget. The showcase runs still work, or bring your own LLM key." });
     const run = await createRun(input, { showcase: showcase?.id, credential });
+    console.log(runLine(input, showcase?.id));
     startRun(run, 0).catch(() => {});
     res.status(201).json({ id: run.id, editKey: run.editKey, input, llm: run.llm });
   } catch (error) {
