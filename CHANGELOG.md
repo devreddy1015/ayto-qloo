@@ -3,7 +3,7 @@
 What changed in AYTO (Are You The One), newest first. Times are IST. Each entry names the pull request on
 [devreddy1015/ayto-qloo](https://github.com/devreddy1015/ayto-qloo) that carried it.
 
-## Unreleased: a visit counter in the log
+## PR #55 (7 Nov, 17:48): a visit counter in the log
 
 - **How many people opened the site couldn't be told.** The free host shows no request counts, and the app logged
   only its own starts. Now the server writes one line per page opened and one per run started (src/visits.js):
